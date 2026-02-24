@@ -9,7 +9,7 @@ services:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-admin}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-homefinder}
       MYSQL_USER: ${MYSQL_USER:-homefinder_app}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-change_app_password}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-admin}
       TZ: UTC
     ports:
       - "${MYSQL_PORT:-3030}:3030"
