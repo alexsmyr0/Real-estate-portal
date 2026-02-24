@@ -1,0 +1,27 @@
+services:
+  db:
+    image: mysql:8.4
+    container_name: homefinder-mysql
+    restart: unless-stopped
+    command:
+      - --event_scheduler=ON
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-admin}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-homefinder}
+      MYSQL_USER: ${MYSQL_USER:-homefinder_app}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-change_app_password}
+      TZ: UTC
+    ports:
+      - "${MYSQL_PORT:-3030}:3030"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./internal/db/database_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+volumes:
+  mysql_data:
