@@ -6,7 +6,8 @@ This guide explains how to run and operate the MySQL database for this project.
 
 1. Open Docker Desktop and make sure it is running.
 2. Open a terminal in project root
-3. Make sure `docker-compose.yml` exists in root.
+3. Create a local `.env` file from `.env.example` if you want custom credentials or ports.
+4. Make sure `docker-compose.yml` exists in root.
 
 ## 2. Start The Database
 
@@ -76,7 +77,7 @@ exit;
 Recommended command (works with file redirection):
 
 ```bash
-docker compose exec -e MYSQL_PWD='admin' -T db mysql -uroot homefinder < internal/db/seed_v1.sql
+docker compose exec -e MYSQL_PWD='admin' -T db mysql -uroot homefinder < src/homefinder/db/seed_v1.sql
 ```
 
 Note:
