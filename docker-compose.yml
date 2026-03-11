@@ -1,4 +1,24 @@
 services:
+  app:
+    build:
+      context: .
+    container_name: homefinder-app
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      APP_HOST: 0.0.0.0
+      APP_PORT: ${APP_PORT:-8080}
+      APP_DEBUG: ${APP_DEBUG:-true}
+      DB_HOST: db
+      DB_PORT: 3306
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-homefinder}
+      MYSQL_USER: ${MYSQL_USER:-homefinder_app}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-admin}
+    ports:
+      - "${APP_PORT:-8080}:${APP_PORT:-8080}"
+    restart: unless-stopped
+
   db:
     image: mysql:8.4
     container_name: homefinder-mysql
@@ -12,10 +32,10 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-admin}
       TZ: UTC
     ports:
-      - "${MYSQL_PORT:-3030}:3030"
+      - "${MYSQL_PORT:-3306}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./internal/db/database_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./src/homefinder/db/database_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
       interval: 10s
