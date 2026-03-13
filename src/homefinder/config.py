@@ -68,6 +68,15 @@ def _get_bool(name: str, default: bool) -> bool:
     raise ValueError(f"{name} must be a boolean, got {value!r}")
 
 
+def _get_list(name: str, default: tuple[str, ...]) -> tuple[str, ...]:
+    value = _get_env(name)
+    if value is None:
+        return default
+
+    items = tuple(item.strip() for item in value.split(",") if item.strip())
+    return items or default
+
+
 def build_database_url(
     scheme: str,
     user: str,
@@ -85,9 +94,13 @@ def build_database_url(
 
 @dataclass(frozen=True, slots=True)
 class Settings:
+    secret_key: str
     app_host: str
     app_port: int
     debug: bool
+    allowed_hosts: tuple[str, ...]
+    csrf_trusted_origins: tuple[str, ...]
+    time_zone: str
     db_scheme: str
     db_host: str
     db_port: int
@@ -95,6 +108,39 @@ class Settings:
     db_user: str
     db_password: str
     database_url: str
+
+    @property
+    def database_engine(self) -> str:
+        if self.db_scheme in {"sqlite", "sqlite3"}:
+            return "django.db.backends.sqlite3"
+        if self.db_scheme in {"postgres", "postgresql"}:
+            return "django.db.backends.postgresql"
+        return "django.db.backends.mysql"
+
+    @property
+    def database_config(self) -> dict[str, object]:
+        if self.database_engine == "django.db.backends.sqlite3":
+            database_name = self.db_name
+            if not Path(database_name).is_absolute():
+                database_name = str(PROJECT_ROOT / database_name)
+            return {
+                "ENGINE": self.database_engine,
+                "NAME": database_name,
+            }
+
+        config: dict[str, object] = {
+            "ENGINE": self.database_engine,
+            "NAME": self.db_name,
+            "USER": self.db_user,
+            "PASSWORD": self.db_password,
+            "HOST": self.db_host,
+            "PORT": self.db_port,
+        }
+
+        if self.database_engine == "django.db.backends.mysql":
+            config["OPTIONS"] = {"charset": "utf8mb4"}
+
+        return config
 
 
 def load_settings(env_path: Path | None = None) -> Settings:
@@ -119,9 +165,13 @@ def load_settings(env_path: Path | None = None) -> Settings:
     ) or ""
 
     return Settings(
+        secret_key=_get_env("DJANGO_SECRET_KEY", "insecure-homefinder-dev-key") or "insecure-homefinder-dev-key",
         app_host=_get_env("APP_HOST", "0.0.0.0") or "0.0.0.0",
         app_port=_get_int("APP_PORT", 8080),
         debug=_get_bool("APP_DEBUG", True),
+        allowed_hosts=_get_list("APP_ALLOWED_HOSTS", ("localhost", "127.0.0.1")),
+        csrf_trusted_origins=_get_list("CSRF_TRUSTED_ORIGINS", ()),
+        time_zone=_get_env("APP_TIME_ZONE", "UTC") or "UTC",
         db_scheme=db_scheme,
         db_host=db_host,
         db_port=db_port,

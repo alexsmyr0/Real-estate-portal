@@ -1,6 +1,11 @@
-# HomeFinder DB Runbook (Step 8)
+# HomeFinder DB Runbook (Django)
 
 This guide explains how to run and operate the MySQL database for this project.
+
+Important:
+1. The backend now uses Django.
+2. Schema creation is handled by Django migrations, not by mounting `src/homefinder/db/database_schema.sql` into MySQL on startup.
+3. The SQL files under `src/homefinder/db/` are legacy reference artifacts from the pre-Django scaffold.
 
 ## 1. Prerequisites
 
@@ -9,16 +14,17 @@ This guide explains how to run and operate the MySQL database for this project.
 3. Create a local `.env` file from `.env.example` if you want custom credentials or ports.
 4. Make sure `docker-compose.yml` exists in root.
 
-## 2. Start The Database
+## 2. Start The Stack
 
 ```bash
-docker compose up -d db
+docker compose up -d
 ```
 
 What it does:
-1. Starts only the `db` service.
+1. Starts the Django app and MySQL services.
 2. Runs in background (`-d`).
 3. Uses persistent storage volume so data survives restarts.
+4. Applies Django migrations before starting the web server.
 
 ## 3. Check Status And Logs
 
@@ -74,15 +80,13 @@ exit;
 
 (Seed data is the dummy data that we have made to demonstrate functionality)
 
-Recommended command (works with file redirection):
+Current status:
+1. `src/homefinder/db/seed_v1.sql` targets the legacy pre-Django schema.
+2. Do not load that file into the Django-managed database without reviewing it first.
+3. Replace it with Django fixtures or a custom management command before using seed data in this version of the project.
 
-```bash
-docker compose exec -e MYSQL_PWD='admin' -T db mysql -uroot homefinder < src/homefinder/db/seed_v1.sql
-```
-
-Note:
-1. Replace `'admin'` if your root password is different.
-2. `-T` is required because input is redirected from file.
+Recommended next step:
+1. Create a Django management command such as `python manage.py seed_demo_data`.
 
 ## 6. Quick Verification
 
