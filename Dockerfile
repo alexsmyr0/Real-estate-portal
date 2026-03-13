@@ -5,11 +5,11 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-COPY requirements.txt pyproject.toml ./
+COPY manage.py requirements.txt pyproject.toml ./
 COPY src ./src
 
 RUN pip install --no-cache-dir .
 
 EXPOSE 8080
 
-CMD ["python", "-m", "homefinder"]
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8080"]

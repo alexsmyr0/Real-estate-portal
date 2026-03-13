@@ -10,6 +10,7 @@ services:
       APP_HOST: 0.0.0.0
       APP_PORT: ${APP_PORT:-8080}
       APP_DEBUG: ${APP_DEBUG:-true}
+      APP_ALLOWED_HOSTS: ${APP_ALLOWED_HOSTS:-localhost,127.0.0.1}
       DB_HOST: db
       DB_PORT: 3306
       MYSQL_DATABASE: ${MYSQL_DATABASE:-homefinder}
@@ -17,6 +18,9 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-admin}
     ports:
       - "${APP_PORT:-8080}:${APP_PORT:-8080}"
+    command: >
+      sh -c "python manage.py migrate &&
+      python manage.py runserver 0.0.0.0:${APP_PORT:-8080}"
     restart: unless-stopped
 
   db:
@@ -35,7 +39,6 @@ services:
       - "${MYSQL_PORT:-3306}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./src/homefinder/db/database_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
       interval: 10s

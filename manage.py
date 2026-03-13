@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 from __future__ import annotations
 
 import os
@@ -5,8 +6,8 @@ import sys
 from pathlib import Path
 
 
-def _bootstrap_paths() -> None:
-    project_root = Path(__file__).resolve().parents[2]
+def main() -> None:
+    project_root = Path(__file__).resolve().parent
     src_root = project_root / "src"
 
     if src_root.is_dir():
@@ -14,23 +15,11 @@ def _bootstrap_paths() -> None:
         if src_path not in sys.path:
             sys.path.insert(0, src_path)
 
-
-def main() -> None:
-    _bootstrap_paths()
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "homefinder.settings")
 
     from django.core.management import execute_from_command_line
 
-    from .config import load_settings
-
-    settings = load_settings()
-    execute_from_command_line(
-        [
-            "python -m homefinder",
-            "runserver",
-            f"{settings.app_host}:{settings.app_port}",
-        ]
-    )
+    execute_from_command_line(sys.argv)
 
 
 if __name__ == "__main__":
