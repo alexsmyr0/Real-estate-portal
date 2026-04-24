@@ -17,6 +17,7 @@ Locked technical choices:
 - no separate frontend application
 - no SPA architecture
 - no mobile implementation now
+- desktop-first layouts that remain usable down to 375px width without a separate mobile experience
 
 ## High-Level Subsystems
 
@@ -84,6 +85,13 @@ This baseline matters because later ticket status marking must distinguish betwe
 - Add simulated payments only after booking exists.
 - Keep user-facing activity and history pages post-MVP.
 - Keep recommendations and similar-listing alerts post-MVP.
+- Login 2FA tokens expire after 10 minutes and allow up to 5 verification attempts.
+- Location filtering uses case-insensitive substring matching against `city` and `area`.
+- When multiple amenities are selected, a listing must match all selected amenities.
+- Catalog pagination uses 12 listings per page.
+- Monthly search-trend reporting returns top 10 searched cities, top 10 searched categories, and top 10 searched price bands.
+- Search-trend price bands are `<100k`, `100k-249,999`, `250k-499,999`, `500k-999,999`, and `1,000,000+`.
+- Post-MVP retention automation targets `activity_logs`, `search_history`, and `email_notifications` records older than 90 days.
 
 ## Planned Interfaces And Flows
 
@@ -106,7 +114,7 @@ This baseline matters because later ticket status marking must distinguish betwe
 - Input: email token.
 - Result: active session is created and prior active session for that user is invalidated.
 - Permission rule: available only to a user in a pending-login state.
-- Notable behavior: expired, invalid, or already used tokens must fail verification.
+- Notable behavior: tokens expire after 10 minutes, allow up to 5 attempts, and expired, invalid, or already used tokens must fail verification.
 
 ### Logout Action
 - Actor: authenticated user.
@@ -120,7 +128,7 @@ This baseline matters because later ticket status marking must distinguish betwe
 - Input: filter values such as location, price range, category, bedrooms, and amenities.
 - Result: server-rendered list of matching active properties.
 - Permission rule: public read access.
-- Notable behavior: removed listings are excluded from public browse results.
+- Notable behavior: removed listings are excluded, location search uses case-insensitive substring matching on `city` and `area`, selected amenities use all-match semantics, and pagination is fixed at 12 listings per page.
 
 ### Property Detail Page
 - Actor: guest visitor or authenticated user.
@@ -205,11 +213,16 @@ Post-MVP page additions:
 - rental booking pages
 - simulated payment pages or flows if later implemented
 
+Responsive behavior:
+- layouts are desktop-first
+- pages must remain usable on narrow screens down to 375px width
+- the MVP does not include a separate mobile-specific navigation or mobile app experience
+
 ## Logging, Email, And Retention
 
 - The MVP records search history and activity events in backend tables.
 - The MVP generates login 2FA and confirmation emails using the console email backend already configured in settings.
-- A 3-month retention rule exists at the product level for logs and interactions, but cleanup automation is deferred.
+- A 3-month retention rule exists at the product level for logs and interactions; post-MVP automation applies to `activity_logs`, `search_history`, and `email_notifications` records older than 90 days.
 - Real email delivery is a later enhancement and is not an MVP dependency.
 
 ## Testing Expectations

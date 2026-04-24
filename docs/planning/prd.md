@@ -223,6 +223,8 @@ The following are intentionally out of the MVP so later ticketing stays honest:
 - supervisor reporting UI
 - user-facing history pages
 - real email integration
+- password reset flows
+- separate signup email verification
 - custom staff portal work outside Django admin
 - mobile application support
 - automated maintenance mode
