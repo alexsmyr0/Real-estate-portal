@@ -49,10 +49,10 @@ Canonical planning inputs remain in:
 ## Summary Snapshot
 
 - Total tickets: `34`
-- Done: `0`
-- Partially Implemented: `0`
-- Not Started: `34`
-- Baseline audit status: `Pending step 3`
+- Done: `3`
+- Partially Implemented: `1`
+- Not Started: `30`
+- Baseline audit status: `Complete`
 
 ## Low-Blocking Claim Queue (Global)
 
@@ -74,7 +74,7 @@ Use this as the default claim order for the next wave of work:
 
 ### Track A
 
-- [ ] **A-01** P0 - User Access Domain Baseline | Custom user auth, 2FA token, and active-session schema baseline. (Depends on: None) | Blocks: A-02; N-02
+- [x] **A-01** P0 - User Access Domain Baseline | Custom user auth, 2FA token, and active-session schema baseline. (Depends on: None) | Blocks: A-02; N-02
 - [ ] **A-02** P1 - Registration, Login, 2FA Verification, And Single-Session Backend | Auth backend flow for registration, login, token verification, logout, and session replacement. (Depends on: A-01; N-02) | Blocks: A-04; A-07; A-08; A-09
 - [ ] **A-03** P1 - Shared Site Shell, Navigation, And Base Template System | Shared browser shell, layout primitives, responsive navigation, and reusable UI partials. (Depends on: A-01) | Blocks: A-04; A-05; A-06; A-10; A-11; A-12; A-13; A-14; A-15
 - [ ] **A-04** P2 - Auth Pages And Session UX | Registration, login, 2FA, and logout pages built on the shared site shell. (Depends on: A-02; A-03) | Blocks: A-15
@@ -92,11 +92,11 @@ Use this as the default claim order for the next wave of work:
 
 ### Track K
 
-- [ ] **K-01** P0 - Property Catalog Domain Baseline | Property, amenity, image, and listing-status schema baseline. (Depends on: None) | Blocks: K-02; K-04; K-05; K-06; A-05; A-06; N-04; N-05
+- [x] **K-01** P0 - Property Catalog Domain Baseline | Property, amenity, image, and listing-status schema baseline. (Depends on: None) | Blocks: K-02; K-04; K-05; K-06; A-05; A-06; N-04; N-05
 - [ ] **K-02** P1 - Public Catalog Read Routes And Query Service | Public property read routes and reusable catalog query helpers. (Depends on: K-01) | Blocks: K-03; A-05; A-06
 - [ ] **K-03** P1 - Search, Filter, And Pagination Backend | Catalog filtering with locked location, amenity, and pagination semantics. (Depends on: K-02) | Blocks: A-05; K-08; K-09; K-11
 - [ ] **K-04** P1 - Property Detail Availability Rules And Listing Visibility | Backend rules for visible, unavailable, and removed property detail behavior. (Depends on: K-01) | Blocks: A-06; K-06; N-04; N-05; K-11
-- [ ] **K-05** P1 - Demo Catalog Seed Data And Test Fixtures | Repeatable demo and test data for listings, amenities, images, and statuses. (Depends on: K-01) | Blocks: K-08; K-09; K-10; K-11
+- [-] **K-05** P1 - Demo Catalog Seed Data And Test Fixtures | Repeatable demo and test data for listings, amenities, images, and statuses. (Depends on: K-01) | Blocks: K-08; K-09; K-10; K-11
 - [ ] **K-06** P2 - Admin Listing CRUD | Django admin usability for listing creation and maintenance. (Depends on: K-01; K-04) | Blocks: None
 - [ ] **K-07** P2 - Interaction Management Admin | Django admin usability for inquiry and viewing-request management. (Depends on: K-05) | Blocks: None
 - [ ] **K-08** P3 - Supervisor Inquiry And Saved-Property Reporting Aggregations | Monthly aggregate metrics for inquiries and favorites. (Depends on: N-03; K-05) | Blocks: K-10
@@ -106,7 +106,7 @@ Use this as the default claim order for the next wave of work:
 
 ### Track N
 
-- [ ] **N-01** P0 - Notification, Logging, Alerts, And Deferred-Commerce Schema Baseline | Baseline schema for notifications, logs, alerts, bookings, and payments. (Depends on: None) | Blocks: N-02; N-03; N-04; N-05; N-06; N-07; N-08
+- [x] **N-01** P0 - Notification, Logging, Alerts, And Deferred-Commerce Schema Baseline | Baseline schema for notifications, logs, alerts, bookings, and payments. (Depends on: None) | Blocks: N-02; N-03; N-04; N-05; N-06; N-07; N-08
 - [ ] **N-02** P1 - MVP Email Notification Service And Console Delivery | Shared email service for 2FA and MVP confirmations with notification persistence. (Depends on: N-01; A-01) | Blocks: A-02; A-08; A-09; N-04; N-05; N-06; N-07
 - [ ] **N-03** P1 - Activity And Search Logging Pipeline | Shared logging and search-history pipeline with no-op-safe helper hooks. (Depends on: N-01) | Blocks: A-10; K-08; K-09; K-11; N-08
 - [ ] **N-04** P3 - Similar Listing Alert Matching And Dispatch | Rule-based alert subscriptions and similar-listing notification delivery. (Depends on: N-02; K-04) | Blocks: A-12
