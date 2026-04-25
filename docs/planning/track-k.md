@@ -30,6 +30,11 @@ Acceptance Criteria:
 - Property records can represent availability and removal states distinctly.
 - Amenities and images remain attachable to properties through the existing domain model.
 
+Non-goals:
+- Do not build public catalog routes or templates here.
+- Do not implement filter logic or recommendation logic here.
+- Do not add reporting pages or staff workflows here.
+
 Verification gate:
 - Property migrations and admin baseline remain stable and covered by tests where appropriate.
 
@@ -49,6 +54,11 @@ Acceptance Criteria:
 - Public catalog routes can load visible property records from the database.
 - Removed listings are excluded from public browse results.
 - The read layer can support both list pages and property-detail retrieval.
+
+Non-goals:
+- Do not implement search or pagination semantics here.
+- Do not define unavailable-versus-removed visibility policy here.
+- Do not build user-facing templates here.
 
 Verification gate:
 - View and service tests cover public catalog access and visibility filtering behavior.
@@ -71,6 +81,11 @@ Acceptance Criteria:
 - Selected amenities use all-match semantics.
 - Filter results are paginated at 12 listings per page.
 
+Non-goals:
+- Do not build frontend filter forms or catalog templates here.
+- Do not redefine property-detail visibility rules here.
+- Do not implement reporting or recommendation features beyond the reusable search behavior they depend on.
+
 Verification gate:
 - Tests cover combined filters, fixed pagination behavior, and safe handling of invalid filter parameters.
 
@@ -90,6 +105,11 @@ Acceptance Criteria:
 - Removed listings are not publicly retrievable.
 - Unavailable listings remain readable but are clearly marked as unavailable.
 - Detail retrieval follows a single consistent visibility policy across the site.
+
+Non-goals:
+- Do not build frontend badge rendering or page layouts here.
+- Do not implement alert dispatch, booking submission, or payment flows here.
+- Do not turn this into admin CRUD polish work.
 
 Verification gate:
 - Tests cover visible, unavailable, and removed-listing access rules for detail retrieval.
@@ -111,6 +131,11 @@ Acceptance Criteria:
 - Seed data includes available, unavailable, and removed-listing examples.
 - The seeded dataset supports reporting and recommendation test cases later in the roadmap.
 
+Non-goals:
+- Do not backfill or migrate production-like data here.
+- Do not build UI for seed-data management.
+- Do not implement reporting or recommendation logic here.
+
 Verification gate:
 - Fixture or management-command tests prove the seed data loads cleanly and produces the expected baseline counts.
 
@@ -130,6 +155,11 @@ Acceptance Criteria:
 - Admin can create and update listings through Django admin with practical field visibility.
 - Listing-management views expose useful list filtering and search behavior.
 - Listing status changes respect the agreed visible, unavailable, and removed rules.
+
+Non-goals:
+- Do not build a custom staff portal here.
+- Do not own public catalog page behavior here.
+- Do not absorb inquiry or viewing-request admin workflows here.
 
 Verification gate:
 - Admin tests or manual verification scripts prove listing CRUD workflows are usable.
@@ -151,6 +181,11 @@ Acceptance Criteria:
 - Admin can review and manage viewing requests through Django admin.
 - Staff-management views expose useful filtering and search behavior for incoming user activity.
 
+Non-goals:
+- Do not build a custom staff portal here.
+- Do not add booking or payment admin workflows here.
+- Do not change public user-flow behavior here unless strictly required by admin consistency.
+
 Verification gate:
 - Admin tests or manual verification scripts prove inquiry and viewing management workflows are usable.
 
@@ -170,6 +205,11 @@ Acceptance Criteria:
 - Reporting services can compute monthly inquiry volume and favorite activity.
 - Reporting data can be filtered by reporting period without changing business logic.
 - Aggregation logic works against seeded and logged data sets.
+
+Non-goals:
+- Do not build reporting pages here.
+- Do not implement search-trend aggregation here.
+- Do not redefine the logging pipeline here.
 
 Verification gate:
 - Tests cover monthly aggregation output for inquiry and saved-property metrics against seeded reporting data.
@@ -191,6 +231,11 @@ Acceptance Criteria:
 - Trend output returns the locked top-10 sets for cities, categories, and price bands.
 - Aggregation logic is consistent with the catalog filter semantics defined in K-03.
 
+Non-goals:
+- Do not build reporting pages here.
+- Do not add inquiry or favorites aggregation here.
+- Do not change how search events are logged here.
+
 Verification gate:
 - Tests cover trend calculations and price-band aggregation against seeded reporting data.
 
@@ -211,6 +256,11 @@ Acceptance Criteria:
 - Report pages render inquiry counts, saved-property counts, and search-trend summaries.
 - Reporting access stays restricted to authorized staff roles.
 
+Non-goals:
+- Do not add editing controls or workflow actions here.
+- Do not add export, PDF, or spreadsheet-generation features here.
+- Do not replace Django admin with a unified custom staff portal.
+
 Verification gate:
 - Page and permission tests cover authorized and unauthorized report access.
 
@@ -230,6 +280,11 @@ Acceptance Criteria:
 - The system can generate recommendation candidates without a separate recommendation engine.
 - Recommendation logic uses stored user and catalog signals instead of manual curation.
 - Results stay aligned with catalog visibility rules and return at most 6 visible listings.
+
+Non-goals:
+- Do not build recommendation UI here.
+- Do not use ML models, external recommendation services, or manual curation workflows.
+- Do not fold similar-listing alert matching into this ticket.
 
 Verification gate:
 - Service tests cover recommendation generation for representative user-behavior patterns and ranking order.
