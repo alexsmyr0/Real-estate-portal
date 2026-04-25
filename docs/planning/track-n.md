@@ -30,6 +30,11 @@ Acceptance Criteria:
 - Admin can inspect the baseline records for these models.
 - The baseline schema supports later post-MVP work without needing a redesign first.
 
+Non-goals:
+- Do not implement notification delivery logic here.
+- Do not implement logging services or cleanup jobs here.
+- Do not claim the user-facing alert, booking, or payment flows are complete here.
+
 Verification gate:
 - Migrations and admin wiring remain stable for the cross-cutting domain models.
 
@@ -49,6 +54,11 @@ Acceptance Criteria:
 - Login 2FA, inquiry confirmation, and viewing confirmation emails can be generated through one shared service.
 - Notification records are stored with purpose, recipient, and status metadata.
 - MVP delivery works without an external email provider.
+
+Non-goals:
+- Do not integrate a real email provider here.
+- Do not implement similar-listing alert dispatch here.
+- Do not add retention cleanup behavior here.
 
 Verification gate:
 - Tests verify notification persistence and console-backed delivery behavior for MVP email events.
@@ -70,6 +80,11 @@ Acceptance Criteria:
 - Feature flows can call one shared logging pipeline without duplicating logging logic.
 - Logged records carry scope, action, and entity references consistently.
 
+Non-goals:
+- Do not build reporting aggregates or reporting pages here.
+- Do not build the user-facing history dashboard here.
+- Do not add cleanup or retention-job behavior here.
+
 Verification gate:
 - Tests cover creation of representative auth, search, and interaction log records.
 
@@ -89,6 +104,11 @@ Acceptance Criteria:
 - Users can hold stored alert subscriptions for unavailable properties.
 - Matching logic uses property category, city, price range, bedroom minimum, and amenity overlap from the subscription model.
 - Matching alerts dispatch through the notification pipeline when qualifying listings appear.
+
+Non-goals:
+- Do not build the frontend alert-subscription UI here.
+- Do not use manual curation for similar listings.
+- Do not turn this into a general recommendation engine.
 
 Verification gate:
 - Tests cover subscription persistence, matching behavior, and alert notification creation.
@@ -110,6 +130,11 @@ Acceptance Criteria:
 - Invalid or incomplete booking date ranges are rejected.
 - Booking requests can move through an admin-manageable lifecycle after submission.
 
+Non-goals:
+- Do not implement simulated payments here.
+- Do not build the booking UI here.
+- Do not support booking for non-rental listings.
+
 Verification gate:
 - Tests cover rental-only enforcement, date validation, status updates, and booking notification creation.
 
@@ -129,6 +154,11 @@ Acceptance Criteria:
 - Users can complete a simulated payment step without a real external payment gateway.
 - Payment records store method, amount, purpose, and status consistently.
 - Simulated payments remain clearly separate from production-grade payment processing.
+
+Non-goals:
+- Do not integrate a real payment gateway.
+- Do not add invoicing, refunds, or accounting workflows beyond the simulated status model.
+- Do not absorb unrelated commerce features here.
 
 Verification gate:
 - Tests cover payment creation, allowed status transitions, and booking linkage.
@@ -150,6 +180,11 @@ Acceptance Criteria:
 - Notification persistence continues to work regardless of delivery backend.
 - Development and demo environments can still use console delivery safely.
 
+Non-goals:
+- Do not redesign notification templates or user-facing email content here.
+- Do not change notification persistence semantics beyond provider compatibility.
+- Do not implement retention automation here.
+
 Verification gate:
 - Configuration tests or integration checks verify provider switching without breaking notification persistence.
 
@@ -169,6 +204,11 @@ Acceptance Criteria:
 - Retention automation applies only to `activity_logs`, `search_history`, and `email_notifications`.
 - Records older than 90 days are eligible for cleanup.
 - Primary business entities such as properties, favorites, inquiries, viewing requests, bookings, and users are not deleted by this job.
+
+Non-goals:
+- Do not delete primary business tables or user accounts here.
+- Do not implement email-provider integration here.
+- Do not turn this into a reporting or analytics feature.
 
 Verification gate:
 - Retention-job tests verify cleanup behavior against dated records while preserving non-target tables.

@@ -29,6 +29,11 @@ Acceptance Criteria:
 - The data model represents login 2FA and one active session per user.
 - Admin can inspect users, 2FA tokens, and active sessions.
 
+Non-goals:
+- Do not add registration or login page flows here.
+- Do not implement email delivery or token verification logic here.
+- Do not add password reset or signup email verification.
+
 Verification gate:
 - Auth migrations, settings, and admin wiring exist and remain stable under tests.
 
@@ -51,6 +56,11 @@ Acceptance Criteria:
 - A valid token completes login and invalidates any previous active session for that user.
 - Logout clears the authenticated browser session and active-session record consistently.
 
+Non-goals:
+- Do not build the final browser page styling for auth flows here.
+- Do not add password reset or separate signup email verification.
+- Do not integrate a real email provider.
+
 Verification gate:
 - Flow tests cover registration, login, valid and invalid 2FA submission, logout, and repeated-login session replacement.
 
@@ -70,6 +80,11 @@ Acceptance Criteria:
 - MVP pages can extend one shared base template instead of duplicating layout markup.
 - Guest and authenticated navigation states render consistently.
 - Shared styling supports forms, catalog cards, and action states without page-specific duplication.
+
+Non-goals:
+- Do not implement page-specific business workflows here.
+- Do not build property-detail, favorites, inquiry, booking, or reporting features here.
+- Do not create a separate mobile-specific experience.
 
 Verification gate:
 - Base templates and shared static assets exist and are used by at least one implemented page flow.
@@ -91,6 +106,11 @@ Acceptance Criteria:
 - Users receive clear validation feedback for invalid credentials or tokens.
 - Auth pages respect the two-step login flow and do not bypass 2FA.
 
+Non-goals:
+- Do not change the underlying auth business rules owned by A-02.
+- Do not add password reset or account-recovery flows.
+- Do not add profile-management or account-settings pages.
+
 Verification gate:
 - Page tests cover render paths, invalid submissions, and successful transitions through the auth flow.
 
@@ -110,6 +130,11 @@ Acceptance Criteria:
 - Visitors can browse a landing page and move into the property catalog.
 - Filter submissions preserve current values and render matching paginated result sets.
 - Catalog results follow the locked filter semantics and 12-items-per-page pagination behavior.
+
+Non-goals:
+- Do not build the property detail page here.
+- Do not implement favorites, inquiry, viewing, booking, or recommendation actions here.
+- Do not change backend filter semantics owned by K-03.
 
 Verification gate:
 - Page tests cover landing-page render, catalog rendering, filter submissions, and pagination behavior against backend query results.
@@ -131,6 +156,11 @@ Acceptance Criteria:
 - Unavailable listings are readable and clearly marked unavailable.
 - Removed listings are not presented as public detail pages.
 
+Non-goals:
+- Do not build catalog listing or pagination behavior here.
+- Do not implement inquiry, viewing, booking, alert-subscription, or payment flows here.
+- Do not redefine visibility rules owned by K-04.
+
 Verification gate:
 - Page tests cover visible and unavailable detail rendering plus removed-listing access behavior.
 
@@ -150,6 +180,11 @@ Acceptance Criteria:
 - An authenticated user can add and remove favorites from catalog, detail, and favorites views.
 - Duplicate favorite submissions do not create duplicate rows.
 - Favorite actions are blocked for guests.
+
+Non-goals:
+- Do not add user history or recommendation behavior here.
+- Do not implement the logging pipeline itself here.
+- Do not add inquiry or viewing submission flows here.
 
 Verification gate:
 - Tests cover auth gating, add/remove behavior, duplicate handling, and favorites-page rendering.
@@ -171,6 +206,11 @@ Acceptance Criteria:
 - Successful inquiries persist records and trigger the inquiry confirmation email flow.
 - Invalid inquiries receive clear validation feedback.
 
+Non-goals:
+- Do not implement viewing-request behavior here.
+- Do not build admin inquiry-management tooling here.
+- Do not implement notification or logging infrastructure internals here.
+
 Verification gate:
 - Tests cover auth gating, valid and invalid submissions, persisted records, and confirmation states.
 
@@ -190,6 +230,11 @@ Acceptance Criteria:
 - An authenticated user can submit a viewing request with a valid future datetime.
 - Successful viewing requests persist records and trigger the viewing confirmation email flow.
 - Invalid viewing requests receive clear validation feedback.
+
+Non-goals:
+- Do not implement inquiry behavior here.
+- Do not turn viewing requests into rental booking requests.
+- Do not implement notification or logging infrastructure internals here.
 
 Verification gate:
 - Tests cover auth gating, valid and invalid datetime submissions, persisted records, and confirmation states.
@@ -211,6 +256,11 @@ Acceptance Criteria:
 - The page does not expose another user's data.
 - Empty or low-activity accounts still receive a coherent dashboard experience.
 
+Non-goals:
+- Do not add supervisor reporting here.
+- Do not redefine what gets logged or how reporting aggregates are computed.
+- Do not add recommendation logic here.
+
 Verification gate:
 - Tests cover authenticated access, ownership boundaries, and rendering for empty and populated history states.
 
@@ -230,6 +280,11 @@ Acceptance Criteria:
 - A user can submit a booking request only for rental properties.
 - Booking validation errors are shown clearly when dates are invalid or incomplete.
 - Successful booking submissions hand off to the booking backend and show a confirmation state.
+
+Non-goals:
+- Do not add simulated payment UI here.
+- Do not support booking for residential or commercial non-rental listings.
+- Do not build admin booking-management workflows here.
 
 Verification gate:
 - Tests cover rental-only UI behavior, valid and invalid booking submissions, and confirmation rendering.
@@ -251,6 +306,11 @@ Acceptance Criteria:
 - Users receive clear feedback when a subscription is created.
 - Alert-subscription UI does not appear on removed listings.
 
+Non-goals:
+- Do not implement alert matching or alert email dispatch here.
+- Do not show alert-subscription UI on available listings.
+- Do not turn this ticket into recommendation UI work.
+
 Verification gate:
 - Tests cover UI visibility rules, auth gating, and successful subscription state transitions.
 
@@ -270,6 +330,11 @@ Acceptance Criteria:
 - Recommendation results can be displayed on the agreed user-facing surfaces once the backend service exists.
 - Empty recommendation states do not break page layout.
 - Recommendation presentation reuses the existing catalog visual language.
+
+Non-goals:
+- Do not implement recommendation ranking or generation logic here.
+- Do not build a separate recommendation-specific design system.
+- Do not fold user-history or alert-subscription work into this ticket.
 
 Verification gate:
 - Page tests or integrated UI tests cover recommendation rendering and empty-state behavior.
@@ -291,6 +356,11 @@ Acceptance Criteria:
 - Payment status updates render clearly for success and failure outcomes.
 - The UI does not imply real-world payment processing.
 
+Non-goals:
+- Do not integrate a real payment gateway.
+- Do not own booking backend validation or lifecycle rules here.
+- Do not add invoicing, receipts, or accounting features.
+
 Verification gate:
 - Integrated tests cover booking-to-payment handoff and simulated status rendering.
 
@@ -310,6 +380,11 @@ Acceptance Criteria:
 - Shared UI patterns remain consistent across auth, catalog, favorites, inquiries, viewings, bookings, alerts, recommendations, and payments.
 - The site remains usable on narrow screens down to 375px width.
 - Final cleanup does not regress completed feature flows.
+
+Non-goals:
+- Do not add new product capabilities here.
+- Do not redesign backend business rules or data models here.
+- Do not replace Django admin with a custom staff portal.
 
 Verification gate:
 - Cross-flow UI verification or end-to-end tests cover the main user journeys and major error states.
