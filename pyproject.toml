@@ -12,8 +12,19 @@ dependencies = [
     "PyMySQL>=1.1,<2.0",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.0,<10.0",
+    "pytest-django>=4.12,<5.0",
+    "ruff>=0.15,<0.16",
+]
+
 [tool.setuptools]
 package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "homefinder.settings"
+pythonpath = ["src"]
