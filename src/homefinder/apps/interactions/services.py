@@ -1,4 +1,4 @@
-"""Email notification delivery services for interaction-facing workflows."""
+"""Interaction-facing service helpers for logging and notifications."""
 from __future__ import annotations
 
 import logging
@@ -12,6 +12,15 @@ from django.core.validators import validate_email
 from django.db import models, transaction
 from django.utils import timezone
 
+from .activity_logging import (
+    ActivityLoggingResult as ActivityLoggingResult,
+    ActivityLoggingService as ActivityLoggingService,
+    activity_logging_service as activity_logging_service,
+    log_activity as log_activity,
+    log_auth_activity as log_auth_activity,
+    log_interaction_activity as log_interaction_activity,
+    log_search_activity as log_search_activity,
+)
 from .models import (
     EmailNotification,
     EmailNotificationPurpose,
