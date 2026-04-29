@@ -1,11 +1,15 @@
 """Email notification delivery services for interaction-facing workflows."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+import logging
+from dataclasses import dataclass, replace
+from typing import Protocol
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
-from django.db import models
+from django.core.validators import validate_email
+from django.db import models, transaction
 from django.utils import timezone
 
 from .models import (
@@ -15,6 +19,8 @@ from .models import (
     PropertyInquiry,
     ViewingRequest,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,10 +34,31 @@ class EmailNotificationMessage:
     user: models.Model | None = None
 
 
+class EmailDeliveryAdapter(Protocol):
+    def deliver(self, message: EmailNotificationMessage) -> int: ...
+
+
+class DjangoEmailDeliveryAdapter:
+    """Deliver email through Django's configured email backend."""
+
+    def deliver(self, message: EmailNotificationMessage) -> int:
+        return send_mail(
+            subject=message.subject,
+            message=message.body,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[message.recipient_email],
+            fail_silently=False,
+        )
+
+
 class EmailNotificationService:
     """Persist and deliver MVP email notifications through Django email."""
 
+    def __init__(self, delivery_adapter: EmailDeliveryAdapter | None = None) -> None:
+        self.delivery_adapter = delivery_adapter or DjangoEmailDeliveryAdapter()
+
     def send(self, message: EmailNotificationMessage) -> EmailNotification:
+        message = self._validate_message(message)
         notification = EmailNotification.objects.create(
             user=message.user,
             purpose=message.purpose,
@@ -39,28 +66,81 @@ class EmailNotificationService:
             status=EmailNotificationStatus.PENDING,
         )
 
-        try:
-            delivered_count = send_mail(
-                subject=message.subject,
-                message=message.body,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[message.recipient_email],
-                fail_silently=False,
-            )
-        except Exception:
-            notification.status = EmailNotificationStatus.FAILED
-            notification.save(update_fields=["status"])
-            return notification
+        connection = transaction.get_connection()
+        transaction.on_commit(lambda: self._deliver(notification.pk, message))
 
-        if delivered_count:
-            notification.status = EmailNotificationStatus.SENT
-            notification.sent_at = timezone.now()
-            notification.save(update_fields=["status", "sent_at"])
-        else:
-            notification.status = EmailNotificationStatus.FAILED
-            notification.save(update_fields=["status"])
+        if not connection.in_atomic_block:
+            notification.refresh_from_db()
 
         return notification
+
+    def _deliver(self, notification_id: int, message: EmailNotificationMessage) -> None:
+        try:
+            delivered_count = self.delivery_adapter.deliver(message)
+        except Exception:
+            logger.exception(
+                "Email notification delivery failed.",
+                extra={
+                    "notification_id": notification_id,
+                    "purpose": message.purpose,
+                    "recipient_email": message.recipient_email,
+                },
+            )
+            self._mark_failed(notification_id)
+            return
+
+        if delivered_count:
+            self._mark_sent(notification_id)
+            return
+
+        logger.warning(
+            "Email notification delivery returned zero recipients.",
+            extra={
+                "notification_id": notification_id,
+                "purpose": message.purpose,
+                "recipient_email": message.recipient_email,
+            },
+        )
+        self._mark_failed(notification_id)
+
+    def _mark_sent(self, notification_id: int) -> None:
+        EmailNotification.objects.filter(
+            pk=notification_id,
+            status=EmailNotificationStatus.PENDING,
+        ).update(
+            status=EmailNotificationStatus.SENT,
+            sent_at=timezone.now(),
+        )
+
+    def _mark_failed(self, notification_id: int) -> None:
+        EmailNotification.objects.filter(
+            pk=notification_id,
+            status=EmailNotificationStatus.PENDING,
+        ).update(status=EmailNotificationStatus.FAILED)
+
+    def _validate_message(self, message: EmailNotificationMessage) -> EmailNotificationMessage:
+        recipient_email = (message.recipient_email or "").strip()
+        subject = (message.subject or "").strip()
+        body = (message.body or "").strip()
+
+        if message.purpose not in EmailNotificationPurpose.values:
+            raise ValidationError({"purpose": "Email notification purpose is required and must be valid."})
+        if not recipient_email:
+            raise ValidationError({"recipient_email": "Recipient email is required."})
+
+        validate_email(recipient_email)
+
+        if not subject:
+            raise ValidationError({"subject": "Email subject is required."})
+        if not body:
+            raise ValidationError({"body": "Email body is required."})
+
+        return replace(
+            message,
+            recipient_email=recipient_email,
+            subject=subject,
+            body=body,
+        )
 
     def send_login_2fa(self, *, user: models.Model, token: str) -> EmailNotification:
         return self.send(
