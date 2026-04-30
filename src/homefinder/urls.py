@@ -6,6 +6,7 @@ from django.urls import include, path
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("", include("homefinder.apps.core.urls")),
+    path("", include("homefinder.apps.properties.urls")),
 ]
 
 handler400 = "homefinder.apps.core.views.bad_request_view"
