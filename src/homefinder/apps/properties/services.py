@@ -13,6 +13,32 @@ from .models import Amenity, Property, PropertyCategory, PropertyImage, Property
 CATALOG_PAGE_SIZE = 12
 DEFAULT_CATALOG_PAGE = 1
 VALID_PROPERTY_CATEGORIES = {choice for choice, _label in PropertyCategory.choices}
+PUBLICLY_VISIBLE_PROPERTY_STATUSES = frozenset(
+    {
+        PropertyStatus.AVAILABLE,
+        PropertyStatus.UNAVAILABLE,
+    }
+)
+
+
+@dataclass(frozen=True, slots=True)
+class PropertyAvailabilityContext:
+    status: str
+    label: str
+    is_available: bool
+    is_unavailable: bool
+    is_removed: bool
+    is_publicly_visible: bool
+
+    def as_payload(self) -> dict[str, Any]:
+        return {
+            "status": self.status,
+            "label": self.label,
+            "is_available": self.is_available,
+            "is_unavailable": self.is_unavailable,
+            "is_removed": self.is_removed,
+            "is_publicly_visible": self.is_publicly_visible,
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,9 +53,32 @@ class CatalogSearchParams:
     page: int = DEFAULT_CATALOG_PAGE
 
 
+def is_publicly_visible_property_status(property_status: str) -> bool:
+    return property_status in PUBLICLY_VISIBLE_PROPERTY_STATUSES
+
+
+def build_property_availability_context(property_status: str) -> PropertyAvailabilityContext:
+    is_available = property_status == PropertyStatus.AVAILABLE
+    is_unavailable = property_status == PropertyStatus.UNAVAILABLE
+    is_removed = property_status == PropertyStatus.REMOVED
+    try:
+        status_label = PropertyStatus(property_status).label
+    except ValueError:
+        status_label = property_status.title()
+
+    return PropertyAvailabilityContext(
+        status=property_status,
+        label=status_label,
+        is_available=is_available,
+        is_unavailable=is_unavailable,
+        is_removed=is_removed,
+        is_publicly_visible=is_publicly_visible_property_status(property_status),
+    )
+
+
 def visible_properties_queryset() -> QuerySet[Property]:
     return (
-        Property.objects.exclude(status=PropertyStatus.REMOVED)
+        Property.objects.filter(status__in=PUBLICLY_VISIBLE_PROPERTY_STATUSES)
         .prefetch_related(
             Prefetch(
                 "images",
@@ -229,11 +278,13 @@ def _parse_amenity_filters(query_params: QueryDict) -> tuple[tuple[int, ...], tu
 
 def _serialize_catalog_list_item(property_obj: Property) -> dict[str, Any]:
     images = list(property_obj.images.all())
+    availability_context = build_property_availability_context(property_obj.status)
     return {
         "id": property_obj.id,
         "title": property_obj.title,
         "category": property_obj.category,
         "status": property_obj.status,
+        "availability": availability_context.as_payload(),
         "city": property_obj.city,
         "area": property_obj.area,
         "price": str(property_obj.price),

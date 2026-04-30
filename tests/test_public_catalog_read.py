@@ -16,7 +16,9 @@ from homefinder.apps.properties.models import Amenity, Property, PropertyCategor
 from homefinder.apps.properties.services import (
     CATALOG_PAGE_SIZE,
     CatalogSearchParams,
+    build_property_availability_context,
     get_visible_property_detail,
+    is_publicly_visible_property_status,
     list_visible_properties,
     parse_catalog_search_params,
     search_visible_properties,
@@ -102,6 +104,20 @@ class PublicCatalogServiceTests(TestCase):
     def test_get_visible_property_detail_returns_none_for_removed_listing(self) -> None:
         self.assertIsNone(get_visible_property_detail(self.removed_property.id))
 
+    def test_visibility_policy_exposes_expected_public_statuses(self) -> None:
+        self.assertTrue(is_publicly_visible_property_status(PropertyStatus.AVAILABLE))
+        self.assertTrue(is_publicly_visible_property_status(PropertyStatus.UNAVAILABLE))
+        self.assertFalse(is_publicly_visible_property_status(PropertyStatus.REMOVED))
+
+    def test_build_property_availability_context_marks_removed_as_not_public(self) -> None:
+        availability_context = build_property_availability_context(PropertyStatus.REMOVED)
+
+        self.assertFalse(availability_context.is_publicly_visible)
+        self.assertTrue(availability_context.is_removed)
+        self.assertFalse(availability_context.is_available)
+        self.assertFalse(availability_context.is_unavailable)
+        self.assertEqual(availability_context.label, "Removed")
+
     def test_get_visible_property_detail_returns_enriched_payload(self) -> None:
         payload = get_visible_property_detail(self.available_property.id)
 
@@ -109,6 +125,18 @@ class PublicCatalogServiceTests(TestCase):
         if payload is None:
             self.fail("Expected payload for visible property")
         self.assertEqual(payload["id"], self.available_property.id)
+        self.assertEqual(payload["status"], PropertyStatus.AVAILABLE)
+        self.assertEqual(
+            payload["availability"],
+            {
+                "status": PropertyStatus.AVAILABLE,
+                "label": "Available",
+                "is_available": True,
+                "is_unavailable": False,
+                "is_removed": False,
+                "is_publicly_visible": True,
+            },
+        )
         self.assertEqual(
             payload["image_urls"],
             [
@@ -117,6 +145,26 @@ class PublicCatalogServiceTests(TestCase):
             ],
         )
         self.assertEqual(payload["amenities"], ["Gym", "Pool"])
+
+    def test_get_visible_property_detail_returns_unavailable_listing_with_availability_context(self) -> None:
+        payload = get_visible_property_detail(self.unavailable_property.id)
+
+        self.assertIsNotNone(payload)
+        if payload is None:
+            self.fail("Expected payload for unavailable property")
+        self.assertEqual(payload["id"], self.unavailable_property.id)
+        self.assertEqual(payload["status"], PropertyStatus.UNAVAILABLE)
+        self.assertEqual(
+            payload["availability"],
+            {
+                "status": PropertyStatus.UNAVAILABLE,
+                "label": "Unavailable",
+                "is_available": False,
+                "is_unavailable": True,
+                "is_removed": False,
+                "is_publicly_visible": True,
+            },
+        )
 
 
 class CatalogSearchServiceTests(TestCase):
@@ -287,6 +335,19 @@ class PublicCatalogViewTests(TestCase):
             bathrooms=Decimal("1.0"),
         )
 
+        self.unavailable_property = Property.objects.create(
+            title="Temporarily Unavailable Listing",
+            description="Visible detail but unavailable",
+            category=PropertyCategory.RESIDENTIAL,
+            status=PropertyStatus.UNAVAILABLE,
+            city="Piraeus",
+            area="Harbor",
+            address_line="Unavailable street",
+            price=Decimal("205000.00"),
+            bedrooms=2,
+            bathrooms=Decimal("1.0"),
+        )
+
     def test_catalog_list_route_returns_public_visible_properties(self) -> None:
         response = self.client.get("/catalog/")
 
@@ -307,6 +368,18 @@ class PublicCatalogViewTests(TestCase):
 
         self.assertEqual(payload["status"], "ok")
         self.assertEqual(payload["data"]["property"]["id"], self.visible_property.id)
+
+    def test_catalog_detail_route_returns_unavailable_property_with_availability_context(self) -> None:
+        response = self.client.get(f"/catalog/{self.unavailable_property.id}/")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+
+        self.assertEqual(payload["status"], "ok")
+        self.assertEqual(payload["data"]["property"]["id"], self.unavailable_property.id)
+        self.assertEqual(payload["data"]["property"]["status"], PropertyStatus.UNAVAILABLE)
+        self.assertEqual(payload["data"]["property"]["availability"]["is_unavailable"], True)
+        self.assertEqual(payload["data"]["property"]["availability"]["is_publicly_visible"], True)
 
     def test_catalog_detail_route_returns_not_found_for_removed_listing(self) -> None:
         response = self.client.get(f"/catalog/{self.removed_property.id}/")

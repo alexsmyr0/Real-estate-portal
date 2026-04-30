@@ -95,7 +95,7 @@ Use this as the default claim order for the next wave of work:
 - [x] **K-01** P0 - Property Catalog Domain Baseline | Property, amenity, image, and listing-status schema baseline. (Depends on: None) | Blocks: K-02; K-04; K-05; K-06; A-05; A-06; N-04; N-05
 - [x] **K-02** P1 - Public Catalog Read Routes And Query Service | Public property read routes and reusable catalog query helpers. (Depends on: K-01) | Blocks: K-03; A-05; A-06
 - [x] **K-03** P1 - Search, Filter, And Pagination Backend | Catalog filtering with locked location, amenity, and pagination semantics. (Depends on: K-02) | Blocks: A-05; K-08; K-09; K-11
-- [ ] **K-04** P1 - Property Detail Availability Rules And Listing Visibility | Backend rules for visible, unavailable, and removed property detail behavior. (Depends on: K-01) | Blocks: A-06; K-06; N-04; N-05; K-11
+- [x] **K-04** P1 - Property Detail Availability Rules And Listing Visibility | Backend rules for visible, unavailable, and removed property detail behavior. (Depends on: K-01) | Blocks: A-06; K-06; N-04; N-05; K-11
 - [-] **K-05** P1 - Demo Catalog Seed Data And Test Fixtures | Repeatable demo and test data for listings, amenities, images, and statuses. (Depends on: K-01) | Blocks: K-08; K-09; K-10; K-11
 - [ ] **K-06** P2 - Admin Listing CRUD | Django admin usability for listing creation and maintenance. (Depends on: K-01; K-04) | Blocks: None
 - [ ] **K-07** P2 - Interaction Management Admin | Django admin usability for inquiry and viewing-request management. (Depends on: K-05) | Blocks: None

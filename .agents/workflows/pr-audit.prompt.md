@@ -135,12 +135,12 @@ Audit the diff against the locked HomeFinder architecture from the SDS.
 Run the repo-native validation commands that actually fit this project. Do not invent a Go, Node, or SPA toolchain if the repo does not have one.
 
 **Phase A - Django Project Integrity**
-1. `python manage.py check`
-2. `python manage.py makemigrations --check --dry-run`
+1. `./.venv/bin/python manage.py check`
+2. `./.venv/bin/python manage.py makemigrations --check --dry-run`
 
 **Phase B - Automated Tests**
-3. `python manage.py test`
-4. `python manage.py test tests`
+3. `./.venv/bin/python manage.py test`
+4. `./.venv/bin/python manage.py test tests`
 
 **Phase C - Optional Repo-Defined Tooling**
 5. If `pyproject.toml`, `Makefile`, or other repo config clearly defines additional Python lint or test commands already used by the project, run them too.
@@ -225,10 +225,10 @@ Return exactly the markdown template below. Replace `<STATUS>` with `PASS`, `FAI
 
 ## Technical Metadata And Verification Gates
 ### Automated Gate Summary
-- <STATUS>: `python manage.py check` (exit=<code>, duration=<sec>)
-- <STATUS>: `python manage.py makemigrations --check --dry-run`
-- <STATUS>: `python manage.py test`
-- <STATUS>: `python manage.py test tests`
+- <STATUS>: `./.venv/bin/python manage.py check` (exit=<code>, duration=<sec>)
+- <STATUS>: `./.venv/bin/python manage.py makemigrations --check --dry-run`
+- <STATUS>: `./.venv/bin/python manage.py test`
+- <STATUS>: `./.venv/bin/python manage.py test tests`
 - <STATUS>: `Additional repo-defined checks` (<command or N/A>)
 
 ### Architectural And Product Consistency Checks
