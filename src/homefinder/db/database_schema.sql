@@ -239,10 +239,11 @@ CREATE TABLE IF NOT EXISTS search_history (
 CREATE TABLE IF NOT EXISTS activity_logs (
     id         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     user_id    BIGINT UNSIGNED NULL,
-    scope      ENUM('AUTH', 'INTERACTION', 'TRANSACTION', 'SYSTEM') NOT NULL,
+    scope      ENUM('AUTH', 'SEARCH', 'INTERACTION', 'TRANSACTION', 'SYSTEM') NOT NULL,
     action     VARCHAR(80) NOT NULL,
     entity_type VARCHAR(80) NULL,
     entity_id  BIGINT UNSIGNED NULL,
+    details    JSON NOT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     KEY idx_activity_logs_created_at (created_at),

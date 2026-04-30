@@ -140,7 +140,7 @@ Run the repo-native validation commands that actually fit this project. Do not i
 
 **Phase B - Automated Tests**
 3. `python manage.py test`
-4. `python -m unittest discover -s tests`
+4. `python manage.py test tests`
 
 **Phase C - Optional Repo-Defined Tooling**
 5. If `pyproject.toml`, `Makefile`, or other repo config clearly defines additional Python lint or test commands already used by the project, run them too.
@@ -228,7 +228,7 @@ Return exactly the markdown template below. Replace `<STATUS>` with `PASS`, `FAI
 - <STATUS>: `python manage.py check` (exit=<code>, duration=<sec>)
 - <STATUS>: `python manage.py makemigrations --check --dry-run`
 - <STATUS>: `python manage.py test`
-- <STATUS>: `python -m unittest discover -s tests`
+- <STATUS>: `python manage.py test tests`
 - <STATUS>: `Additional repo-defined checks` (<command or N/A>)
 
 ### Architectural And Product Consistency Checks

@@ -12,7 +12,7 @@ from django.test import TestCase
 
 django.setup()
 
-from homefinder.apps.interactions.models import (
+from homefinder.apps.interactions.models import (  # noqa: E402
     ActivityLog,
     ActivityScope,
     BookingRequest,
@@ -26,7 +26,7 @@ from homefinder.apps.interactions.models import (
     PaymentStatus,
     SearchHistory,
 )
-from homefinder.apps.properties.models import (
+from homefinder.apps.properties.models import (  # noqa: E402
     ListingAlertSubscription,
     ListingAlertSubscriptionAmenity,
     PropertyCategory,
@@ -102,6 +102,7 @@ class CrossCuttingSchemaBaselineTests(TestCase):
                 "action": models.CharField,
                 "entity_type": models.CharField,
                 "entity_id": models.BigIntegerField,
+                "details": models.JSONField,
                 "created_at": models.DateTimeField,
             },
         )
@@ -169,6 +170,7 @@ class CrossCuttingSchemaBaselineTests(TestCase):
         self.assert_field_contract(ActivityLog, "action", max_length=80)
         self.assert_field_contract(ActivityLog, "entity_type", blank=True, max_length=80)
         self.assert_field_contract(ActivityLog, "entity_id", null=True, blank=True)
+        self.assert_field_contract(ActivityLog, "details", default=dict, blank=True)
 
     def test_n01_alert_schema_contracts_are_locked(self) -> None:
         self.assert_fk_contract(ListingAlertSubscription, "user", on_delete=models.CASCADE)

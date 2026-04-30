@@ -60,6 +60,7 @@ class EmailNotificationStatus(models.TextChoices):
 
 class ActivityScope(models.TextChoices):
     AUTH = "AUTH", "Auth"
+    SEARCH = "SEARCH", "Search"
     INTERACTION = "INTERACTION", "Interaction"
     TRANSACTION = "TRANSACTION", "Transaction"
     SYSTEM = "SYSTEM", "System"
@@ -211,6 +212,7 @@ class ActivityLog(models.Model):
     action = models.CharField(max_length=80)
     entity_type = models.CharField(max_length=80, blank=True)
     entity_id = models.BigIntegerField(null=True, blank=True)
+    details = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
