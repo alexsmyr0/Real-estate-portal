@@ -4,16 +4,17 @@ from django.http import HttpRequest, JsonResponse
 
 from homefinder.apps.core.views import json_error_response
 
-from .services import get_visible_property_detail, list_visible_properties
+from .services import get_visible_property_detail, parse_catalog_search_params, search_visible_properties
 
 
-def catalog_list(_request: HttpRequest) -> JsonResponse:
+def catalog_list(request: HttpRequest) -> JsonResponse:
+    search_params = parse_catalog_search_params(request.GET)
+    search_results = search_visible_properties(search_params=search_params)
+
     return JsonResponse(
         {
             "status": "ok",
-            "data": {
-                "properties": list_visible_properties(),
-            },
+            "data": search_results,
         }
     )
 
