@@ -15,7 +15,12 @@ def main() -> None:
         if src_path not in sys.path:
             sys.path.insert(0, src_path)
 
-    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "homefinder.settings")
+    default_settings = (
+        "homefinder.test_settings"
+        if len(sys.argv) > 1 and sys.argv[1] == "test"
+        else "homefinder.settings"
+    )
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", default_settings)
 
     from django.core.management import execute_from_command_line
 
