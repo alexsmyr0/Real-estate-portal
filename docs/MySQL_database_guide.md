@@ -86,7 +86,7 @@ Current status:
 3. Replace it with Django fixtures or a custom management command before using seed data in this version of the project.
 
 Recommended next step:
-1. Create a Django management command such as `python manage.py seed_demo_data`.
+1. Load the repeatable demo catalog data set with `python manage.py seed_demo_catalog`.
 
 ## 6. Quick Verification
 
