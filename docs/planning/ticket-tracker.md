@@ -98,7 +98,7 @@ Use this as the default claim order for the next wave of work:
 - [x] **K-04** P1 - Property Detail Availability Rules And Listing Visibility | Backend rules for visible, unavailable, and removed property detail behavior. (Depends on: K-01) | Blocks: A-06; K-06; N-04; N-05; K-11
 - [x] **K-05** P1 - Demo Catalog Seed Data And Test Fixtures | Repeatable demo and test data for listings, amenities, images, and statuses. (Depends on: K-01) | Blocks: K-08; K-09; K-10; K-11
 - [x] **K-06** P2 - Admin Listing CRUD | Django admin usability for listing creation and maintenance. (Depends on: K-01; K-04) | Blocks: None
-- [ ] **K-07** P2 - Interaction Management Admin | Django admin usability for inquiry and viewing-request management. (Depends on: K-05) | Blocks: None
+- [x] **K-07** P2 - Interaction Management Admin | Django admin usability for inquiry and viewing-request management. (Depends on: K-05) | Blocks: None
 - [ ] **K-08** P3 - Supervisor Inquiry And Saved-Property Reporting Aggregations | Monthly aggregate metrics for inquiries and favorites. (Depends on: N-03; K-05) | Blocks: K-10
 - [ ] **K-09** P3 - Search Trends Aggregation Service | Top-10 monthly search trends for cities, categories, and price bands. (Depends on: K-03; N-03; K-05) | Blocks: K-10
 - [ ] **K-10** P3 - Supervisor Reporting Read-Only Pages | Read-only reporting pages for supervisor and admin roles. (Depends on: K-08; K-09) | Blocks: None
