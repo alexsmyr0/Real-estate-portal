@@ -2,13 +2,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
-from typing import Any
+from typing import Any, Iterable
 
+from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
-from django.db.models import Prefetch, Q, QuerySet
+from django.db import IntegrityError, transaction
+from django.db.models import Count, Prefetch, Q, QuerySet
 from django.http import QueryDict
+from django.utils import timezone
 
-from .models import Amenity, Property, PropertyCategory, PropertyImage, PropertyStatus
+from .models import Amenity, ListingAlertSubscription, Property, PropertyCategory, PropertyImage, PropertyStatus
 
 CATALOG_PAGE_SIZE = 12
 DEFAULT_CATALOG_PAGE = 1
@@ -51,6 +54,242 @@ class CatalogSearchParams:
     amenity_ids: tuple[int, ...] = ()
     amenity_names: tuple[str, ...] = ()
     page: int = DEFAULT_CATALOG_PAGE
+
+
+def create_listing_alert_subscription(
+    *,
+    user: Any,
+    source_property: Property | None = None,
+    category: str | None = None,
+    location_city: str | None = None,
+    min_price: Decimal | str | None = None,
+    max_price: Decimal | str | None = None,
+    bedrooms_min: int | str | None = None,
+    amenity_ids: Iterable[int] | None = None,
+    is_active: bool = True,
+) -> ListingAlertSubscription:
+    if source_property is not None and source_property.status != PropertyStatus.UNAVAILABLE:
+        raise ValidationError({"source_property": "Similar listing alerts can only be anchored to unavailable properties."})
+
+    normalized_category = _normalize_category(category or (source_property.category if source_property else None))
+    if normalized_category is None:
+        raise ValidationError({"category": "A valid property category is required."})
+
+    normalized_city = _normalize_text(location_city or (source_property.city if source_property else None))
+    if normalized_city is None:
+        raise ValidationError({"location_city": "A city is required."})
+
+    normalized_min_price = _coerce_decimal(min_price, field_name="min_price")
+    normalized_max_price = _coerce_decimal(max_price, field_name="max_price")
+    if normalized_min_price is not None and normalized_max_price is not None and normalized_min_price > normalized_max_price:
+        raise ValidationError({"max_price": "Maximum price must be greater than or equal to minimum price."})
+
+    default_bedrooms_min = (
+        source_property.bedrooms
+        if source_property is not None and source_property.bedrooms and source_property.bedrooms > 0
+        else None
+    )
+    normalized_bedrooms_min = _coerce_positive_int(
+        bedrooms_min if bedrooms_min is not None else default_bedrooms_min,
+        field_name="bedrooms_min",
+    )
+    normalized_amenity_ids = _normalize_amenity_ids(
+        amenity_ids
+        if amenity_ids is not None
+        else source_property.amenities.values_list("id", flat=True)
+        if source_property is not None
+        else (),
+    )
+
+    with transaction.atomic():
+        subscription = ListingAlertSubscription.objects.create(
+            user=user,
+            source_property=source_property,
+            category=normalized_category,
+            location_city=normalized_city,
+            min_price=normalized_min_price,
+            max_price=normalized_max_price,
+            bedrooms_min=normalized_bedrooms_min,
+            is_active=is_active,
+        )
+        if normalized_amenity_ids:
+            amenities = list(Amenity.objects.filter(pk__in=normalized_amenity_ids))
+            found_amenity_ids = {amenity.pk for amenity in amenities}
+            missing_amenity_ids = sorted(set(normalized_amenity_ids) - found_amenity_ids)
+            if missing_amenity_ids:
+                raise ValidationError({"amenity_ids": f"Unknown amenity ids: {missing_amenity_ids}."})
+            subscription.amenities.set(amenities)
+
+    return subscription
+
+
+def set_listing_alert_subscription_active(
+    subscription: ListingAlertSubscription,
+    *,
+    is_active: bool,
+) -> ListingAlertSubscription:
+    subscription.is_active = is_active
+    subscription.save(update_fields=["is_active"])
+    return subscription
+
+
+def listing_matches_alert_subscription(subscription: ListingAlertSubscription, property_obj: Property) -> bool:
+    if not subscription.is_active:
+        return False
+
+    if property_obj.status != PropertyStatus.AVAILABLE:
+        return False
+
+    if not subscription.category or property_obj.category != subscription.category:
+        return False
+
+    subscription_city = _normalize_text(subscription.location_city)
+    property_city = _normalize_text(property_obj.city)
+    if subscription_city is None or property_city is None or subscription_city.casefold() != property_city.casefold():
+        return False
+
+    if subscription.min_price is not None and property_obj.price < subscription.min_price:
+        return False
+
+    if subscription.max_price is not None and property_obj.price > subscription.max_price:
+        return False
+
+    if subscription.bedrooms_min is not None:
+        if property_obj.bedrooms is None or property_obj.bedrooms < subscription.bedrooms_min:
+            return False
+
+    subscription_amenity_ids = {amenity.id for amenity in subscription.amenities.all()}
+    if subscription_amenity_ids:
+        property_amenity_ids = {amenity.id for amenity in property_obj.amenities.all()}
+        return bool(subscription_amenity_ids & property_amenity_ids)
+
+    return True
+
+
+def matching_listing_alert_subscriptions(property_obj: Property) -> list[ListingAlertSubscription]:
+    if property_obj.status != PropertyStatus.AVAILABLE:
+        return []
+
+    property_amenity_ids = list(property_obj.amenities.values_list("id", flat=True))
+    candidates = (
+        ListingAlertSubscription.objects.filter(
+            is_active=True,
+            category=property_obj.category,
+            location_city__iexact=property_obj.city,
+        )
+        .filter(Q(min_price__isnull=True) | Q(min_price__lte=property_obj.price))
+        .filter(Q(max_price__isnull=True) | Q(max_price__gte=property_obj.price))
+        .select_related("user", "source_property")
+        .prefetch_related("amenities")
+    )
+    if property_obj.bedrooms is None:
+        candidates = candidates.filter(bedrooms_min__isnull=True)
+    else:
+        candidates = candidates.filter(Q(bedrooms_min__isnull=True) | Q(bedrooms_min__lte=property_obj.bedrooms))
+
+    candidates = candidates.annotate(
+        amenity_count=Count("amenities", distinct=True),
+        overlapping_amenity_count=Count(
+            "amenities",
+            filter=Q(amenities__id__in=property_amenity_ids),
+            distinct=True,
+        ),
+    ).filter(Q(amenity_count=0) | Q(overlapping_amenity_count__gt=0))
+
+    property_obj = Property.objects.prefetch_related("amenities").get(pk=property_obj.pk)
+    return [subscription for subscription in candidates if listing_matches_alert_subscription(subscription, property_obj)]
+
+
+def dispatch_similar_listing_alerts(
+    property_obj: Property,
+    *,
+    notification_service: Any | None = None,
+) -> list[Any]:
+    from homefinder.apps.interactions.models import (
+        SimilarListingAlertDispatch,
+        SimilarListingAlertDispatchStatus,
+    )
+    from homefinder.apps.interactions.services import notification_service as default_notification_service
+
+    service = notification_service or default_notification_service
+    dispatches: list[SimilarListingAlertDispatch] = []
+
+    for subscription in matching_listing_alert_subscriptions(property_obj):
+        with transaction.atomic():
+            dispatch = _get_or_create_retryable_dispatch(subscription=subscription, property_obj=property_obj)
+            if dispatch is None or dispatch.status in {
+                SimilarListingAlertDispatchStatus.PENDING,
+                SimilarListingAlertDispatchStatus.SENT,
+            }:
+                continue
+
+            notification = service.send_similar_listing_alert(
+                subscription=subscription,
+                property_obj=property_obj,
+            )
+            dispatch.notification = notification
+            dispatch.status = SimilarListingAlertDispatchStatus.PENDING
+            dispatch.attempt_count += 1
+            dispatch.last_attempted_at = timezone.now()
+            dispatch.save(update_fields=["notification", "status", "attempt_count", "last_attempted_at", "updated_at"])
+            transaction.on_commit(lambda dispatch_id=dispatch.pk: _finalize_similar_listing_alert_dispatch(dispatch_id))
+            dispatches.append(dispatch)
+
+    return dispatches
+
+
+def _get_or_create_retryable_dispatch(
+    *,
+    subscription: ListingAlertSubscription,
+    property_obj: Property,
+) -> Any | None:
+    from homefinder.apps.interactions.models import SimilarListingAlertDispatch, SimilarListingAlertDispatchStatus
+
+    try:
+        dispatch = SimilarListingAlertDispatch.objects.select_for_update().get(
+            subscription=subscription,
+            property=property_obj,
+        )
+    except SimilarListingAlertDispatch.DoesNotExist:
+        try:
+            dispatch = SimilarListingAlertDispatch.objects.create(
+                subscription=subscription,
+                property=property_obj,
+                status=SimilarListingAlertDispatchStatus.FAILED,
+            )
+        except IntegrityError:
+            return None
+
+    if dispatch.status in {SimilarListingAlertDispatchStatus.PENDING, SimilarListingAlertDispatchStatus.SENT}:
+        return dispatch
+
+    return dispatch
+
+
+def _finalize_similar_listing_alert_dispatch(dispatch_id: int) -> None:
+    from homefinder.apps.interactions.models import (
+        EmailNotificationStatus,
+        SimilarListingAlertDispatch,
+        SimilarListingAlertDispatchStatus,
+    )
+
+    dispatch = (
+        SimilarListingAlertDispatch.objects.select_related("notification")
+        .filter(pk=dispatch_id, status=SimilarListingAlertDispatchStatus.PENDING)
+        .first()
+    )
+    if dispatch is None or dispatch.notification_id is None:
+        return
+
+    dispatch.notification.refresh_from_db(fields=["status"])
+    if dispatch.notification.status == EmailNotificationStatus.SENT:
+        dispatch.status = SimilarListingAlertDispatchStatus.SENT
+    elif dispatch.notification.status == EmailNotificationStatus.FAILED:
+        dispatch.status = SimilarListingAlertDispatchStatus.FAILED
+    else:
+        return
+
+    dispatch.save(update_fields=["status", "updated_at"])
 
 
 def is_publicly_visible_property_status(property_status: str) -> bool:
@@ -206,6 +445,16 @@ def _parse_decimal(value: str | None) -> Decimal | None:
     return parsed
 
 
+def _coerce_decimal(value: Decimal | str | None, *, field_name: str) -> Decimal | None:
+    if value is None:
+        return None
+
+    parsed = _parse_decimal(str(value))
+    if parsed is None:
+        raise ValidationError({field_name: "Enter a valid non-negative price."})
+    return parsed
+
+
 def _parse_positive_int(value: str | None) -> int | None:
     if value is None:
         return None
@@ -223,6 +472,28 @@ def _parse_positive_int(value: str | None) -> int | None:
         return None
 
     return parsed
+
+
+def _coerce_positive_int(value: int | str | None, *, field_name: str) -> int | None:
+    if value is None:
+        return None
+
+    parsed = _parse_positive_int(str(value))
+    if parsed is None:
+        raise ValidationError({field_name: "Enter a valid positive integer."})
+    return parsed
+
+
+def _normalize_amenity_ids(amenity_ids: Iterable[int]) -> tuple[int, ...]:
+    normalized_ids: list[int] = []
+    seen_ids: set[int] = set()
+    for amenity_id in amenity_ids:
+        parsed = _coerce_positive_int(amenity_id, field_name="amenity_ids")
+        if parsed is None or parsed in seen_ids:
+            continue
+        seen_ids.add(parsed)
+        normalized_ids.append(parsed)
+    return tuple(normalized_ids)
 
 
 def _normalize_category(value: str | None) -> str | None:
