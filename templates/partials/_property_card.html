@@ -1,0 +1,23 @@
+<article class="property-card">
+    <div class="property-media">
+        {% if property.primary_image_url %}
+            <img src="{{ property.primary_image_url }}" alt="{{ property.title }}">
+        {% else %}
+            <div class="property-media-empty">No image available</div>
+        {% endif %}
+    </div>
+    <div class="property-content">
+        <div class="property-meta">
+            <span>{{ property.city }}{% if property.area %} / {{ property.area }}{% endif %}</span>
+            <span class="status-tag{% if property.availability.is_available %} status-available{% elif property.availability.is_unavailable %} status-unavailable{% endif %}">
+                {{ property.availability.label }}
+            </span>
+        </div>
+        <h3>{{ property.title }}</h3>
+        <p class="property-price">EUR {{ property.price }}</p>
+        <p class="property-facts">
+            {% if property.bedrooms %}{{ property.bedrooms }} bed{% if property.bedrooms != 1 %}s{% endif %}{% else %}Studio/Unknown beds{% endif %}
+            {% if property.bathrooms %} | {{ property.bathrooms }} bath{% if property.bathrooms != '1.0' %}s{% endif %}{% endif %}
+        </p>
+    </div>
+</article>

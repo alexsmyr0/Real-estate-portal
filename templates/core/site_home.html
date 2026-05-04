@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}HomeFinder Shell{% endblock %}
+
+{% block page_header %}
+    <section class="page-hero">
+        <p class="eyebrow">A-03 Foundation</p>
+        <h1>Shared Site Shell And Navigation</h1>
+        <p>
+            This page verifies the reusable browser shell, auth-aware navigation, and shared UI component patterns that future MVP pages can extend.
+        </p>
+        <div class="hero-actions">
+            <a href="{% url 'site-home' %}?flash=1" class="button button-primary">Show Flash Message</a>
+            <a href="{% url 'site-catalog' %}" class="button button-ghost">Open Catalog Shell</a>
+        </div>
+    </section>
+{% endblock %}
+
+{% block content %}
+    <section class="panel-grid">
+        <article class="panel">
+            <h2>Reusable Base Template</h2>
+            <p>
+                MVP pages can now inherit one base template that includes navigation, flash-message rendering, page spacing, and shared static assets.
+            </p>
+        </article>
+        <article class="panel">
+            <h2>Auth-Aware Navigation</h2>
+            <p>
+                The header switches guest vs authenticated states consistently from one partial instead of page-by-page duplication.
+            </p>
+        </article>
+        <article class="panel">
+            <h2>Shared Component Partials</h2>
+            <p>
+                Forms, cards, and empty states are extracted into includes so upcoming flows can compose them with predictable styling.
+            </p>
+        </article>
+    </section>
+{% endblock %}
