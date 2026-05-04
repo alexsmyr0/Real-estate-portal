@@ -108,6 +108,15 @@ class Settings:
     db_user: str
     db_password: str
     database_url: str
+    email_backend: str
+    default_from_email: str
+    email_host: str
+    email_port: int
+    email_host_user: str
+    email_host_password: str
+    email_use_tls: bool
+    email_use_ssl: bool
+    email_timeout: int
 
     @property
     def database_engine(self) -> str:
@@ -179,4 +188,15 @@ def load_settings(env_path: Path | None = None) -> Settings:
         db_user=db_user,
         db_password=db_password,
         database_url=database_url,
+        email_backend=_get_env("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
+        or "django.core.mail.backends.console.EmailBackend",
+        default_from_email=_get_env("DEFAULT_FROM_EMAIL", "HomeFinder <no-reply@homefinder.local>")
+        or "HomeFinder <no-reply@homefinder.local>",
+        email_host=_get_env("EMAIL_HOST", "") or "",
+        email_port=_get_int("EMAIL_PORT", 587),
+        email_host_user=_get_env("EMAIL_HOST_USER", "") or "",
+        email_host_password=_get_env("EMAIL_HOST_PASSWORD", "") or "",
+        email_use_tls=_get_bool("EMAIL_USE_TLS", False),
+        email_use_ssl=_get_bool("EMAIL_USE_SSL", False),
+        email_timeout=_get_int("EMAIL_TIMEOUT", 10),
     )

@@ -4,7 +4,9 @@ import io
 from contextlib import redirect_stdout
 from datetime import timedelta
 from decimal import Decimal
+from unittest.mock import patch
 
+from django.core import mail
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.test import TestCase, TransactionTestCase, override_settings
@@ -117,6 +119,60 @@ class EmailNotificationServiceTests(TestCase):
         self.assertIsNotNone(notification.sent_at)
         self.assertIn("Your HomeFinder viewing request", stdout.getvalue())
         self.assertIn("Central Apartment", stdout.getvalue())
+
+    @override_settings(
+        EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+        DEFAULT_FROM_EMAIL="HomeFinder <noreply@example.com>",
+    )
+    def test_configured_non_console_backend_uses_same_persistence_pipeline(self) -> None:
+        with self.captureOnCommitCallbacks(execute=True):
+            notification = EmailNotificationService().send(self._message())
+
+        notification.refresh_from_db()
+        self.assertEqual(notification.status, EmailNotificationStatus.SENT)
+        self.assertIsNotNone(notification.sent_at)
+        self.assertEqual(EmailNotification.objects.count(), 1)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].from_email, "HomeFinder <noreply@example.com>")
+        self.assertEqual(mail.outbox[0].to, ["buyer@example.com"])
+
+    @override_settings(
+        EMAIL_BACKEND="django.core.mail.backends.smtp.EmailBackend",
+        DEFAULT_FROM_EMAIL="HomeFinder <noreply@example.com>",
+        EMAIL_HOST="smtp.example.com",
+        EMAIL_PORT=587,
+        EMAIL_HOST_USER="smtp-user",
+        EMAIL_HOST_PASSWORD="smtp-secret",
+        EMAIL_USE_TLS=True,
+    )
+    def test_smtp_provider_backend_can_deliver_without_changing_service_flow(self) -> None:
+        with patch("django.core.mail.backends.smtp.EmailBackend.send_messages", return_value=1) as send_messages:
+            with self.captureOnCommitCallbacks(execute=True):
+                notification = EmailNotificationService().send(self._message())
+
+        notification.refresh_from_db()
+        self.assertEqual(notification.status, EmailNotificationStatus.SENT)
+        self.assertIsNotNone(notification.sent_at)
+        send_messages.assert_called_once()
+
+    @override_settings(
+        EMAIL_BACKEND="django.core.mail.backends.smtp.EmailBackend",
+        DEFAULT_FROM_EMAIL="HomeFinder <noreply@example.com>",
+        EMAIL_HOST="smtp.example.com",
+        EMAIL_PORT=587,
+        EMAIL_HOST_USER="smtp-user",
+        EMAIL_HOST_PASSWORD="smtp-secret",
+        EMAIL_USE_TLS=True,
+    )
+    def test_smtp_provider_zero_delivery_count_marks_notification_failed(self) -> None:
+        with patch("django.core.mail.backends.smtp.EmailBackend.send_messages", return_value=0):
+            with self.assertLogs("homefinder.apps.interactions.services", level="WARNING"):
+                with self.captureOnCommitCallbacks(execute=True):
+                    notification = EmailNotificationService().send(self._message())
+
+        notification.refresh_from_db()
+        self.assertEqual(notification.status, EmailNotificationStatus.FAILED)
+        self.assertIsNone(notification.sent_at)
 
     def test_shared_service_uses_delivery_adapter_boundary(self) -> None:
         adapter = RecordingDeliveryAdapter()
