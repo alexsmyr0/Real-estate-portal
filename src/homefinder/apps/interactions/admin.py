@@ -7,6 +7,7 @@ from .models import (
     Payment,
     PropertyInquiry,
     SearchHistory,
+    SimilarListingAlertDispatch,
     UserFavorite,
     ViewingRequest,
 )
@@ -143,5 +144,6 @@ admin.site.register(UserFavorite)
 admin.site.register(BookingRequest)
 admin.site.register(Payment)
 admin.site.register(EmailNotification)
+admin.site.register(SimilarListingAlertDispatch)
 admin.site.register(SearchHistory)
 admin.site.register(ActivityLog)

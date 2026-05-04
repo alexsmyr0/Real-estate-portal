@@ -200,6 +200,23 @@ class EmailNotificationService:
             )
         )
 
+    def send_similar_listing_alert(self, *, subscription: models.Model, property_obj: models.Model) -> EmailNotification:
+        return self.send(
+            EmailNotificationMessage(
+                purpose=EmailNotificationPurpose.SIMILAR_LISTING_ALERT,
+                user=subscription.user,
+                recipient_email=subscription.user.email,
+                subject="A similar HomeFinder listing is available",
+                body=(
+                    f"A listing similar to your saved alert is now available: {property_obj.title} "
+                    f"in {property_obj.city}.\n\n"
+                    f"Price: {property_obj.price}\n"
+                    f"Bedrooms: {property_obj.bedrooms if property_obj.bedrooms is not None else 'Not specified'}\n\n"
+                    "Visit HomeFinder to review the listing details."
+                ),
+            )
+        )
+
 
 notification_service = EmailNotificationService()
 
@@ -214,3 +231,7 @@ def send_inquiry_confirmation_email(inquiry: PropertyInquiry) -> EmailNotificati
 
 def send_viewing_confirmation_email(viewing_request: ViewingRequest) -> EmailNotification:
     return notification_service.send_viewing_confirmation(viewing_request)
+
+
+def send_similar_listing_alert_email(*, subscription: models.Model, property_obj: models.Model) -> EmailNotification:
+    return notification_service.send_similar_listing_alert(subscription=subscription, property_obj=property_obj)
