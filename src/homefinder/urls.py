@@ -6,6 +6,7 @@ from django.urls import include, path
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("", include("homefinder.apps.core.urls")),
+    path("", include("homefinder.apps.users.urls")),
     path("", include("homefinder.apps.properties.urls")),
 ]
 
