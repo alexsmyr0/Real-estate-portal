@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import hashlib
+import hmac
 import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -12,6 +12,7 @@ from django.contrib.sessions.backends.base import SessionBase
 from django.contrib.sessions.models import Session
 from django.db import transaction
 from django.http import HttpRequest
+from django.utils.crypto import salted_hmac
 from django.utils import timezone
 
 from homefinder.apps.interactions.services import log_auth_activity, send_login_2fa_email
@@ -24,6 +25,9 @@ PENDING_LOGIN_TOKEN_ID_SESSION_KEY = "pending_login_token_id"
 LOGIN_2FA_TOKEN_LENGTH = 6
 LOGIN_2FA_TOKEN_TTL = timedelta(minutes=10)
 LOGIN_2FA_MAX_ATTEMPTS = 5
+
+LOGIN_2FA_TOKEN_HASH_SALT = "homefinder.apps.users.login_2fa_token"
+SESSION_TOKEN_HASH_SALT = "homefinder.apps.users.session_token"
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,7 +72,7 @@ def start_pending_login(*, request: HttpRequest, user: User) -> LoginStartResult
     token_expires_at = timezone.now() + LOGIN_2FA_TOKEN_TTL
     token_record = LoginTwoFactorToken.objects.create(
         user=user,
-        token_hash=hash_secret_value(token_value),
+        token_hash=hash_login_2fa_token(token_value),
         expires_at=token_expires_at,
     )
 
@@ -122,14 +126,15 @@ def verify_pending_login(*, request: HttpRequest, token: str) -> TwoFactorVerifi
         elif token_record.attempts_used >= LOGIN_2FA_MAX_ATTEMPTS:
             should_clear_pending = True
             verification_result = TwoFactorVerificationResult(success=False, error_code="max_attempts_exceeded")
-        elif hash_secret_value(token) != token_record.token_hash:
+        elif not verify_login_2fa_token(token=token, token_hash=token_record.token_hash):
             token_record.attempts_used += 1
             token_record.save(update_fields=["attempts_used"])
             attempts_remaining = max(0, LOGIN_2FA_MAX_ATTEMPTS - token_record.attempts_used)
             should_clear_pending = attempts_remaining == 0
+            error_code = "max_attempts_exceeded" if attempts_remaining == 0 else "token_invalid"
             verification_result = TwoFactorVerificationResult(
                 success=False,
-                error_code="token_invalid",
+                error_code=error_code,
                 attempts_remaining=attempts_remaining,
             )
         else:
@@ -164,12 +169,6 @@ def verify_pending_login(*, request: HttpRequest, token: str) -> TwoFactorVerifi
 
 
 def finalize_authenticated_session(*, request: HttpRequest, user: User) -> ActiveSession:
-    previous_session_hash = (
-        ActiveSession.objects.filter(user=user).values_list("session_token_hash", flat=True).first()
-    )
-    if previous_session_hash:
-        invalidate_session_by_hash(previous_session_hash)
-
     auth_login(request, user)
     if request.session.session_key is None:
         request.session.save()
@@ -178,14 +177,23 @@ def finalize_authenticated_session(*, request: HttpRequest, user: User) -> Activ
     if not new_session_key:
         raise ValueError("Unable to establish an authenticated session key.")
 
+    new_session_hash = hash_session_token(new_session_key)
     session_expires_at = timezone.now() + timedelta(seconds=settings.SESSION_COOKIE_AGE)
-    active_session, _created = ActiveSession.objects.update_or_create(
-        user=user,
-        defaults={
-            "session_token_hash": hash_secret_value(new_session_key),
-            "expires_at": session_expires_at,
-        },
-    )
+    with transaction.atomic():
+        locked_user = User.objects.select_for_update().get(pk=user.pk)
+        previous_session_hash = (
+            ActiveSession.objects.filter(user_id=locked_user.pk).values_list("session_token_hash", flat=True).first()
+        )
+        if previous_session_hash and not hmac.compare_digest(previous_session_hash, new_session_hash):
+            invalidate_session_by_hash(previous_session_hash)
+
+        active_session, _created = ActiveSession.objects.update_or_create(
+            user=locked_user,
+            defaults={
+                "session_token_hash": new_session_hash,
+                "expires_at": session_expires_at,
+            },
+        )
     return active_session
 
 
@@ -195,7 +203,7 @@ def logout_authenticated_user(request: HttpRequest) -> bool:
 
     user = request.user
     session_key = request.session.session_key
-    session_hash = hash_secret_value(session_key) if session_key else None
+    session_hash = hash_session_token(session_key) if session_key else None
 
     auth_logout(request)
 
@@ -251,14 +259,28 @@ def generate_login_2fa_token_value() -> str:
     return f"{secrets.randbelow(10**LOGIN_2FA_TOKEN_LENGTH):0{LOGIN_2FA_TOKEN_LENGTH}d}"
 
 
-def hash_secret_value(raw_value: str) -> str:
-    return hashlib.sha256(raw_value.encode("utf-8")).hexdigest()
+def hash_login_2fa_token(token: str) -> str:
+    return _keyed_secret_hash(token, salt=LOGIN_2FA_TOKEN_HASH_SALT)
+
+
+def verify_login_2fa_token(*, token: str, token_hash: str) -> bool:
+    candidate_hash = hash_login_2fa_token(token)
+    return hmac.compare_digest(candidate_hash, token_hash)
+
+
+def hash_session_token(session_key: str) -> str:
+    return _keyed_secret_hash(session_key, salt=SESSION_TOKEN_HASH_SALT)
+
+
+def _keyed_secret_hash(raw_value: str, *, salt: str) -> str:
+    return salted_hmac(salt, raw_value, algorithm="sha256").hexdigest()
 
 
 def invalidate_session_by_hash(session_token_hash: str) -> bool:
     now = timezone.now()
     for session in Session.objects.filter(expire_date__gte=now).only("session_key").iterator():
-        if hash_secret_value(session.session_key) == session_token_hash:
+        candidate_hash = hash_session_token(session.session_key)
+        if hmac.compare_digest(candidate_hash, session_token_hash):
             session.delete()
             return True
     return False
