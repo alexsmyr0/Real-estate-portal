@@ -1,17 +1,17 @@
 {% extends "base.html" %}
+{% url "home" as home_url %}
 
 {% block title %}HomeFinder Shell{% endblock %}
 
 {% block page_header %}
     <section class="page-hero">
-        <p class="eyebrow">A-03 Foundation</p>
-        <h1>Shared Site Shell And Navigation</h1>
+        <p class="eyebrow">HomeFinder</p>
+        <h1>Find Spaces That Fit Real Life</h1>
         <p>
-            This page verifies the reusable browser shell, auth-aware navigation, and shared UI component patterns that future MVP pages can extend.
+            This shared shell provides the base layout, navigation, flash messages, and reusable UI primitives for all upcoming user-facing pages.
         </p>
         <div class="hero-actions">
-            <a href="{% url 'site-home' %}?flash=1" class="button button-primary">Show Flash Message</a>
-            <a href="{% url 'site-catalog' %}" class="button button-ghost">Open Catalog Shell</a>
+            <a href="{% url 'home' %}?flash=1" class="button button-primary">Show status message</a>
         </div>
     </section>
 {% endblock %}
@@ -33,8 +33,24 @@
         <article class="panel">
             <h2>Shared Component Partials</h2>
             <p>
-                Forms, cards, and empty states are extracted into includes so upcoming flows can compose them with predictable styling.
+                Forms, cards, and empty states are extracted into includes so upcoming flows can compose them without page-specific duplication.
             </p>
+        </article>
+    </section>
+
+    <section class="panel">
+        <h2>Form Layout Primitive</h2>
+        {% include "partials/_form_layout.html" with form=shell_form form_method="get" form_action=home_url submit_label="Save Preferences" %}
+    </section>
+
+    <section class="panel-grid">
+        <article class="panel">
+            <h2>Property Card Primitive</h2>
+            {% include "partials/_property_card.html" with property=demo_property %}
+        </article>
+        <article class="panel">
+            <h2>Empty State Primitive</h2>
+            {% include "partials/_empty_state.html" with title="No favorites yet" message="Saved listings will appear here once favorites is implemented." %}
         </article>
     </section>
 {% endblock %}

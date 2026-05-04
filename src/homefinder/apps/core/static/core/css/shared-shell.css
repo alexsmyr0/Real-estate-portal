@@ -89,6 +89,12 @@ body {
     background: var(--ink-100);
 }
 
+.nav-link-disabled {
+    color: var(--ink-500);
+    background: #f0f4fb;
+    cursor: not-allowed;
+}
+
 .nav-auth {
     display: flex;
     align-items: center;
@@ -226,6 +232,11 @@ h1 {
     padding: 0.58rem 0.65rem;
     color: var(--ink-950);
     background: var(--white);
+}
+
+textarea.form-control {
+    resize: vertical;
+    min-height: 6.5rem;
 }
 
 .form-control:focus {
@@ -448,5 +459,34 @@ h1 {
     .property-grid,
     .form-grid {
         grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 375px) {
+    .site-shell {
+        padding-inline: 0.45rem;
+    }
+
+    .site-header {
+        gap: 0.65rem;
+        padding: 0.75rem;
+    }
+
+    .brand {
+        font-size: 0.95rem;
+    }
+
+    .site-nav,
+    .nav-auth {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+
+    .nav-auth > * {
+        width: 100%;
+    }
+
+    .button {
+        width: 100%;
     }
 }

@@ -1,13 +1,13 @@
-{% url "site-home" as site_home_url %}
-{% url "site-catalog" as site_catalog_url %}
+{% url "home" as home_url %}
 <header class="site-header">
-    <a class="brand" href="{{ site_home_url }}">
+    <a class="brand" href="{{ home_url }}">
         <span class="brand-mark">HF</span>
         <span>HomeFinder</span>
     </a>
     <nav class="site-nav" aria-label="Primary">
-        <a class="nav-link{% if request.path == site_home_url %} is-active{% endif %}" href="{{ site_home_url }}">Shell Home</a>
-        <a class="nav-link{% if request.path == site_catalog_url %} is-active{% endif %}" href="{{ site_catalog_url }}">Catalog Shell</a>
+        <a class="nav-link{% if request.path == home_url %} is-active{% endif %}" href="{{ home_url }}">Home</a>
+        <span class="nav-link nav-link-disabled" aria-disabled="true">Browse Listings</span>
+        <span class="nav-link nav-link-disabled" aria-disabled="true">My Activity</span>
     </nav>
     <div class="nav-auth">
         {% if request.user.is_authenticated %}
@@ -18,7 +18,7 @@
             </form>
         {% else %}
             <span class="auth-chip auth-chip-guest">Guest</span>
-            <span class="button button-disabled" aria-disabled="true">Sign In (A-04)</span>
+            <span class="button button-disabled" aria-disabled="true">Sign in</span>
         {% endif %}
     </div>
 </header>

@@ -2,45 +2,37 @@ from __future__ import annotations
 
 from django import forms
 
-from homefinder.apps.properties.models import PropertyCategory
 
-
-class CatalogShellFilterForm(forms.Form):
-    location = forms.CharField(
-        label="Location",
+class ShellContactPreferenceForm(forms.Form):
+    full_name = forms.CharField(
+        label="Full name",
         max_length=120,
-        required=False,
+        required=True,
     )
-    category = forms.ChoiceField(
-        label="Category",
-        required=False,
-        choices=[("", "Any category"), *PropertyCategory.choices],
+    email = forms.EmailField(
+        label="Email",
+        required=True,
     )
-    min_price = forms.DecimalField(
-        label="Minimum price",
-        required=False,
-        min_value=0,
-        max_digits=12,
-        decimal_places=2,
+    intent = forms.ChoiceField(
+        label="Interested in",
+        required=True,
+        choices=(
+            ("BUY", "Buying"),
+            ("RENT", "Renting"),
+            ("COMMERCIAL", "Commercial"),
+        ),
     )
-    max_price = forms.DecimalField(
-        label="Maximum price",
+    notes = forms.CharField(
+        label="Notes",
         required=False,
-        min_value=0,
-        max_digits=12,
-        decimal_places=2,
-    )
-    bedrooms = forms.IntegerField(
-        label="Minimum bedrooms",
-        required=False,
-        min_value=1,
+        widget=forms.Textarea(attrs={"rows": 3}),
     )
 
     def __init__(self, *args: object, **kwargs: object) -> None:
         super().__init__(*args, **kwargs)
-        self.fields["location"].widget.attrs.update({"placeholder": "City or area"})
-        self.fields["min_price"].widget.attrs.update({"placeholder": "e.g. 250000"})
-        self.fields["max_price"].widget.attrs.update({"placeholder": "e.g. 600000"})
+        self.fields["full_name"].widget.attrs.update({"placeholder": "Alex Jordan"})
+        self.fields["email"].widget.attrs.update({"placeholder": "alex@example.com"})
+        self.fields["notes"].widget.attrs.update({"placeholder": "Preferred area, budget, and timeline..."})
 
         for field in self.fields.values():
             existing_css_class = field.widget.attrs.get("class", "")
