@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 
 from homefinder.apps.properties.models import Property, PropertyCategory
@@ -24,6 +25,20 @@ class BookingRequestStatus(models.TextChoices):
     APPROVED = "APPROVED", "Approved"
     REJECTED = "REJECTED", "Rejected"
     CANCELLED = "CANCELLED", "Cancelled"
+
+
+ALLOWED_BOOKING_STATUS_TRANSITIONS: dict[str, set[str]] = {
+    BookingRequestStatus.PENDING: {
+        BookingRequestStatus.APPROVED,
+        BookingRequestStatus.REJECTED,
+        BookingRequestStatus.CANCELLED,
+    },
+    BookingRequestStatus.APPROVED: {
+        BookingRequestStatus.CANCELLED,
+    },
+    BookingRequestStatus.REJECTED: set(),
+    BookingRequestStatus.CANCELLED: set(),
+}
 
 
 class PaymentPurpose(models.TextChoices):
@@ -133,9 +148,67 @@ class BookingRequest(models.Model):
     class Meta:
         db_table = "booking_requests"
         ordering = ["-created_at"]
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(start_date__isnull=False),
+                name="ck_booking_start_date_required",
+            ),
+            models.CheckConstraint(
+                check=models.Q(end_date__isnull=False),
+                name="ck_booking_end_date_required",
+            ),
+            models.CheckConstraint(
+                check=models.Q(start_date__isnull=True)
+                | models.Q(end_date__isnull=True)
+                | models.Q(end_date__gt=models.F("start_date")),
+                name="ck_booking_valid_date_range",
+            ),
+            models.CheckConstraint(
+                check=models.Q(status__in=BookingRequestStatus.values),
+                name="ck_booking_status_valid",
+            ),
+        ]
 
     def __str__(self) -> str:
         return f"BookingRequest<{self.pk}>"
+
+    def clean(self) -> None:
+        super().clean()
+
+        errors: dict[str, str] = {}
+
+        if self.property_id is not None and self.property.category != PropertyCategory.RENTAL:
+            errors["property"] = "Booking requests are only supported for rental properties."
+
+        if self.start_date is None:
+            errors["start_date"] = "Booking start date is required."
+        if self.end_date is None:
+            errors["end_date"] = "Booking end date is required."
+        if self.start_date is not None and self.end_date is not None and self.end_date <= self.start_date:
+            errors["end_date"] = "Booking end date must be after the start date."
+
+        if self.user_id is not None and not (self.user.email or "").strip():
+            errors["user"] = "Booking requests require a requester with an email address."
+
+        if self.pk is None and self.status != BookingRequestStatus.PENDING:
+            errors["status"] = "New booking requests must start as pending."
+        elif self.pk is not None:
+            previous_status = (
+                type(self).objects.filter(pk=self.pk).values_list("status", flat=True).first()
+            )
+            if previous_status is not None and self.status != previous_status:
+                allowed_statuses = ALLOWED_BOOKING_STATUS_TRANSITIONS.get(previous_status, set())
+                if self.status not in allowed_statuses:
+                    errors["status"] = (
+                        f"Booking requests cannot move from {previous_status} to {self.status}."
+                    )
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args: object, **kwargs: object) -> None:
+        self.full_clean()
+        super().save(*args, **kwargs)
 
 
 class Payment(models.Model):
