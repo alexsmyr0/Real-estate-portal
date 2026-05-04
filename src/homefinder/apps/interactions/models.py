@@ -58,6 +58,12 @@ class EmailNotificationStatus(models.TextChoices):
     FAILED = "FAILED", "Failed"
 
 
+class SimilarListingAlertDispatchStatus(models.TextChoices):
+    PENDING = "PENDING", "Pending"
+    SENT = "SENT", "Sent"
+    FAILED = "FAILED", "Failed"
+
+
 class ActivityScope(models.TextChoices):
     AUTH = "AUTH", "Auth"
     SEARCH = "SEARCH", "Search"
@@ -175,6 +181,52 @@ class EmailNotification(models.Model):
 
     def __str__(self) -> str:
         return f"{self.purpose}:{self.recipient_email}"
+
+
+class SimilarListingAlertDispatch(models.Model):
+    subscription = models.ForeignKey(
+        "properties.ListingAlertSubscription",
+        on_delete=models.CASCADE,
+        related_name="alert_dispatches",
+    )
+    property = models.ForeignKey(
+        Property,
+        on_delete=models.CASCADE,
+        related_name="similar_listing_alert_dispatches",
+    )
+    notification = models.OneToOneField(
+        EmailNotification,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="similar_listing_alert_dispatch",
+    )
+    status = models.CharField(
+        max_length=16,
+        choices=SimilarListingAlertDispatchStatus.choices,
+        default=SimilarListingAlertDispatchStatus.PENDING,
+    )
+    attempt_count = models.PositiveIntegerField(default=0)
+    last_attempted_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "similar_listing_alert_dispatches"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["subscription", "property", "status"], name="idx_similar_alert_pair_status"),
+            models.Index(fields=["status", "updated_at"], name="idx_sim_alert_status_updated"),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["subscription", "property"],
+                name="uq_similar_listing_alert_dispatch",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"SimilarListingAlertDispatch<{self.subscription_id}:{self.property_id}>"
 
 
 class SearchHistory(models.Model):

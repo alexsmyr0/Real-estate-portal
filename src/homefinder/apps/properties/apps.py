@@ -6,3 +6,6 @@ class PropertiesConfig(AppConfig):
     name = "homefinder.apps.properties"
     label = "properties"
     verbose_name = "Properties"
+
+    def ready(self) -> None:
+        from . import signals  # noqa: F401
