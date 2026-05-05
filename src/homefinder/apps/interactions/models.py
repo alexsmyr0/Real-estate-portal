@@ -3,6 +3,7 @@ from __future__ import annotations
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
 
 from homefinder.apps.properties.models import Property, PropertyCategory
 
@@ -182,6 +183,8 @@ class BookingRequest(models.Model):
 
         if self.start_date is None:
             errors["start_date"] = "Booking start date is required."
+        elif self.start_date < timezone.localdate():
+            errors["start_date"] = "Booking start date must be today or in the future."
         if self.end_date is None:
             errors["end_date"] = "Booking end date is required."
         if self.start_date is not None and self.end_date is not None and self.end_date <= self.start_date:

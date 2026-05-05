@@ -259,7 +259,6 @@ def create_booking_request(
         note=note,
         status=BookingRequestStatus.PENDING,
     )
-    booking_request.full_clean()
 
     with transaction.atomic():
         booking_request.save()
