@@ -1,0 +1,20 @@
+<form method="{{ form_method|default:'post' }}" action="{{ form_action|default:'' }}" class="form-shell">
+    {% if form_method|default:"post" != "get" %}
+        {% csrf_token %}
+    {% endif %}
+    {% if form.non_field_errors %}
+        <div class="form-summary-errors">
+            {% for error in form.non_field_errors %}
+                <p>{{ error }}</p>
+            {% endfor %}
+        </div>
+    {% endif %}
+    <div class="form-grid">
+        {% for field in form %}
+            {% include "partials/_form_field.html" with field=field %}
+        {% endfor %}
+    </div>
+    {% if submit_label %}
+        <button type="submit" class="button button-primary">{{ submit_label }}</button>
+    {% endif %}
+</form>

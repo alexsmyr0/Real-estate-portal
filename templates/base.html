@@ -1,0 +1,21 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}HomeFinder{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'core/css/shared-shell.css' %}">
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <div class="site-shell">
+        {% include "partials/_navigation.html" %}
+        <main id="main-content" class="site-main">
+            {% include "partials/_flash_messages.html" %}
+            {% block page_header %}{% endblock %}
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+</body>
+</html>
