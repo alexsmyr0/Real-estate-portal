@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% url "auth-register" as register_url %}
+{% url "auth-login" as login_url %}
+
+{% block title %}HomeFinder | Create Account{% endblock %}
+
+{% block page_header %}
+    <section class="page-hero auth-hero">
+        <p class="eyebrow">Account Access</p>
+        <h1>Create Account</h1>
+        <p>Start with your contact details, then sign in with the two-step flow.</p>
+    </section>
+{% endblock %}
+
+{% block content %}
+    <section class="auth-layout">
+        <div class="panel auth-panel">
+            <div class="auth-panel-header">
+                <h2>Registration</h2>
+                <a class="button button-ghost" href="{{ login_url }}">Sign in</a>
+            </div>
+            {% include "partials/_form_layout.html" with form=form form_action=register_url submit_label="Create account" loading_label="Creating..." disable_on_submit=1 %}
+            <p class="auth-switch">Already have an account? <a href="{{ login_url }}">Sign in instead</a>.</p>
+        </div>
+        <aside class="auth-context">
+            <p class="eyebrow">Security</p>
+            <h2>Two-Step Login</h2>
+            <p>Passwords start the session request. A 6-digit email code finishes it.</p>
+        </aside>
+    </section>
+{% endblock %}

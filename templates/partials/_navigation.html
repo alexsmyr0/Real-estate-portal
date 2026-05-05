@@ -1,5 +1,7 @@
 {% url "home" as home_url %}
 {% url "site-catalog" as site_catalog_url %}
+{% url "auth-login" as auth_login_url %}
+{% url "auth-register" as auth_register_url %}
 <header class="site-header">
     <a class="brand" href="{{ home_url }}">
         <span class="brand-mark">HF</span>
@@ -19,7 +21,10 @@
             </form>
         {% else %}
             <span class="auth-chip auth-chip-guest">Guest</span>
-            <span class="button button-disabled" aria-disabled="true">Sign in</span>
+            <div class="nav-auth-actions">
+                <a class="button button-ghost{% if request.path == auth_login_url %} is-active{% endif %}" href="{{ auth_login_url }}">Sign in</a>
+                <a class="button button-primary{% if request.path == auth_register_url %} is-active{% endif %}" href="{{ auth_register_url }}">Create account</a>
+            </div>
         {% endif %}
     </div>
 </header>

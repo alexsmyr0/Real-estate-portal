@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% url "auth-2fa-verify" as verify_url %}
+
+{% block title %}HomeFinder | 2FA Verification{% endblock %}
+
+{% block page_header %}
+    <section class="page-hero auth-hero">
+        <p class="eyebrow">Account Access</p>
+        <h1>2FA Verification</h1>
+        <p>{% if pending_user_email %}Code sent to {{ pending_user_email }}.{% else %}Enter the 6-digit code to finish signing in.{% endif %}</p>
+    </section>
+{% endblock %}
+
+{% block content %}
+    <section class="auth-layout auth-layout-single">
+        <div class="panel auth-panel">
+            <div class="auth-panel-header">
+                <h2>Verification Code</h2>
+            </div>
+            {% include "partials/_form_layout.html" with form=form form_action=verify_url submit_label="Verify and sign in" loading_label="Verifying..." disable_on_submit=1 %}
+        </div>
+    </section>
+{% endblock %}

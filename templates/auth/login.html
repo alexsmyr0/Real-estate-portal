@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% url "auth-login" as login_url %}
+{% url "auth-register" as register_url %}
+
+{% block title %}HomeFinder | Sign In{% endblock %}
+
+{% block page_header %}
+    <section class="page-hero auth-hero">
+        <p class="eyebrow">Account Access</p>
+        <h1>Sign In</h1>
+        <p>Use your password first. The verification code comes next.</p>
+    </section>
+{% endblock %}
+
+{% block content %}
+    <section class="auth-layout">
+        <div class="panel auth-panel">
+            <div class="auth-panel-header">
+                <h2>Login</h2>
+                <a class="button button-ghost" href="{{ register_url }}">Create account</a>
+            </div>
+            {% include "partials/_form_layout.html" with form=form form_action=login_url submit_label="Continue" loading_label="Checking..." disable_on_submit=1 %}
+            <p class="auth-switch">New to HomeFinder? <a href="{{ register_url }}">Create an account</a>.</p>
+        </div>
+        <aside class="auth-context">
+            <p class="eyebrow">Session</p>
+            <h2>Password Then Code</h2>
+            <p>Signing in only completes after the 2FA verification succeeds.</p>
+        </aside>
+    </section>
+{% endblock %}

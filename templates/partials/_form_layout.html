@@ -1,4 +1,9 @@
-<form method="{{ form_method|default:'post' }}" action="{{ form_action|default:'' }}" class="form-shell">
+<form
+    method="{{ form_method|default:'post' }}"
+    action="{{ form_action|default:'' }}"
+    class="form-shell{% if form_class %} {{ form_class }}{% endif %}"
+    {% if disable_on_submit %}data-disable-on-submit{% endif %}
+>
     {% if form_method|default:"post" != "get" %}
         {% csrf_token %}
     {% endif %}
@@ -15,6 +20,12 @@
         {% endfor %}
     </div>
     {% if submit_label %}
-        <button type="submit" class="button button-primary">{{ submit_label }}</button>
+        <button
+            type="submit"
+            class="button button-primary"
+            {% if loading_label %}data-loading-label="{{ loading_label }}"{% endif %}
+        >
+            {{ submit_label }}
+        </button>
     {% endif %}
 </form>

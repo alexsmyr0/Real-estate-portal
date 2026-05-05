@@ -17,5 +17,20 @@
             {% block content %}{% endblock %}
         </main>
     </div>
+    <script>
+        document.addEventListener("submit", function (event) {
+            const form = event.target;
+            if (!form.matches("[data-disable-on-submit]")) {
+                return;
+            }
+            const button = event.submitter || form.querySelector("button[type='submit']");
+            if (!button) {
+                return;
+            }
+            button.disabled = true;
+            button.textContent = button.dataset.loadingLabel || "Working...";
+        });
+    </script>
+    {% block extra_scripts %}{% endblock %}
 </body>
 </html>
