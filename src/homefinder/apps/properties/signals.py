@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import Any
 
 from django.db import transaction
-from django.db.models.signals import m2m_changed, post_save, pre_save
+from django.db.models.signals import m2m_changed, post_save, pre_delete, pre_save
 from django.dispatch import receiver
 
 from .models import ListingAlertSubscription, Property, PropertyStatus
@@ -39,6 +39,15 @@ def dispatch_alerts_for_available_listing(
 
     if _should_schedule_after_save(instance=instance, created=created, current_state=current_state):
         _schedule_similar_listing_alert_dispatch(instance)
+
+
+@receiver(pre_delete, sender=Property)
+def deactivate_source_property_alerts_before_delete(
+    sender: type[Property],
+    instance: Property,
+    **kwargs: object,
+) -> None:
+    _deactivate_source_property_subscriptions(instance.pk)
 
 
 @receiver(m2m_changed, sender=Property.amenities.through)

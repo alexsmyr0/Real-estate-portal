@@ -404,6 +404,38 @@ class SimilarListingAlertTests(TestCase):
         self.assertEqual(EmailNotification.objects.count(), 0)
         self.assertEqual(SimilarListingAlertDispatch.objects.count(), 0)
 
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_deleting_source_property_deactivates_subscription_before_set_null(self) -> None:
+        subscription = self._subscription(amenity_ids=[])
+
+        with patch("homefinder.apps.properties.signals.dispatch_similar_listing_alerts") as dispatcher:
+            with self.captureOnCommitCallbacks(execute=True):
+                self.source_property.delete()
+
+        subscription.refresh_from_db()
+        self.assertFalse(subscription.is_active)
+        self.assertIsNone(subscription.source_property_id)
+        dispatcher.assert_not_called()
+        self.assertEqual(EmailNotification.objects.count(), 0)
+        self.assertEqual(SimilarListingAlertDispatch.objects.count(), 0)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_deleting_source_property_with_inactive_subscription_keeps_it_inactive_and_set_null(self) -> None:
+        subscription = ListingAlertSubscription.objects.create(
+            user=self.user,
+            source_property=self.source_property,
+            is_active=False,
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            self.source_property.delete()
+
+        subscription.refresh_from_db()
+        self.assertFalse(subscription.is_active)
+        self.assertIsNone(subscription.source_property_id)
+        self.assertEqual(EmailNotification.objects.count(), 0)
+        self.assertEqual(SimilarListingAlertDispatch.objects.count(), 0)
+
     def test_unrelated_update_to_available_listing_does_not_schedule_alert_dispatch(self) -> None:
         listing = self._property(title="Already Available Listing", status=PropertyStatus.AVAILABLE)
 
