@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from datetime import timedelta
 from unittest.mock import patch
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "homefinder.settings")
@@ -10,6 +11,7 @@ import django
 django.setup()
 
 from django.test import Client, TestCase, override_settings
+from django.utils import timezone
 
 from homefinder.apps.users.models import ActiveSession, LoginTwoFactorToken, User
 from homefinder.apps.users.services import (
@@ -51,6 +53,22 @@ class AuthPageTests(TestCase):
         self.assertContains(response, "Step 2 of 2")
         self.assertContains(response, 'data-loading-label="Verifying code..."')
 
+    def test_authenticated_user_get_requests_redirect_to_home(self) -> None:
+        user = self._create_user()
+        self.client.force_login(user)
+
+        for path in ("/register/", "/login/", "/login/2fa/"):
+            with self.subTest(path=path):
+                response = self.client.get(path)
+                self.assertRedirects(response, "/")
+
+    def test_verify_2fa_page_requires_pending_login_state(self) -> None:
+        response = self.client.get("/login/2fa/")
+
+        self.assertRedirects(response, "/login/")
+        follow_response = self.client.get("/login/2fa/", follow=True)
+        self.assertContains(follow_response, "Start the login flow before entering a 2FA code.")
+
     def test_registration_page_shows_field_validation_feedback(self) -> None:
         existing_user = self._create_user()
 
@@ -67,6 +85,20 @@ class AuthPageTests(TestCase):
         self.assertContains(response, "A user with this email already exists.")
         self.assertEqual(User.objects.filter(email=existing_user.email).count(), 1)
 
+    def test_registration_page_rejects_weak_password(self) -> None:
+        response = self.client.post(
+            "/register/",
+            {
+                "email": "weak-password@example.com",
+                "password": "short",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Please correct the highlighted fields and try again.")
+        self.assertContains(response, "This password is too short.")
+        self.assertFalse(User.objects.filter(email="weak-password@example.com").exists())
+
     def test_login_page_shows_clear_feedback_for_invalid_credentials(self) -> None:
         user = self._create_user()
 
@@ -79,10 +111,22 @@ class AuthPageTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Invalid email or password.")
+        self.assertContains(response, "Invalid email or password.", count=1)
         self.assertFalse(LoginTwoFactorToken.objects.filter(user=user).exists())
         self.assertIsNone(self.client.session.get(PENDING_LOGIN_USER_ID_SESSION_KEY))
         self.assertIsNone(self.client.session.get(PENDING_LOGIN_TOKEN_ID_SESSION_KEY))
+
+    def test_verify_2fa_expired_token_redirects_to_login_with_flash_message(self) -> None:
+        user = self._create_user()
+        self._start_login(token="123456", user=user)
+        token_record = LoginTwoFactorToken.objects.get(user=user)
+        token_record.expires_at = timezone.now() - timedelta(seconds=1)
+        token_record.save(update_fields=["expires_at"])
+
+        response = self.client.post("/login/2fa/", {"token": "123456"}, follow=True)
+
+        self.assertRedirects(response, "/login/")
+        self.assertContains(response, "This 2FA token has expired. Start the login flow again.")
 
     def test_2fa_page_shows_attempts_remaining_for_invalid_token(self) -> None:
         user = self._create_user()

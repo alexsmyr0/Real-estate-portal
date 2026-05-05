@@ -74,7 +74,6 @@ def login_page(request: HttpRequest) -> HttpResponse:
         if user is None or not user.is_active:
             log_auth_activity(action="login_failed_credentials", details={"email": email})
             form.add_error(None, "Invalid email or password.")
-            messages.error(request, "Invalid email or password.")
             return _render_login_page(request=request, form=form)
 
         start_pending_login(request=request, user=user)

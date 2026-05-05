@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from django import forms
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -22,7 +24,7 @@ class RegistrationForm(StyledAuthFormMixin, forms.Form):
     full_name = forms.CharField(max_length=150, required=False, label="Full name")
     phone = forms.CharField(max_length=30, required=False, label="Phone")
 
-    def __init__(self, *args: object, **kwargs: object) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._apply_control_classes()
         self.fields["email"].widget.attrs.update({"placeholder": "you@example.com", "autocomplete": "email"})
@@ -57,7 +59,7 @@ class LoginForm(StyledAuthFormMixin, forms.Form):
     email = forms.EmailField(max_length=254, label="Email address")
     password = forms.CharField(widget=forms.PasswordInput, strip=False, label="Password")
 
-    def __init__(self, *args: object, **kwargs: object) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._apply_control_classes()
         self.fields["email"].widget.attrs.update({"placeholder": "you@example.com", "autocomplete": "email"})
@@ -79,7 +81,7 @@ class TwoFactorVerificationForm(StyledAuthFormMixin, forms.Form):
         help_text="Enter the 6-digit code sent to your email.",
     )
 
-    def __init__(self, *args: object, **kwargs: object) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._apply_control_classes()
         self.fields["token"].widget.attrs.update(
