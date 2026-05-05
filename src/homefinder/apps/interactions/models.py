@@ -55,9 +55,21 @@ class PaymentMethod(models.TextChoices):
 
 class PaymentStatus(models.TextChoices):
     PENDING = "PENDING", "Pending"
-    PAID = "PAID", "Paid"
+    COMPLETED = "COMPLETED", "Completed"
     FAILED = "FAILED", "Failed"
-    REFUNDED = "REFUNDED", "Refunded"
+    CANCELLED = "CANCELLED", "Cancelled"
+
+
+ALLOWED_PAYMENT_STATUS_TRANSITIONS: dict[str, set[str]] = {
+    PaymentStatus.PENDING: {
+        PaymentStatus.COMPLETED,
+        PaymentStatus.FAILED,
+        PaymentStatus.CANCELLED,
+    },
+    PaymentStatus.COMPLETED: set(),
+    PaymentStatus.FAILED: set(),
+    PaymentStatus.CANCELLED: set(),
+}
 
 
 class EmailNotificationPurpose(models.TextChoices):
@@ -214,11 +226,37 @@ class BookingRequest(models.Model):
         super().save(*args, **kwargs)
 
 
+def _validate_payment_booking_users(payments: list["Payment"]) -> None:
+    booking_ids = {
+        payment.booking_request_id
+        for payment in payments
+        if payment.booking_request_id is not None and payment.user_id is not None
+    }
+    booking_users = dict(BookingRequest.objects.filter(pk__in=booking_ids).values_list("pk", "user_id"))
+
+    for payment in payments:
+        if payment.booking_request_id is None or payment.user_id is None:
+            continue
+
+        booking_user_id = booking_users.get(payment.booking_request_id)
+        if booking_user_id is not None and booking_user_id != payment.user_id:
+            raise ValidationError({"booking_request": "Payment user must match the linked booking requester."})
+
+
+class PaymentQuerySet(models.QuerySet):
+    def bulk_create(self, objs: object, *args: object, **kwargs: object) -> list[models.Model]:
+        payments = list(objs)
+        _validate_payment_booking_users(payments)
+        return super().bulk_create(payments, *args, **kwargs)
+
+
 class Payment(models.Model):
+    objects = PaymentQuerySet.as_manager()
+
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="payments")
     booking_request = models.ForeignKey(
         BookingRequest,
-        on_delete=models.SET_NULL,
+        on_delete=models.PROTECT,
         null=True,
         blank=True,
         related_name="payments",
@@ -228,13 +266,82 @@ class Payment(models.Model):
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     status = models.CharField(max_length=16, choices=PaymentStatus.choices, default=PaymentStatus.PENDING)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = "payments"
         ordering = ["-created_at"]
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(payment_purpose__in=PaymentPurpose.values),
+                name="ck_payment_purpose_valid",
+            ),
+            models.CheckConstraint(
+                check=models.Q(payment_method__in=PaymentMethod.values),
+                name="ck_payment_method_valid",
+            ),
+            models.CheckConstraint(
+                check=models.Q(status__in=PaymentStatus.values),
+                name="ck_payment_status_valid",
+            ),
+            models.CheckConstraint(
+                check=models.Q(amount__gt=0),
+                name="ck_payment_amount_positive",
+            ),
+            models.CheckConstraint(
+                check=~models.Q(payment_purpose=PaymentPurpose.BOOKING_FEE)
+                | models.Q(booking_request__isnull=False),
+                name="ck_payment_booking_fee_has_booking",
+            ),
+        ]
 
     def __str__(self) -> str:
         return f"Payment<{self.pk}>"
+
+    def clean(self) -> None:
+        super().clean()
+
+        errors: dict[str, str] = {}
+
+        if self.amount is None:
+            errors["amount"] = "Payment amount is required."
+        elif self.amount <= 0:
+            errors["amount"] = "Payment amount must be greater than zero."
+
+        if self.payment_purpose not in PaymentPurpose.values:
+            errors["payment_purpose"] = "Payment purpose is required and must be valid."
+
+        if self.payment_method not in PaymentMethod.values:
+            errors["payment_method"] = "Payment method is required and must be valid."
+
+        if self.status not in PaymentStatus.values:
+            errors["status"] = "Payment status is required and must be valid."
+
+        if self.payment_purpose == PaymentPurpose.BOOKING_FEE and self.booking_request_id is None:
+            errors["booking_request"] = "Booking-fee payments must be linked to a booking request."
+
+        if (
+            self.booking_request_id is not None
+            and self.user_id is not None
+            and self.booking_request.user_id != self.user_id
+        ):
+            errors["booking_request"] = "Payment user must match the linked booking requester."
+
+        if self.pk is None and self.status != PaymentStatus.PENDING:
+            errors["status"] = "New simulated payments must start as pending."
+        elif self.pk is not None:
+            previous_status = type(self).objects.filter(pk=self.pk).values_list("status", flat=True).first()
+            if previous_status is not None and self.status != previous_status:
+                allowed_statuses = ALLOWED_PAYMENT_STATUS_TRANSITIONS.get(previous_status, set())
+                if self.status not in allowed_statuses:
+                    errors["status"] = f"Payments cannot move from {previous_status} to {self.status}."
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args: object, **kwargs: object) -> None:
+        self.full_clean()
+        super().save(*args, **kwargs)
 
 
 class EmailNotification(models.Model):
