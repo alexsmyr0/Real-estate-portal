@@ -1,4 +1,5 @@
 {% url "home" as home_url %}
+{% url "site-catalog" as site_catalog_url %}
 <header class="site-header">
     <a class="brand" href="{{ home_url }}">
         <span class="brand-mark">HF</span>
@@ -6,7 +7,7 @@
     </a>
     <nav class="site-nav" aria-label="Primary">
         <a class="nav-link{% if request.path == home_url %} is-active{% endif %}" href="{{ home_url }}">Home</a>
-        <span class="nav-link nav-link-disabled" aria-disabled="true">Browse Listings</span>
+        <a class="nav-link{% if request.path == site_catalog_url %} is-active{% endif %}" href="{{ site_catalog_url }}">Browse Listings</a>
         <span class="nav-link nav-link-disabled" aria-disabled="true">My Activity</span>
     </nav>
     <div class="nav-auth">
