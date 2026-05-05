@@ -17,7 +17,7 @@
         <p class="property-price">EUR {{ property.price }}</p>
         <p class="property-facts">
             {% if property.bedrooms %}{{ property.bedrooms }} bed{% if property.bedrooms != 1 %}s{% endif %}{% else %}Studio/Unknown beds{% endif %}
-            {% if property.bathrooms %} | {{ property.bathrooms }} bath{% if property.bathrooms != '1.0' %}s{% endif %}{% endif %}
+            {% if property.bathrooms %} | {{ property.bathrooms }} bath{% if property.bathrooms != 1 %}s{% endif %}{% endif %}
         </p>
     </div>
 </article>

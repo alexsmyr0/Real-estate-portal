@@ -20,8 +20,17 @@ class SharedSiteShellTests(TestCase):
     def setUp(self) -> None:
         self.client = Client()
 
-    def test_root_home_uses_base_template_and_guest_navigation(self) -> None:
+    def test_root_returns_json_index(self) -> None:
         response = self.client.get("/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/json")
+        data = response.json()
+        self.assertEqual(data["status"], "ok")
+        self.assertEqual(data["service"], "homefinder")
+
+    def test_site_home_uses_base_template_and_guest_navigation(self) -> None:
+        response = self.client.get("/site/")
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "base.html")
@@ -36,7 +45,7 @@ class SharedSiteShellTests(TestCase):
         self.assertContains(response, "Browse Listings")
         self.assertContains(response, "/static/core/css/shared-shell.css")
 
-    def test_root_home_authenticated_navigation_state(self) -> None:
+    def test_site_home_authenticated_navigation_state(self) -> None:
         user = User.objects.create_user(
             email="signed-in@example.com",
             password="StrongPassword123!",
@@ -44,19 +53,34 @@ class SharedSiteShellTests(TestCase):
         )
         self.client.force_login(user)
 
-        response = self.client.get("/")
+        response = self.client.get("/site/")
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Signed In User")
         self.assertContains(response, "Sign out")
         self.assertNotContains(response, "Sign in")
 
-    def test_flash_message_partial_renders_on_home_page(self) -> None:
-        response = self.client.get("/?flash=1")
+    def test_flash_message_partial_renders_on_site_home(self) -> None:
+        response = self.client.get("/site/?flash=1")
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "partials/_flash_messages.html")
         self.assertContains(response, "Shared shell is active.")
+
+    def test_contact_form_shows_validation_errors_when_submitted_incomplete(self) -> None:
+        response = self.client.get("/site/?intent=BUY")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "This field is required")
+
+    def test_contact_form_shows_success_message_when_valid(self) -> None:
+        response = self.client.get(
+            "/site/",
+            {"intent": "BUY", "full_name": "Alex Jordan", "email": "alex@example.com"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Preferences noted")
 
     def test_site_catalog_route_is_not_available_in_a03(self) -> None:
         response = self.client.get("/site/catalog/")
@@ -67,7 +91,15 @@ class SharedSiteShellTests(TestCase):
         css_file = Path(settings.BASE_DIR) / "src" / "homefinder" / "apps" / "core" / "static" / "core" / "css" / "shared-shell.css"
         css = css_file.read_text(encoding="utf-8")
 
-        self.assertIn("@media (max-width: 375px)", css)
-        self.assertIn(".site-nav,", css)
-        self.assertIn(".nav-auth {", css)
-        self.assertIn(".button {", css)
+        marker = "@media (max-width: 375px)"
+        self.assertIn(marker, css)
+
+        block_start = css.index(marker)
+        block = css[block_start:]
+        next_media = block.find("@media", len(marker))
+        if next_media != -1:
+            block = block[:next_media]
+
+        self.assertIn(".site-nav,", block)
+        self.assertIn(".nav-auth {", block)
+        self.assertIn(".button {", block)

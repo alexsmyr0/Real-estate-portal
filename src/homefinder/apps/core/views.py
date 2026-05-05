@@ -39,14 +39,20 @@ def site_home(request: HttpRequest) -> HttpResponse:
             "Shared shell is active. This banner comes from the reusable flash-message partial.",
         )
 
-    shell_form = ShellContactPreferenceForm()
+    if "intent" in request.GET:
+        shell_form = ShellContactPreferenceForm(request.GET)
+        if shell_form.is_valid():
+            messages.success(request, "Preferences noted. Full save available once account features ship.")
+    else:
+        shell_form = ShellContactPreferenceForm()
+
     demo_property = {
         "title": "Athens Garden Loft",
         "city": "Athens",
         "area": "Pangrati",
         "price": "385000.00",
         "bedrooms": 2,
-        "bathrooms": "1.5",
+        "bathrooms": 1.5,
         "primary_image_url": None,
         "availability": {
             "label": "Available",
