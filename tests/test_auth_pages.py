@@ -128,6 +128,41 @@ class AuthPageTests(TestCase):
         self.assertRedirects(response, "/login/")
         self.assertContains(response, "This 2FA token has expired. Start the login flow again.")
 
+    def test_verify_2fa_already_used_token_redirects_to_login_with_flash_message(self) -> None:
+        user = self._create_user()
+        self._start_login(token="123456", user=user)
+        token_record = LoginTwoFactorToken.objects.get(user=user)
+        token_record.verified_at = timezone.now()
+        token_record.save(update_fields=["verified_at"])
+
+        response = self.client.post("/login/2fa/", {"token": "123456"}, follow=True)
+
+        self.assertRedirects(response, "/login/")
+        self.assertContains(response, "This 2FA token has already been used. Start the login flow again.")
+
+    def test_verify_2fa_max_attempts_exceeded_redirects_to_login_with_flash_message(self) -> None:
+        user = self._create_user()
+        self._start_login(token="123456", user=user)
+        token_record = LoginTwoFactorToken.objects.get(user=user)
+        token_record.attempts_used = 5
+        token_record.save(update_fields=["attempts_used"])
+
+        response = self.client.post("/login/2fa/", {"token": "000000"}, follow=True)
+
+        self.assertRedirects(response, "/login/")
+        self.assertContains(response, "Too many invalid 2FA attempts. Start the login flow again.")
+
+    def test_verify_2fa_inactive_user_redirects_to_login_with_flash_message(self) -> None:
+        user = self._create_user()
+        self._start_login(token="123456", user=user)
+        user.is_active = False
+        user.save(update_fields=["is_active"])
+
+        response = self.client.post("/login/2fa/", {"token": "123456"}, follow=True)
+
+        self.assertRedirects(response, "/login/")
+        self.assertContains(response, "This account is inactive.")
+
     def test_2fa_page_shows_attempts_remaining_for_invalid_token(self) -> None:
         user = self._create_user()
         self._start_login(token="123456", user=user)
