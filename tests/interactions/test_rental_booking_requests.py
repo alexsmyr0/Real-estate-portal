@@ -1,18 +1,23 @@
 from __future__ import annotations
 
-from datetime import date
+import io
+from contextlib import redirect_stdout
+from datetime import date, timedelta
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from django.urls import Resolver404, resolve, reverse
+from django.utils import timezone
 
 from homefinder.apps.interactions.models import (
     BookingRequest,
     BookingRequestStatus,
     EmailNotification,
     EmailNotificationPurpose,
+    EmailNotificationStatus,
     Payment,
 )
 from homefinder.apps.interactions.services import (
@@ -128,6 +133,56 @@ class RentalBookingRequestTests(TestCase):
                 self.assertIn("end_date", raised.exception.message_dict)
 
         self.assertEqual(BookingRequest.objects.count(), 0)
+
+    def test_past_start_date_is_rejected(self) -> None:
+        today = timezone.localdate()
+
+        with self.assertRaises(ValidationError) as raised:
+            create_booking_request(
+                user=self.user,
+                property_obj=self.rental_property,
+                start_date=today - timedelta(days=1),
+                end_date=today + timedelta(days=1),
+                notification_service_override=self.notification_service,
+            )
+
+        self.assertEqual(
+            raised.exception.message_dict["start_date"],
+            ["Booking start date must be today or in the future."],
+        )
+        self.assertEqual(BookingRequest.objects.count(), 0)
+
+    def test_today_start_date_is_allowed_with_valid_end_date(self) -> None:
+        today = timezone.localdate()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            booking_request = create_booking_request(
+                user=self.user,
+                property_obj=self.rental_property,
+                start_date=today,
+                end_date=today + timedelta(days=1),
+                notification_service_override=self.notification_service,
+            )
+
+        booking_request.refresh_from_db()
+        self.assertEqual(booking_request.start_date, today)
+        self.assertEqual(booking_request.status, BookingRequestStatus.PENDING)
+
+    def test_future_start_date_is_allowed(self) -> None:
+        today = timezone.localdate()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            booking_request = create_booking_request(
+                user=self.user,
+                property_obj=self.rental_property,
+                start_date=today + timedelta(days=1),
+                end_date=today + timedelta(days=3),
+                notification_service_override=self.notification_service,
+            )
+
+        booking_request.refresh_from_db()
+        self.assertEqual(booking_request.start_date, today + timedelta(days=1))
+        self.assertEqual(booking_request.status, BookingRequestStatus.PENDING)
 
     def test_booking_submission_creates_booking_update_notification_through_shared_service(self) -> None:
         with self.captureOnCommitCallbacks(execute=True):
@@ -414,9 +469,18 @@ class RentalBookingAdminTests(TestCase):
             area="Center",
             price=Decimal("1300.00"),
         )
+        self.residential_property = Property.objects.create(
+            title="Admin Sale",
+            description="Admin Sale description",
+            category=PropertyCategory.RESIDENTIAL,
+            city="Athens",
+            area="Center",
+            price=Decimal("250000.00"),
+        )
         self.adapter = RecordingDeliveryAdapter()
         self.notification_service = EmailNotificationService(delivery_adapter=self.adapter)
 
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.console.EmailBackend")
     def test_admin_can_manage_booking_status_from_change_view(self) -> None:
         booking_request = BookingRequest.objects.create(
             user=self.user,
@@ -425,25 +489,36 @@ class RentalBookingAdminTests(TestCase):
             end_date=date(2026, 6, 7),
         )
         change_url = reverse("admin:interactions_bookingrequest_change", args=[booking_request.id])
+        stdout = io.StringIO()
 
-        response = self.client.post(
-            change_url,
-            data={
-                "user": str(booking_request.user_id),
-                "property": str(booking_request.property_id),
-                "start_date": "2026-06-01",
-                "end_date": "2026-06-07",
-                "status": BookingRequestStatus.APPROVED,
-                "note": booking_request.note,
-                "_save": "Save",
-            },
-        )
+        with redirect_stdout(stdout):
+            with self.captureOnCommitCallbacks(execute=True):
+                with patch(
+                    "homefinder.apps.interactions.admin.services.update_booking_request_status",
+                    wraps=update_booking_request_status,
+                ) as status_update:
+                    response = self.client.post(
+                        change_url,
+                        data={
+                            "user": str(booking_request.user_id),
+                            "property": str(booking_request.property_id),
+                            "start_date": "2026-06-01",
+                            "end_date": "2026-06-07",
+                            "status": BookingRequestStatus.APPROVED,
+                            "note": booking_request.note,
+                            "_save": "Save",
+                        },
+                    )
 
         self.assertEqual(response.status_code, 302)
+        self.assertEqual(status_update.call_count, 1)
         booking_request.refresh_from_db()
         self.assertEqual(booking_request.status, BookingRequestStatus.APPROVED)
         self.assertEqual(EmailNotification.objects.count(), 1)
-        self.assertEqual(EmailNotification.objects.get().purpose, EmailNotificationPurpose.BOOKING_UPDATE)
+        notification = EmailNotification.objects.get()
+        self.assertEqual(notification.purpose, EmailNotificationPurpose.BOOKING_UPDATE)
+        self.assertEqual(notification.status, EmailNotificationStatus.SENT)
+        self.assertIn("Your HomeFinder booking request", stdout.getvalue())
 
     def test_admin_invalid_booking_transition_is_rejected_without_notification(self) -> None:
         with self.captureOnCommitCallbacks(execute=True):
@@ -481,3 +556,24 @@ class RentalBookingAdminTests(TestCase):
         self.assertEqual(booking_request.status, BookingRequestStatus.REJECTED)
         self.assertEqual(EmailNotification.objects.count(), notification_count)
         self.assertEqual(Payment.objects.count(), 0)
+
+    def test_admin_rejects_non_rental_booking_creation(self) -> None:
+        add_url = reverse("admin:interactions_bookingrequest_add")
+
+        response = self.client.post(
+            add_url,
+            data={
+                "user": str(self.user.id),
+                "property": str(self.residential_property.id),
+                "start_date": "2026-06-01",
+                "end_date": "2026-06-07",
+                "status": BookingRequestStatus.PENDING,
+                "note": "",
+                "_save": "Save",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Booking requests are only supported for rental properties.")
+        self.assertEqual(BookingRequest.objects.count(), 0)
+        self.assertEqual(EmailNotification.objects.count(), 0)
