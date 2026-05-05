@@ -78,7 +78,7 @@ Use this as the default claim order for the next wave of work:
 - [x] **A-02** P1 - Registration, Login, 2FA Verification, And Single-Session Backend | Auth backend flow for registration, login, token verification, logout, and session replacement. (Depends on: A-01; N-02) | Blocks: A-04; A-07; A-08; A-09
 - [x] **A-03** P1 - Shared Site Shell, Navigation, And Base Template System | Shared browser shell, layout primitives, responsive navigation, and reusable UI partials. (Depends on: A-01) | Blocks: A-04; A-05; A-06; A-10; A-11; A-12; A-13; A-14; A-15
 - [ ] **A-04** P2 - Auth Pages And Session UX | Registration, login, 2FA, and logout pages built on the shared site shell. (Depends on: A-02; A-03) | Blocks: A-15
-- [ ] **A-05** P2 - Property Discovery Landing And Catalog Frontend | Landing page, public catalog, filters, pagination, and result-state UX. (Depends on: A-03; K-02; K-03) | Blocks: A-07; A-13; A-15
+- [x] **A-05** P2 - Property Discovery Landing And Catalog Frontend | Landing page, public catalog, filters, pagination, and result-state UX. (Depends on: A-03; K-02; K-03) | Blocks: A-07; A-13; A-15
 - [ ] **A-06** P2 - Property Detail Frontend And Listing Presentation | Detail-page UI, image presentation, amenity display, and availability messaging. (Depends on: A-03; K-02; K-04) | Blocks: A-07; A-08; A-09; A-11; A-12; A-13; A-15
 - [ ] **A-07** P2 - Favorites Flow End-To-End | Favorite and unfavorite backend actions plus saved-listings UX. (Depends on: A-02; A-05; A-06) | Blocks: A-10; A-15
 - [ ] **A-08** P2 - Inquiry Flow End-To-End | Inquiry backend actions, forms, confirmation states, and email integration. (Depends on: A-02; A-06; N-02) | Blocks: A-10; A-15

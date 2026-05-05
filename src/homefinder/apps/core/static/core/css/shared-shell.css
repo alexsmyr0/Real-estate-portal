@@ -20,7 +20,7 @@
 
 body {
     margin: 0;
-    font-family: "Segoe UI", "Trebuchet MS", sans-serif;
+    font-family: "Avenir Next", "Trebuchet MS", sans-serif;
     background:
         radial-gradient(circle at 2% 0%, #e9f5f3 0, transparent 36%),
         radial-gradient(circle at 98% 8%, #edf2fb 0, transparent 32%),
@@ -180,6 +180,13 @@ p {
     margin-top: 0;
 }
 
+h1,
+h2,
+h3 {
+    font-family: "Palatino Linotype", "Book Antiqua", serif;
+    letter-spacing: 0.01em;
+}
+
 h1 {
     margin-bottom: 0.7rem;
 }
@@ -189,6 +196,22 @@ h1 {
     flex-wrap: wrap;
     gap: 0.7rem;
     margin-top: 1rem;
+}
+
+.landing-hero {
+    background:
+        linear-gradient(140deg, rgba(224, 241, 237, 0.68), rgba(255, 255, 255, 0.9)),
+        var(--white);
+}
+
+.catalog-hero {
+    background:
+        linear-gradient(145deg, rgba(233, 239, 250, 0.8), rgba(255, 255, 255, 0.96)),
+        var(--white);
+}
+
+.landing-highlights .panel {
+    background: linear-gradient(180deg, #ffffff, #fbfdff);
 }
 
 .panel-grid {
@@ -206,6 +229,10 @@ h1 {
 .form-shell {
     display: grid;
     gap: 1rem;
+}
+
+.catalog-filter-form {
+    gap: 1.1rem;
 }
 
 .form-grid {
@@ -312,6 +339,28 @@ textarea.form-control {
     color: var(--ink-500);
     background: #f1f4f9;
     cursor: not-allowed;
+}
+
+.amenity-fieldset {
+    margin: 0;
+    border: 1px solid var(--ink-200);
+    border-radius: 12px;
+    padding: 0.75rem 0.85rem;
+    background: #f9fbfe;
+}
+
+.amenity-checklist {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.55rem;
+}
+
+.amenity-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: var(--ink-700);
+    font-size: 0.9rem;
 }
 
 .results-header {
@@ -421,6 +470,44 @@ textarea.form-control {
     font-weight: 600;
 }
 
+.pagination-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+}
+
+.pagination-pages {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.page-chip {
+    min-width: 2rem;
+    min-height: 2rem;
+    border-radius: 999px;
+    border: 1px solid var(--ink-200);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    color: var(--ink-700);
+    font-weight: 700;
+    background: var(--white);
+}
+
+.page-chip:hover,
+.page-chip:focus-visible {
+    background: var(--ink-100);
+    color: var(--ink-950);
+}
+
+.page-chip.is-current {
+    border-color: var(--accent);
+    background: #def2ef;
+    color: var(--accent-deep);
+}
+
 @media (max-width: 920px) {
     .site-header {
         grid-template-columns: 1fr;
@@ -435,6 +522,10 @@ textarea.form-control {
     .panel-grid,
     .property-grid,
     .form-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .amenity-checklist {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
@@ -455,9 +546,23 @@ textarea.form-control {
         align-items: stretch;
     }
 
+    .pagination-actions {
+        justify-content: space-between;
+        flex-wrap: wrap;
+    }
+
+    .pagination-pages {
+        justify-content: center;
+        width: 100%;
+    }
+
     .panel-grid,
     .property-grid,
     .form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .amenity-checklist {
         grid-template-columns: 1fr;
     }
 }

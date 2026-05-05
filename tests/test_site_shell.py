@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from decimal import Decimal
 from pathlib import Path
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "homefinder.settings")
@@ -12,6 +13,7 @@ django.setup()
 from django.conf import settings
 from django.test import Client, TestCase, override_settings
 
+from homefinder.apps.properties.models import Property, PropertyCategory, PropertyStatus
 from homefinder.apps.users.models import User
 
 
@@ -19,6 +21,20 @@ from homefinder.apps.users.models import User
 class SharedSiteShellTests(TestCase):
     def setUp(self) -> None:
         self.client = Client()
+
+    def _create_visible_property(self, *, title: str = "Athens Skyline Loft") -> Property:
+        return Property.objects.create(
+            title=title,
+            description=f"{title} description",
+            category=PropertyCategory.RESIDENTIAL,
+            status=PropertyStatus.AVAILABLE,
+            city="Athens",
+            area="Center",
+            address_line="Center street",
+            price=Decimal("365000.00"),
+            bedrooms=3,
+            bathrooms=Decimal("2.0"),
+        )
 
     def test_root_returns_json_index(self) -> None:
         response = self.client.get("/")
@@ -30,19 +46,20 @@ class SharedSiteShellTests(TestCase):
         self.assertEqual(data["service"], "homefinder")
 
     def test_site_home_uses_base_template_and_guest_navigation(self) -> None:
+        self._create_visible_property()
         response = self.client.get("/site/")
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "base.html")
         self.assertTemplateUsed(response, "partials/_navigation.html")
-        self.assertTemplateUsed(response, "partials/_form_layout.html")
         self.assertTemplateUsed(response, "partials/_property_card.html")
-        self.assertTemplateUsed(response, "partials/_empty_state.html")
         self.assertContains(response, "Guest")
         self.assertContains(response, "Sign in")
         self.assertNotContains(response, "Sign out")
         self.assertContains(response, "Home")
         self.assertContains(response, "Browse Listings")
+        self.assertContains(response, "Browse Catalog")
+        self.assertContains(response, "/site/catalog/")
         self.assertContains(response, "/static/core/css/shared-shell.css")
 
     def test_site_home_authenticated_navigation_state(self) -> None:
@@ -60,32 +77,19 @@ class SharedSiteShellTests(TestCase):
         self.assertContains(response, "Sign out")
         self.assertNotContains(response, "Sign in")
 
-    def test_flash_message_partial_renders_on_site_home(self) -> None:
-        response = self.client.get("/site/?flash=1")
+    def test_site_home_renders_featured_property_snapshot(self) -> None:
+        featured_property = self._create_visible_property(title="Featured Listing")
+        response = self.client.get("/site/")
 
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "partials/_flash_messages.html")
-        self.assertContains(response, "Shared shell is active.")
+        self.assertContains(response, "Current Listings")
+        self.assertContains(response, "Featured Listing")
+        self.assertContains(response, str(featured_property.price))
 
-    def test_contact_form_shows_validation_errors_when_submitted_incomplete(self) -> None:
-        response = self.client.get("/site/?intent=BUY")
-
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "This field is required")
-
-    def test_contact_form_shows_success_message_when_valid(self) -> None:
-        response = self.client.get(
-            "/site/",
-            {"intent": "BUY", "full_name": "Alex Jordan", "email": "alex@example.com"},
-        )
-
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Preferences noted")
-
-    def test_site_catalog_route_is_not_available_in_a03(self) -> None:
+    def test_site_catalog_route_is_available_after_a05(self) -> None:
         response = self.client.get("/site/catalog/")
 
-        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.status_code, 200)
 
     def test_css_contains_375px_responsive_shell_rules(self) -> None:
         css_file = Path(settings.BASE_DIR) / "src" / "homefinder" / "apps" / "core" / "static" / "core" / "css" / "shared-shell.css"

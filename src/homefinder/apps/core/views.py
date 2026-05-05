@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from django.contrib import messages
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import render
 
-from .forms import ShellContactPreferenceForm
+from homefinder.apps.properties.services import CatalogSearchParams, search_visible_properties
 
 def json_error_response(status_code: int, message: str) -> JsonResponse:
     return JsonResponse(
@@ -33,40 +32,16 @@ def health(_request: HttpRequest) -> JsonResponse:
 
 
 def site_home(request: HttpRequest) -> HttpResponse:
-    if request.GET.get("flash") == "1":
-        messages.success(
-            request,
-            "Shared shell is active. This banner comes from the reusable flash-message partial.",
-        )
-
-    if "intent" in request.GET:
-        shell_form = ShellContactPreferenceForm(request.GET)
-        if shell_form.is_valid():
-            messages.success(request, "Preferences noted. Full save available once account features ship.")
-    else:
-        shell_form = ShellContactPreferenceForm()
-
-    demo_property = {
-        "title": "Athens Garden Loft",
-        "city": "Athens",
-        "area": "Pangrati",
-        "price": "385000.00",
-        "bedrooms": 2,
-        "bathrooms": 1.5,
-        "primary_image_url": None,
-        "availability": {
-            "label": "Available",
-            "is_available": True,
-            "is_unavailable": False,
-        },
-    }
+    catalog_snapshot = search_visible_properties(search_params=CatalogSearchParams(page=1))
+    featured_properties = catalog_snapshot["properties"][:3]
+    total_visible_listings = catalog_snapshot["pagination"]["total_items"]
 
     return render(
         request,
         "core/site_home.html",
         {
-            "shell_form": shell_form,
-            "demo_property": demo_property,
+            "featured_properties": featured_properties,
+            "total_visible_listings": total_visible_listings,
         },
     )
 
