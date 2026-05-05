@@ -249,6 +249,14 @@ class SimilarListingAlertTests(TestCase):
 
         self.assertEqual(matching_listing_alert_subscriptions(listing), [])
 
+    def test_matcher_excludes_subscription_source_property(self) -> None:
+        subscription = self._subscription(amenity_ids=[])
+        Property.objects.filter(pk=self.source_property.pk).update(status=PropertyStatus.AVAILABLE)
+        self.source_property.refresh_from_db()
+
+        self.assertFalse(listing_matches_alert_subscription(subscription, self.source_property))
+        self.assertEqual(matching_listing_alert_subscriptions(self.source_property), [])
+
     def test_matching_rejects_non_qualifying_listings(self) -> None:
         cases = {
             "wrong category": self._matching_listing(category=PropertyCategory.COMMERCIAL),
@@ -383,6 +391,19 @@ class SimilarListingAlertTests(TestCase):
                 dispatcher.assert_called_once()
                 self.assertEqual(dispatcher.call_args.args[0].pk, listing.pk)
 
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_source_property_becoming_available_does_not_self_alert_and_deactivates_subscription(self) -> None:
+        subscription = self._subscription(amenity_ids=[])
+
+        with self.captureOnCommitCallbacks(execute=True):
+            self.source_property.status = PropertyStatus.AVAILABLE
+            self.source_property.save(update_fields=["status"])
+
+        subscription.refresh_from_db()
+        self.assertFalse(subscription.is_active)
+        self.assertEqual(EmailNotification.objects.count(), 0)
+        self.assertEqual(SimilarListingAlertDispatch.objects.count(), 0)
+
     def test_unrelated_update_to_available_listing_does_not_schedule_alert_dispatch(self) -> None:
         listing = self._property(title="Already Available Listing", status=PropertyStatus.AVAILABLE)
 
@@ -395,15 +416,18 @@ class SimilarListingAlertTests(TestCase):
 
     def test_available_listing_material_matching_field_changes_schedule_alert_dispatch(self) -> None:
         cases = (
-            ("category", PropertyCategory.COMMERCIAL),
-            ("city", "Patra"),
-            ("price", Decimal("260000.00")),
-            ("bedrooms", 3),
+            ("category", PropertyCategory.COMMERCIAL, PropertyCategory.RESIDENTIAL),
+            ("city", "Patra", "Athens"),
+            ("price", Decimal("300000.00"), Decimal("260000.00")),
+            ("bedrooms", 1, 2),
         )
 
-        for field_name, new_value in cases:
+        for field_name, old_value, new_value in cases:
             with self.subTest(field=field_name):
+                self._subscription(amenity_ids=[])
                 listing = self._property(title=f"{field_name} Change Listing", status=PropertyStatus.AVAILABLE)
+                setattr(listing, field_name, old_value)
+                listing.save(update_fields=[field_name])
 
                 with patch("homefinder.apps.properties.signals.dispatch_similar_listing_alerts") as dispatcher:
                     with self.captureOnCommitCallbacks(execute=True):
@@ -423,8 +447,53 @@ class SimilarListingAlertTests(TestCase):
 
         dispatcher.assert_not_called()
 
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_in_memory_material_change_excluded_from_update_fields_does_not_dispatch(self) -> None:
+        listing = self._property(title="Persisted Patra Listing", status=PropertyStatus.AVAILABLE, city="Patra")
+        self._subscription(amenity_ids=[])
+
+        with patch("homefinder.apps.properties.signals.dispatch_similar_listing_alerts") as dispatcher:
+            with self.captureOnCommitCallbacks(execute=True):
+                listing.city = "Athens"
+                listing.description = "Only this field is persisted."
+                listing.save(update_fields=["description"])
+
+        listing.refresh_from_db()
+        self.assertEqual(listing.city, "Patra")
+        dispatcher.assert_not_called()
+        self.assertEqual(EmailNotification.objects.count(), 0)
+        self.assertEqual(SimilarListingAlertDispatch.objects.count(), 0)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_real_material_update_with_update_fields_dispatches_when_newly_matching(self) -> None:
+        listing = self._property(title="Persisted Patra Listing", status=PropertyStatus.AVAILABLE, city="Patra")
+        self._subscription(amenity_ids=[])
+
+        with self.captureOnCommitCallbacks(execute=True):
+            listing.city = "Athens"
+            listing.save(update_fields=["city"])
+
+        self.assertEqual(EmailNotification.objects.count(), 1)
+        self.assertEqual(SimilarListingAlertDispatch.objects.count(), 1)
+        self.assertEqual(SimilarListingAlertDispatch.objects.get().status, SimilarListingAlertDispatchStatus.SENT)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_unrelated_update_fields_does_not_dispatch_for_existing_match(self) -> None:
+        listing = self._matching_listing()
+        self._subscription(amenity_ids=[])
+
+        with patch("homefinder.apps.properties.signals.dispatch_similar_listing_alerts") as dispatcher:
+            with self.captureOnCommitCallbacks(execute=True):
+                listing.description = "Only description changed."
+                listing.save(update_fields=["description"])
+
+        dispatcher.assert_not_called()
+        self.assertEqual(EmailNotification.objects.count(), 0)
+        self.assertEqual(SimilarListingAlertDispatch.objects.count(), 0)
+
     def test_listing_amenity_change_schedules_alert_dispatch(self) -> None:
         listing = self._property(title="Fresh Available Listing", status=PropertyStatus.AVAILABLE)
+        self._subscription(amenity_ids=[self.pool.id])
 
         with patch("homefinder.apps.properties.signals.dispatch_similar_listing_alerts") as dispatcher:
             with self.captureOnCommitCallbacks(execute=True):
@@ -432,6 +501,40 @@ class SimilarListingAlertTests(TestCase):
 
         dispatcher.assert_called_once()
         self.assertEqual(dispatcher.call_args.args[0].pk, listing.pk)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_existing_matching_listing_amenity_change_does_not_create_stale_alert(self) -> None:
+        listing = self._matching_listing(amenities=[self.pool])
+        self._subscription(amenity_ids=[])
+
+        with self.captureOnCommitCallbacks(execute=True):
+            listing.amenities.add(self.parking)
+
+        self.assertEqual(EmailNotification.objects.count(), 0)
+        self.assertEqual(SimilarListingAlertDispatch.objects.count(), 0)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_amenity_change_that_newly_qualifies_listing_creates_alert(self) -> None:
+        listing = self._property(title="Amenity Gap Listing", status=PropertyStatus.AVAILABLE)
+        self._subscription(amenity_ids=[self.pool.id])
+
+        with self.captureOnCommitCallbacks(execute=True):
+            listing.amenities.add(self.pool)
+
+        self.assertEqual(EmailNotification.objects.count(), 1)
+        self.assertEqual(SimilarListingAlertDispatch.objects.count(), 1)
+        self.assertEqual(SimilarListingAlertDispatch.objects.get().status, SimilarListingAlertDispatchStatus.SENT)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_no_amenity_subscription_does_not_alert_on_unrelated_amenity_change(self) -> None:
+        listing = self._matching_listing(amenities=[])
+        self._subscription(amenity_ids=[])
+
+        with self.captureOnCommitCallbacks(execute=True):
+            listing.amenities.add(self.parking)
+
+        self.assertEqual(EmailNotification.objects.count(), 0)
+        self.assertEqual(SimilarListingAlertDispatch.objects.count(), 0)
 
     def test_unavailable_listing_amenity_change_does_not_schedule_alert_dispatch(self) -> None:
         listing = self._property(title="Unavailable Listing", status=PropertyStatus.UNAVAILABLE)

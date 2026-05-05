@@ -7,10 +7,12 @@ from django.db import transaction
 from django.db.models.signals import m2m_changed, post_save, pre_save
 from django.dispatch import receiver
 
-from .models import Property, PropertyStatus
-from .services import dispatch_similar_listing_alerts
+from .models import ListingAlertSubscription, Property, PropertyStatus
+from .services import dispatch_similar_listing_alerts, matching_listing_alert_subscription_ids_for_state
 
 MATERIAL_MATCHING_FIELDS = ("status", "category", "city", "price", "bedrooms")
+AMENITY_PRE_CHANGE_ACTIONS = {"pre_add", "pre_remove", "pre_clear"}
+AMENITY_POST_CHANGE_ACTIONS = {"post_add", "post_remove", "post_clear"}
 
 
 @receiver(pre_save, sender=Property)
@@ -31,7 +33,11 @@ def dispatch_alerts_for_available_listing(
     created: bool,
     **kwargs: object,
 ) -> None:
-    if _should_schedule_after_save(instance=instance, created=created):
+    current_state = _current_alert_match_state(instance.pk)
+    if current_state is not None and current_state["status"] == PropertyStatus.AVAILABLE:
+        _deactivate_source_property_subscriptions(instance.pk)
+
+    if _should_schedule_after_save(instance=instance, created=created, current_state=current_state):
         _schedule_similar_listing_alert_dispatch(instance)
 
 
@@ -42,7 +48,19 @@ def dispatch_alerts_after_listing_amenities_change(
     action: str,
     **kwargs: object,
 ) -> None:
-    if action in {"post_add", "post_remove", "post_clear"}:
+    if action in AMENITY_PRE_CHANGE_ACTIONS:
+        instance._previous_alert_matching_subscription_ids = _matching_subscription_ids_for_instance(instance)
+        return
+
+    if action not in AMENITY_POST_CHANGE_ACTIONS:
+        return
+
+    previous_matching_ids = getattr(instance, "_previous_alert_matching_subscription_ids", None)
+    if previous_matching_ids is None:
+        return
+
+    current_matching_ids = _matching_subscription_ids_for_instance(instance)
+    if current_matching_ids - previous_matching_ids:
         _schedule_similar_listing_alert_dispatch(instance)
 
 
@@ -53,8 +71,13 @@ def _schedule_similar_listing_alert_dispatch(property_obj: Property) -> None:
     transaction.on_commit(lambda property_id=property_obj.pk: _dispatch_for_property_id(property_id))
 
 
-def _should_schedule_after_save(*, instance: Property, created: bool) -> bool:
-    if instance.status != PropertyStatus.AVAILABLE:
+def _should_schedule_after_save(
+    *,
+    instance: Property,
+    created: bool,
+    current_state: dict[str, object] | None,
+) -> bool:
+    if current_state is None or current_state["status"] != PropertyStatus.AVAILABLE:
         return False
 
     if created:
@@ -68,7 +91,58 @@ def _should_schedule_after_save(*, instance: Property, created: bool) -> bool:
     if previous_status != PropertyStatus.AVAILABLE:
         return True
 
-    return any(_normalized_state_value(previous_state[field]) != _normalized_state_value(getattr(instance, field)) for field in MATERIAL_MATCHING_FIELDS)
+    if not _material_state_changed(previous_state=previous_state, current_state=current_state):
+        return False
+
+    previous_matching_ids = _matching_subscription_ids_for_state(previous_state, instance.pk)
+    current_matching_ids = _matching_subscription_ids_for_state(current_state, instance.pk)
+    return bool(current_matching_ids - previous_matching_ids)
+
+
+def _material_state_changed(
+    *,
+    previous_state: dict[str, object],
+    current_state: dict[str, object],
+) -> bool:
+    return any(
+        _normalized_state_value(previous_state[field]) != _normalized_state_value(current_state[field])
+        for field in MATERIAL_MATCHING_FIELDS
+    )
+
+
+def _current_alert_match_state(property_id: int | None) -> dict[str, object] | None:
+    if property_id is None:
+        return None
+    return Property.objects.filter(pk=property_id).values(*MATERIAL_MATCHING_FIELDS).first()
+
+
+def _matching_subscription_ids_for_instance(property_obj: Property) -> set[int]:
+    current_state = _current_alert_match_state(property_obj.pk)
+    if current_state is None:
+        return set()
+    return _matching_subscription_ids_for_state(current_state, property_obj.pk)
+
+
+def _matching_subscription_ids_for_state(state: dict[str, object], property_id: int | None) -> set[int]:
+    if property_id is None:
+        return set()
+
+    return matching_listing_alert_subscription_ids_for_state(
+        property_id=property_id,
+        status=str(state["status"]),
+        category=str(state["category"]),
+        city=str(state["city"]),
+        price=state["price"],
+        bedrooms=state["bedrooms"],
+        amenity_ids=Property.objects.filter(pk=property_id).values_list("amenities__id", flat=True),
+    )
+
+
+def _deactivate_source_property_subscriptions(property_id: int | None) -> None:
+    if property_id is None:
+        return
+
+    ListingAlertSubscription.objects.filter(source_property_id=property_id, is_active=True).update(is_active=False)
 
 
 def _normalized_state_value(value: Any) -> Any:
