@@ -15,6 +15,38 @@
         {% endfor %}
     </div>
     {% if submit_label %}
-        <button type="submit" class="button button-primary">{{ submit_label }}</button>
+        <button
+            type="submit"
+            class="button button-primary"
+            data-submit-button="1"
+            {% if submit_loading_label %}data-loading-label="{{ submit_loading_label }}"{% endif %}
+        >
+            {{ submit_label }}
+        </button>
+    {% endif %}
+    {% if submit_loading_label %}
+        <script>
+            (function (script) {
+                const form = script.closest("form");
+                if (!form) {
+                    return;
+                }
+
+                form.addEventListener("submit", function () {
+                    const submitButton = form.querySelector("[data-submit-button='1']");
+                    if (!submitButton) {
+                        return;
+                    }
+
+                    submitButton.disabled = true;
+                    submitButton.setAttribute("aria-busy", "true");
+
+                    const loadingLabel = submitButton.getAttribute("data-loading-label");
+                    if (loadingLabel) {
+                        submitButton.textContent = loadingLabel;
+                    }
+                });
+            })(document.currentScript);
+        </script>
     {% endif %}
 </form>

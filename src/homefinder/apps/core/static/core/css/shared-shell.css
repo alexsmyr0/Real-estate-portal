@@ -295,6 +295,25 @@ textarea.form-control {
     color: var(--danger);
 }
 
+.auth-panel {
+    max-width: 620px;
+}
+
+.auth-footnote {
+    margin: 0;
+    color: var(--ink-500);
+}
+
+.auth-footnote a {
+    color: var(--accent-deep);
+    font-weight: 700;
+}
+
+.auth-footnote a:hover,
+.auth-footnote a:focus-visible {
+    color: var(--accent);
+}
+
 .button {
     display: inline-flex;
     align-items: center;
@@ -311,6 +330,12 @@ textarea.form-control {
 .button:hover,
 .button:focus-visible {
     transform: translateY(-1px);
+}
+
+.button[disabled] {
+    opacity: 0.85;
+    cursor: wait;
+    transform: none;
 }
 
 .button-primary {
