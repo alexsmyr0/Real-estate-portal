@@ -206,7 +206,10 @@ class BookingRequestAdmin(admin.ModelAdmin):
             previous_status = BookingRequest.objects.filter(pk=obj.pk).values_list("status", flat=True).first()
 
         if change and previous_status != obj.status:
-            services.update_booking_request_status(obj, status=obj.status)
+            target_status = obj.status
+            obj.status = previous_status
+            super().save_model(request, obj, form, change)
+            services.update_booking_request_status(obj, status=target_status)
             return
 
         super().save_model(request, obj, form, change)

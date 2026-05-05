@@ -183,7 +183,7 @@ class BookingRequest(models.Model):
 
         if self.start_date is None:
             errors["start_date"] = "Booking start date is required."
-        elif self.start_date < timezone.localdate():
+        elif self.pk is None and self.start_date < timezone.localdate():
             errors["start_date"] = "Booking start date must be today or in the future."
         if self.end_date is None:
             errors["end_date"] = "Booking end date is required."

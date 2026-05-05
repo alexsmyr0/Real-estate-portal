@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import io
 from contextlib import redirect_stdout
-from datetime import date, timedelta
+from datetime import timedelta
 from decimal import Decimal
 from unittest.mock import patch
 
@@ -56,22 +56,24 @@ class RentalBookingRequestTests(TestCase):
         )
         self.adapter = RecordingDeliveryAdapter()
         self.notification_service = EmailNotificationService(delivery_adapter=self.adapter)
+        self.start_date = timezone.localdate() + timedelta(days=30)
+        self.end_date = timezone.localdate() + timedelta(days=37)
 
     def test_rental_property_accepts_booking_request(self) -> None:
         with self.captureOnCommitCallbacks(execute=True):
             booking_request = create_booking_request(
                 user=self.user,
                 property_obj=self.rental_property,
-                start_date=date(2026, 6, 1),
-                end_date=date(2026, 6, 7),
+                start_date=self.start_date,
+                end_date=self.end_date,
                 notification_service_override=self.notification_service,
             )
 
         booking_request.refresh_from_db()
         self.assertEqual(BookingRequest.objects.count(), 1)
         self.assertEqual(booking_request.property, self.rental_property)
-        self.assertEqual(booking_request.start_date, date(2026, 6, 1))
-        self.assertEqual(booking_request.end_date, date(2026, 6, 7))
+        self.assertEqual(booking_request.start_date, self.start_date)
+        self.assertEqual(booking_request.end_date, self.end_date)
         self.assertEqual(booking_request.status, BookingRequestStatus.PENDING)
 
     def test_non_rental_property_rejects_booking_request(self) -> None:
@@ -79,8 +81,8 @@ class RentalBookingRequestTests(TestCase):
             create_booking_request(
                 user=self.user,
                 property_obj=self.residential_property,
-                start_date=date(2026, 6, 1),
-                end_date=date(2026, 6, 7),
+                start_date=self.start_date,
+                end_date=self.end_date,
                 notification_service_override=self.notification_service,
             )
 
@@ -93,7 +95,7 @@ class RentalBookingRequestTests(TestCase):
                 user=self.user,
                 property_obj=self.rental_property,
                 start_date=None,
-                end_date=date(2026, 6, 7),
+                end_date=self.end_date,
                 notification_service_override=self.notification_service,
             )
 
@@ -105,7 +107,7 @@ class RentalBookingRequestTests(TestCase):
             create_booking_request(
                 user=self.user,
                 property_obj=self.rental_property,
-                start_date=date(2026, 6, 1),
+                start_date=self.start_date,
                 end_date=None,
                 notification_service_override=self.notification_service,
             )
@@ -115,8 +117,8 @@ class RentalBookingRequestTests(TestCase):
 
     def test_invalid_date_ordering_is_rejected(self) -> None:
         invalid_ranges = (
-            (date(2026, 6, 1), date(2026, 6, 1)),
-            (date(2026, 6, 7), date(2026, 6, 1)),
+            (self.start_date, self.start_date),
+            (self.end_date, self.start_date),
         )
 
         for start_date, end_date in invalid_ranges:
@@ -189,8 +191,8 @@ class RentalBookingRequestTests(TestCase):
             booking_request = create_booking_request(
                 user=self.user,
                 property_obj=self.rental_property,
-                start_date=date(2026, 6, 1),
-                end_date=date(2026, 6, 7),
+                start_date=self.start_date,
+                end_date=self.end_date,
                 notification_service_override=self.notification_service,
             )
 
@@ -209,7 +211,7 @@ class RentalBookingRequestTests(TestCase):
                     [
                         self._unsaved_booking(
                             start_date=None,
-                            end_date=date(2026, 6, 7),
+                            end_date=self.end_date,
                         )
                     ]
                 )
@@ -222,7 +224,7 @@ class RentalBookingRequestTests(TestCase):
                 BookingRequest.objects.bulk_create(
                     [
                         self._unsaved_booking(
-                            start_date=date(2026, 6, 1),
+                            start_date=self.start_date,
                             end_date=None,
                         )
                     ]
@@ -232,8 +234,8 @@ class RentalBookingRequestTests(TestCase):
 
     def test_direct_invalid_date_ordering_cannot_persist(self) -> None:
         invalid_ranges = (
-            (date(2026, 6, 1), date(2026, 6, 1)),
-            (date(2026, 6, 7), date(2026, 6, 1)),
+            (self.start_date, self.start_date),
+            (self.end_date, self.start_date),
         )
 
         for start_date, end_date in invalid_ranges:
@@ -257,8 +259,8 @@ class RentalBookingRequestTests(TestCase):
                 BookingRequest.objects.bulk_create(
                     [
                         self._unsaved_booking(
-                            start_date=date(2026, 6, 1),
-                            end_date=date(2026, 6, 7),
+                            start_date=self.start_date,
+                            end_date=self.end_date,
                             status="NOT_A_STATUS",
                         )
                     ]
@@ -270,8 +272,8 @@ class RentalBookingRequestTests(TestCase):
         BookingRequest.objects.bulk_create(
             [
                 self._unsaved_booking(
-                    start_date=date(2026, 6, 1),
-                    end_date=date(2026, 6, 7),
+                    start_date=self.start_date,
+                    end_date=self.end_date,
                 )
             ]
         )
@@ -289,6 +291,24 @@ class RentalBookingRequestTests(TestCase):
                 status=BookingRequestStatus.APPROVED,
                 notification_service_override=self.notification_service,
             )
+
+        updated_request.refresh_from_db()
+        self.assertEqual(updated_request.status, BookingRequestStatus.APPROVED)
+        self.assertEqual(EmailNotification.objects.count(), 2)
+        self.assertEqual(len(self.adapter.messages), 2)
+        self.assertIn("Approved", self.adapter.messages[-1].body)
+
+    def test_lifecycle_update_succeeds_after_start_date_has_passed(self) -> None:
+        booking_request = self._create_booking_without_delivery()
+        simulated_today = self.start_date + timedelta(days=1)
+
+        with patch("homefinder.apps.interactions.models.timezone.localdate", return_value=simulated_today):
+            with self.captureOnCommitCallbacks(execute=True):
+                updated_request = update_booking_request_status(
+                    booking_request,
+                    status=BookingRequestStatus.APPROVED,
+                    notification_service_override=self.notification_service,
+                )
 
         updated_request.refresh_from_db()
         self.assertEqual(updated_request.status, BookingRequestStatus.APPROVED)
@@ -394,8 +414,8 @@ class RentalBookingRequestTests(TestCase):
             booking_request = create_booking_request(
                 user=self.user,
                 property_obj=self.rental_property,
-                start_date=date(2026, 6, 1),
-                end_date=date(2026, 6, 7),
+                start_date=self.start_date,
+                end_date=self.end_date,
                 notification_service_override=self.notification_service,
             )
             update_booking_request_status(
@@ -417,8 +437,8 @@ class RentalBookingRequestTests(TestCase):
             return create_booking_request(
                 user=self.user,
                 property_obj=self.rental_property,
-                start_date=date(2026, 6, 1),
-                end_date=date(2026, 6, 7),
+                start_date=self.start_date,
+                end_date=self.end_date,
                 notification_service_override=self.notification_service,
             )
 
@@ -479,16 +499,19 @@ class RentalBookingAdminTests(TestCase):
         )
         self.adapter = RecordingDeliveryAdapter()
         self.notification_service = EmailNotificationService(delivery_adapter=self.adapter)
+        self.start_date = timezone.localdate() + timedelta(days=30)
+        self.end_date = timezone.localdate() + timedelta(days=37)
 
     @override_settings(EMAIL_BACKEND="django.core.mail.backends.console.EmailBackend")
-    def test_admin_can_manage_booking_status_from_change_view(self) -> None:
+    def test_admin_can_update_status_and_note_from_change_view(self) -> None:
         booking_request = BookingRequest.objects.create(
             user=self.user,
             property=self.rental_property,
-            start_date=date(2026, 6, 1),
-            end_date=date(2026, 6, 7),
+            start_date=self.start_date,
+            end_date=self.end_date,
         )
         change_url = reverse("admin:interactions_bookingrequest_change", args=[booking_request.id])
+        updated_note = "Approved after owner confirmation."
         stdout = io.StringIO()
 
         with redirect_stdout(stdout):
@@ -502,10 +525,10 @@ class RentalBookingAdminTests(TestCase):
                         data={
                             "user": str(booking_request.user_id),
                             "property": str(booking_request.property_id),
-                            "start_date": "2026-06-01",
-                            "end_date": "2026-06-07",
+                            "start_date": self.start_date.isoformat(),
+                            "end_date": self.end_date.isoformat(),
                             "status": BookingRequestStatus.APPROVED,
-                            "note": booking_request.note,
+                            "note": updated_note,
                             "_save": "Save",
                         },
                     )
@@ -514,6 +537,7 @@ class RentalBookingAdminTests(TestCase):
         self.assertEqual(status_update.call_count, 1)
         booking_request.refresh_from_db()
         self.assertEqual(booking_request.status, BookingRequestStatus.APPROVED)
+        self.assertEqual(booking_request.note, updated_note)
         self.assertEqual(EmailNotification.objects.count(), 1)
         notification = EmailNotification.objects.get()
         self.assertEqual(notification.purpose, EmailNotificationPurpose.BOOKING_UPDATE)
@@ -525,8 +549,8 @@ class RentalBookingAdminTests(TestCase):
             booking_request = create_booking_request(
                 user=self.user,
                 property_obj=self.rental_property,
-                start_date=date(2026, 6, 1),
-                end_date=date(2026, 6, 7),
+                start_date=self.start_date,
+                end_date=self.end_date,
                 notification_service_override=self.notification_service,
             )
             update_booking_request_status(
@@ -543,8 +567,8 @@ class RentalBookingAdminTests(TestCase):
             data={
                 "user": str(booking_request.user_id),
                 "property": str(booking_request.property_id),
-                "start_date": "2026-06-01",
-                "end_date": "2026-06-07",
+                "start_date": self.start_date.isoformat(),
+                "end_date": self.end_date.isoformat(),
                 "status": BookingRequestStatus.APPROVED,
                 "note": booking_request.note,
                 "_save": "Save",
@@ -565,8 +589,8 @@ class RentalBookingAdminTests(TestCase):
             data={
                 "user": str(self.user.id),
                 "property": str(self.residential_property.id),
-                "start_date": "2026-06-01",
-                "end_date": "2026-06-07",
+                "start_date": self.start_date.isoformat(),
+                "end_date": self.end_date.isoformat(),
                 "status": BookingRequestStatus.PENDING,
                 "note": "",
                 "_save": "Save",
