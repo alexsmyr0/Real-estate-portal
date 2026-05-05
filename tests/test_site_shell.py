@@ -36,18 +36,9 @@ class SharedSiteShellTests(TestCase):
             bathrooms=Decimal("2.0"),
         )
 
-    def test_root_returns_json_index(self) -> None:
-        response = self.client.get("/")
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response["Content-Type"], "application/json")
-        data = response.json()
-        self.assertEqual(data["status"], "ok")
-        self.assertEqual(data["service"], "homefinder")
-
-    def test_site_home_uses_base_template_and_guest_navigation(self) -> None:
+    def test_home_uses_base_template_and_guest_navigation(self) -> None:
         self._create_visible_property()
-        response = self.client.get("/site/")
+        response = self.client.get("/")
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "base.html")
@@ -59,7 +50,7 @@ class SharedSiteShellTests(TestCase):
         self.assertContains(response, "Home")
         self.assertContains(response, "Browse Listings")
         self.assertContains(response, "Browse Catalog")
-        self.assertContains(response, "/site/catalog/")
+        self.assertContains(response, "/catalog/")
         self.assertContains(response, "/static/core/css/shared-shell.css")
 
     def test_site_home_authenticated_navigation_state(self) -> None:
@@ -70,7 +61,7 @@ class SharedSiteShellTests(TestCase):
         )
         self.client.force_login(user)
 
-        response = self.client.get("/site/")
+        response = self.client.get("/")
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Signed In User")
@@ -79,15 +70,15 @@ class SharedSiteShellTests(TestCase):
 
     def test_site_home_renders_featured_property_snapshot(self) -> None:
         featured_property = self._create_visible_property(title="Featured Listing")
-        response = self.client.get("/site/")
+        response = self.client.get("/")
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Current Listings")
         self.assertContains(response, "Featured Listing")
         self.assertContains(response, str(featured_property.price))
 
-    def test_site_catalog_route_is_available_after_a05(self) -> None:
-        response = self.client.get("/site/catalog/")
+    def test_catalog_route_is_available(self) -> None:
+        response = self.client.get("/catalog/")
 
         self.assertEqual(response.status_code, 200)
 

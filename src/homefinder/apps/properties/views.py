@@ -1,17 +1,15 @@
 from __future__ import annotations
 
-from django.http import HttpRequest, JsonResponse, QueryDict
+from django.http import HttpRequest, HttpResponse, QueryDict
 from django.shortcuts import render
 
-from homefinder.apps.core.views import json_error_response
-
 from .models import Amenity, PropertyCategory
-from .services import DEFAULT_CATALOG_PAGE, get_visible_property_detail, parse_catalog_search_params, search_visible_properties
+from .services import DEFAULT_CATALOG_PAGE, parse_catalog_search_params, search_visible_properties
 
 CATALOG_BEDROOM_FILTER_OPTIONS = (1, 2, 3, 4, 5)
 
 
-def catalog_page(request: HttpRequest):
+def catalog_page(request: HttpRequest) -> HttpResponse:
     search_params = parse_catalog_search_params(request.GET)
     search_results = search_visible_properties(search_params=search_params)
 
@@ -66,33 +64,6 @@ def catalog_page(request: HttpRequest):
             if pagination["has_next"]
             else "",
         },
-    )
-
-
-def catalog_list(request: HttpRequest) -> JsonResponse:
-    search_params = parse_catalog_search_params(request.GET)
-    search_results = search_visible_properties(search_params=search_params)
-
-    return JsonResponse(
-        {
-            "status": "ok",
-            "data": search_results,
-        }
-    )
-
-
-def catalog_detail(_request: HttpRequest, property_id: int) -> JsonResponse:
-    property_payload = get_visible_property_detail(property_id=property_id)
-    if property_payload is None:
-        return json_error_response(404, "Not Found")
-
-    return JsonResponse(
-        {
-            "status": "ok",
-            "data": {
-                "property": property_payload,
-            },
-        }
     )
 
 

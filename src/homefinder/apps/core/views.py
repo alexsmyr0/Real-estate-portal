@@ -3,7 +3,7 @@ from __future__ import annotations
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import render
 
-from homefinder.apps.properties.services import CatalogSearchParams, search_visible_properties
+from homefinder.apps.properties.services import get_featured_visible_properties, visible_properties_queryset
 
 def json_error_response(status_code: int, message: str) -> JsonResponse:
     return JsonResponse(
@@ -18,23 +18,13 @@ def json_error_response(status_code: int, message: str) -> JsonResponse:
     )
 
 
-def index(_request: HttpRequest) -> JsonResponse:
-    return JsonResponse(
-        {
-            "status": "ok",
-            "service": "homefinder",
-        }
-    )
-
-
 def health(_request: HttpRequest) -> JsonResponse:
     return JsonResponse({"status": "ok"})
 
 
 def site_home(request: HttpRequest) -> HttpResponse:
-    catalog_snapshot = search_visible_properties(search_params=CatalogSearchParams(page=1))
-    featured_properties = catalog_snapshot["properties"][:3]
-    total_visible_listings = catalog_snapshot["pagination"]["total_items"]
+    featured_properties = get_featured_visible_properties(limit=3)
+    total_visible_listings = visible_properties_queryset().count()
 
     return render(
         request,

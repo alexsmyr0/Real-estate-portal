@@ -97,6 +97,10 @@ def list_visible_properties() -> list[dict[str, Any]]:
     return [_serialize_catalog_list_item(property_obj) for property_obj in visible_properties_queryset()]
 
 
+def get_featured_visible_properties(limit: int = 3) -> list[dict[str, Any]]:
+    return [_serialize_catalog_list_item(p) for p in visible_properties_queryset()[:limit]]
+
+
 def parse_catalog_search_params(query_params: QueryDict) -> CatalogSearchParams:
     location = _normalize_text(
         _first_present_query_value(query_params, "location", "location_city", "city"),

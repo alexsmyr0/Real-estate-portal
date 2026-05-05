@@ -57,12 +57,12 @@ class PublicCatalogPageTests(TestCase):
             bedrooms=2,
         )
 
-        response = self.client.get("/site/")
+        response = self.client.get("/")
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "core/site_home.html")
         self.assertContains(response, "Browse Catalog")
-        self.assertContains(response, "/site/catalog/")
+        self.assertContains(response, "/catalog/")
         self.assertContains(response, "Landing Snapshot Listing")
 
     def test_catalog_page_results_match_backend_payload(self) -> None:
@@ -91,7 +91,7 @@ class PublicCatalogPageTests(TestCase):
             bedrooms=2,
         )
 
-        response = self.client.get("/site/catalog/")
+        response = self.client.get("/catalog/")
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "properties/catalog.html")
@@ -136,7 +136,7 @@ class PublicCatalogPageTests(TestCase):
             "bedrooms_min": "3",
             "amenities": [str(self.pool.id), str(self.gym.id)],
         }
-        response = self.client.get("/site/catalog/", query)
+        response = self.client.get("/catalog/", query)
 
         self.assertEqual(response.status_code, 200)
         expected_payload = search_visible_properties(search_params=parse_catalog_search_params(response.wsgi_request.GET))
@@ -184,7 +184,7 @@ class PublicCatalogPageTests(TestCase):
                 bedrooms=2,
             )
 
-        page_one_response = self.client.get("/site/catalog/", {"location": "Athens", "page": "1"})
+        page_one_response = self.client.get("/catalog/", {"location": "Athens", "page": "1"})
         self.assertEqual(page_one_response.status_code, 200)
 
         page_one_expected = search_visible_properties(
@@ -206,7 +206,7 @@ class PublicCatalogPageTests(TestCase):
             page_link_query = parse_qs(page_link["query_string"])
             self.assertEqual(page_link_query.get("location"), ["Athens"])
 
-        page_two_response = self.client.get("/site/catalog/", {"location": "Athens", "page": "2"})
+        page_two_response = self.client.get("/catalog/", {"location": "Athens", "page": "2"})
         self.assertEqual(page_two_response.status_code, 200)
 
         page_two_expected = search_visible_properties(
@@ -217,3 +217,20 @@ class PublicCatalogPageTests(TestCase):
         self.assertEqual(page_two_ids, expected_page_two_ids)
         self.assertEqual(page_two_response.context["pagination"]["page"], 2)
         self.assertEqual(len(page_two_ids), 2)
+
+    def test_catalog_empty_state_renders_when_no_results(self) -> None:
+        self._create_property(
+            title="Athens Listing",
+            status=PropertyStatus.AVAILABLE,
+            city="Athens",
+            area="Center",
+            price=Decimal("300000.00"),
+            bedrooms=2,
+        )
+
+        response = self.client.get("/catalog/", {"location": "Nowhere"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "properties/catalog.html")
+        self.assertFalse(response.context["properties"])
+        self.assertContains(response, "No properties match those filters")
