@@ -6,7 +6,7 @@
         </figure>
         {% if image_urls|length > 1 %}
             <div class="detail-gallery-grid">
-                {% for image_url in image_urls %}
+                {% for image_url in image_urls|slice:"1:" %}
                     <figure class="detail-gallery-thumb">
                         <img src="{{ image_url }}" alt="{{ title }} image {{ forloop.counter }}">
                     </figure>
