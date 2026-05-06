@@ -113,21 +113,21 @@ class ListingAlertSubscription(models.Model):
         ]
         constraints = [
             models.CheckConstraint(
-                check=models.Q(min_price__isnull=True)
+                condition=models.Q(min_price__isnull=True)
                 | models.Q(max_price__isnull=True)
                 | models.Q(min_price__lte=models.F("max_price")),
                 name="ck_alert_price_bounds",
             ),
             models.CheckConstraint(
-                check=models.Q(bedrooms_min__isnull=True) | models.Q(bedrooms_min__gt=0),
+                condition=models.Q(bedrooms_min__isnull=True) | models.Q(bedrooms_min__gt=0),
                 name="ck_alert_bedrooms_min_positive",
             ),
             models.CheckConstraint(
-                check=models.Q(is_active=False) | models.Q(source_property__isnull=False),
+                condition=models.Q(is_active=False) | models.Q(source_property__isnull=False),
                 name="ck_active_alert_has_source_property",
             ),
             models.CheckConstraint(
-                check=models.Q(is_active=False) | (~models.Q(category="") & ~models.Q(location_city="")),
+                condition=models.Q(is_active=False) | (~models.Q(category="") & ~models.Q(location_city="")),
                 name="ck_active_alert_has_required_filters",
             ),
         ]
