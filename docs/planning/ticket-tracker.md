@@ -110,7 +110,7 @@ Use this as the default claim order for the next wave of work:
 - [x] **N-02** P1 - MVP Email Notification Service And Console Delivery | Shared email service for 2FA and MVP confirmations with notification persistence. (Depends on: N-01; A-01) | Blocks: A-02; A-08; A-09; N-04; N-05; N-06; N-07
 - [x] **N-03** P1 - Activity And Search Logging Pipeline | Shared logging and search-history pipeline with no-op-safe helper hooks. (Depends on: N-01) | Blocks: A-10; K-08; K-09; K-11; N-08
 - [x] **N-04** P3 - Similar Listing Alert Matching And Dispatch | Rule-based alert subscriptions and similar-listing notification delivery. (Depends on: N-02; K-04) | Blocks: A-12
-- [ ] **N-05** P3 - Rental Booking Request Backend | Rental-only booking persistence, validation, statuses, and booking notifications. (Depends on: N-01; N-02; K-04) | Blocks: A-11; N-06
-- [ ] **N-06** P4 - Simulated Payment Flow | Fake payment processing and explicit payment-status transitions without a real gateway. (Depends on: N-05; N-02) | Blocks: A-14
+- [x] **N-05** P3 - Rental Booking Request Backend | Rental-only booking persistence, validation, statuses, and booking notifications. (Depends on: N-01; N-02; K-04) | Blocks: A-11; N-06
+- [x] **N-06** P4 - Simulated Payment Flow | Fake payment processing and explicit payment-status transitions without a real gateway. (Depends on: N-05; N-02) | Blocks: A-14
 - [ ] **N-07** P4 - Production Email Provider Integration | Real email-provider support while preserving the shared notification abstraction. (Depends on: N-02) | Blocks: None
 - [ ] **N-08** P4 - Retention Automation For Log-Style Records | 90-day cleanup for activity logs, search history, and email notification records. (Depends on: N-03) | Blocks: None
