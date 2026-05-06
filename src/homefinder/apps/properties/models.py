@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 
 
@@ -86,6 +87,13 @@ class PropertyImage(models.Model):
 
 class ListingAlertSubscription(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="listing_alert_subscriptions")
+    source_property = models.ForeignKey(
+        "Property",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="similar_alert_subscriptions",
+    )
     category = models.CharField(max_length=16, choices=PropertyCategory.choices, blank=True)
     location_city = models.CharField(max_length=100, blank=True)
     min_price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
@@ -98,9 +106,62 @@ class ListingAlertSubscription(models.Model):
     class Meta:
         db_table = "listing_alert_subscriptions"
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["is_active", "category", "location_city"], name="idx_alert_active_category_city"),
+            models.Index(fields=["min_price", "max_price"], name="idx_alert_price_range"),
+            models.Index(fields=["bedrooms_min"], name="idx_alert_bedrooms_min"),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(min_price__isnull=True)
+                | models.Q(max_price__isnull=True)
+                | models.Q(min_price__lte=models.F("max_price")),
+                name="ck_alert_price_bounds",
+            ),
+            models.CheckConstraint(
+                check=models.Q(bedrooms_min__isnull=True) | models.Q(bedrooms_min__gt=0),
+                name="ck_alert_bedrooms_min_positive",
+            ),
+            models.CheckConstraint(
+                check=models.Q(is_active=False) | models.Q(source_property__isnull=False),
+                name="ck_active_alert_has_source_property",
+            ),
+            models.CheckConstraint(
+                check=models.Q(is_active=False) | (~models.Q(category="") & ~models.Q(location_city="")),
+                name="ck_active_alert_has_required_filters",
+            ),
+        ]
 
     def __str__(self) -> str:
         return f"AlertSubscription<{self.pk}>"
+
+    def clean(self) -> None:
+        super().clean()
+
+        errors: dict[str, str] = {}
+
+        if self.min_price is not None and self.max_price is not None and self.min_price > self.max_price:
+            errors["max_price"] = "Maximum price must be greater than or equal to minimum price."
+
+        if self.bedrooms_min is not None and self.bedrooms_min <= 0:
+            errors["bedrooms_min"] = "Minimum bedrooms must be greater than zero."
+
+        if self.is_active:
+            if self.source_property_id is None:
+                errors["source_property"] = "Active alert subscriptions require a source property."
+            elif self.source_property.status != PropertyStatus.UNAVAILABLE:
+                errors["source_property"] = "Active alert subscriptions require an unavailable source property."
+            if not (self.category or "").strip():
+                errors["category"] = "Active alert subscriptions require a category."
+            if not (self.location_city or "").strip():
+                errors["location_city"] = "Active alert subscriptions require a city."
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args: object, **kwargs: object) -> None:
+        self.full_clean()
+        super().save(*args, **kwargs)
 
 
 class ListingAlertSubscriptionAmenity(models.Model):
