@@ -300,17 +300,22 @@ class RentalBookingRequestTests(TestCase):
 
     def test_lifecycle_update_succeeds_after_start_date_has_passed(self) -> None:
         booking_request = self._create_booking_without_delivery()
-        simulated_today = self.start_date + timedelta(days=1)
+        past_start_date = timezone.localdate() - timedelta(days=1)
+        future_end_date = timezone.localdate() + timedelta(days=1)
+        BookingRequest.objects.filter(pk=booking_request.pk).update(
+            start_date=past_start_date,
+            end_date=future_end_date,
+        )
 
-        with patch("homefinder.apps.interactions.models.timezone.localdate", return_value=simulated_today):
-            with self.captureOnCommitCallbacks(execute=True):
-                updated_request = update_booking_request_status(
-                    booking_request,
-                    status=BookingRequestStatus.APPROVED,
-                    notification_service_override=self.notification_service,
-                )
+        with self.captureOnCommitCallbacks(execute=True):
+            updated_request = update_booking_request_status(
+                booking_request,
+                status=BookingRequestStatus.APPROVED,
+                notification_service_override=self.notification_service,
+            )
 
         updated_request.refresh_from_db()
+        self.assertEqual(updated_request.start_date, past_start_date)
         self.assertEqual(updated_request.status, BookingRequestStatus.APPROVED)
         self.assertEqual(EmailNotification.objects.count(), 2)
         self.assertEqual(len(self.adapter.messages), 2)
@@ -538,6 +543,49 @@ class RentalBookingAdminTests(TestCase):
         booking_request.refresh_from_db()
         self.assertEqual(booking_request.status, BookingRequestStatus.APPROVED)
         self.assertEqual(booking_request.note, updated_note)
+        self.assertEqual(EmailNotification.objects.count(), 1)
+        notification = EmailNotification.objects.get()
+        self.assertEqual(notification.purpose, EmailNotificationPurpose.BOOKING_UPDATE)
+        self.assertEqual(notification.status, EmailNotificationStatus.SENT)
+        self.assertIn("Your HomeFinder booking request", stdout.getvalue())
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.console.EmailBackend")
+    def test_admin_can_update_status_only_without_duplicate_notification_or_data_loss(self) -> None:
+        original_note = "Keep this note unchanged."
+        booking_request = BookingRequest.objects.create(
+            user=self.user,
+            property=self.rental_property,
+            start_date=self.start_date,
+            end_date=self.end_date,
+            note=original_note,
+        )
+        change_url = reverse("admin:interactions_bookingrequest_change", args=[booking_request.id])
+        stdout = io.StringIO()
+
+        with redirect_stdout(stdout):
+            with self.captureOnCommitCallbacks(execute=True):
+                with patch(
+                    "homefinder.apps.interactions.admin.services.update_booking_request_status",
+                    wraps=update_booking_request_status,
+                ) as status_update:
+                    response = self.client.post(
+                        change_url,
+                        data={
+                            "user": str(booking_request.user_id),
+                            "property": str(booking_request.property_id),
+                            "start_date": self.start_date.isoformat(),
+                            "end_date": self.end_date.isoformat(),
+                            "status": BookingRequestStatus.APPROVED,
+                            "note": original_note,
+                            "_save": "Save",
+                        },
+                    )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(status_update.call_count, 1)
+        booking_request.refresh_from_db()
+        self.assertEqual(booking_request.status, BookingRequestStatus.APPROVED)
+        self.assertEqual(booking_request.note, original_note)
         self.assertEqual(EmailNotification.objects.count(), 1)
         notification = EmailNotification.objects.get()
         self.assertEqual(notification.purpose, EmailNotificationPurpose.BOOKING_UPDATE)
