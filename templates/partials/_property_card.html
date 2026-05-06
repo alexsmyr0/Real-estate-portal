@@ -13,11 +13,18 @@
                 {{ property.availability.label }}
             </span>
         </div>
-        <h3>{{ property.title }}</h3>
+        <h3>
+            <a class="property-title-link" href="{% url 'site-property-detail' property.id %}">
+                {{ property.title }}
+            </a>
+        </h3>
         <p class="property-price">EUR {{ property.price }}</p>
         <p class="property-facts">
             {% if property.bedrooms %}{{ property.bedrooms }} bed{% if property.bedrooms != 1 %}s{% endif %}{% else %}Studio/Unknown beds{% endif %}
             {% if property.bathrooms %} | {{ property.bathrooms }} bath{% if property.bathrooms != 1 %}s{% endif %}{% endif %}
         </p>
+        <div class="property-card-actions">
+            <a class="button button-ghost" href="{% url 'site-property-detail' property.id %}">View details</a>
+        </div>
     </div>
 </article>

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from django.http import HttpRequest, HttpResponse, QueryDict
+from django.http import Http404, HttpRequest, HttpResponse, QueryDict
 from django.shortcuts import render
 
 from .models import Amenity, PropertyCategory
-from .services import DEFAULT_CATALOG_PAGE, parse_catalog_search_params, search_visible_properties
+from .services import DEFAULT_CATALOG_PAGE, get_visible_property_detail, parse_catalog_search_params, search_visible_properties
 
 CATALOG_BEDROOM_FILTER_OPTIONS = (1, 2, 3, 4, 5)
 
@@ -67,11 +67,33 @@ def catalog_page(request: HttpRequest) -> HttpResponse:
     )
 
 
+def property_detail_page(request: HttpRequest, property_id: int) -> HttpResponse:
+    property_payload = get_visible_property_detail(property_id)
+    if property_payload is None:
+        raise Http404("Property not found.")
+
+    return render(
+        request,
+        "properties/detail.html",
+        {
+            "property": property_payload,
+            "category_label": _get_category_label(property_payload["category"]),
+        },
+    )
+
+
 def _first_query_value(query_params: QueryDict, *keys: str) -> str:
     for key in keys:
         if key in query_params:
             return (query_params.get(key, "") or "").strip()
     return ""
+
+
+def _get_category_label(category_code: str) -> str:
+    try:
+        return PropertyCategory(category_code).label
+    except ValueError:
+        return category_code.title()
 
 
 def _build_page_query_string(query_params: QueryDict, page_number: int) -> str:

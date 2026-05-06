@@ -1,0 +1,19 @@
+<section class="detail-gallery">
+    <h2>Gallery</h2>
+    {% if image_urls %}
+        <figure class="detail-gallery-feature">
+            <img src="{{ image_urls.0 }}" alt="{{ title }} primary image">
+        </figure>
+        {% if image_urls|length > 1 %}
+            <div class="detail-gallery-grid">
+                {% for image_url in image_urls|slice:"1:" %}
+                    <figure class="detail-gallery-thumb">
+                        <img src="{{ image_url }}" alt="{{ title }} image {{ forloop.counter }}">
+                    </figure>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% else %}
+        <div class="detail-gallery-empty">No images are available for this listing.</div>
+    {% endif %}
+</section>
