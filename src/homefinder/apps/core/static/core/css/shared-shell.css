@@ -203,6 +203,35 @@ h1 {
         var(--white);
 }
 
+.detail-hero {
+    background:
+        linear-gradient(135deg, rgba(221, 238, 234, 0.72), rgba(247, 251, 255, 0.96)),
+        var(--white);
+}
+
+.detail-hero-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.8rem;
+}
+
+.detail-location {
+    margin: 0;
+    color: var(--ink-700);
+    font-weight: 600;
+}
+
+.detail-unavailable-note {
+    margin: 0.9rem 0 0;
+    border: 1px solid #f0dcb5;
+    border-radius: 10px;
+    padding: 0.7rem 0.8rem;
+    background: #fff7e6;
+    color: #805900;
+    font-weight: 600;
+}
+
 .landing-highlights .panel {
     background: linear-gradient(180deg, #ffffff, #fbfdff);
 }
@@ -463,9 +492,145 @@ textarea.form-control {
     margin-bottom: 0.3rem;
 }
 
+.property-title-link {
+    color: var(--ink-950);
+    text-decoration: none;
+}
+
+.property-title-link:hover,
+.property-title-link:focus-visible {
+    color: var(--accent-deep);
+    text-decoration: underline;
+}
+
 .property-facts {
     margin: 0;
     color: var(--ink-500);
+}
+
+.property-card-actions {
+    margin-top: 0.95rem;
+}
+
+.property-card-actions .button {
+    width: 100%;
+}
+
+.property-detail-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.85fr) minmax(290px, 1fr);
+    gap: 1rem;
+}
+
+.detail-main,
+.detail-side {
+    display: grid;
+    gap: 1.2rem;
+}
+
+.detail-gallery h2,
+.detail-description h2,
+.detail-facts h2,
+.detail-amenities h2 {
+    margin-bottom: 0.75rem;
+}
+
+.detail-gallery-feature,
+.detail-gallery-thumb {
+    margin: 0;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--ink-200);
+}
+
+.detail-gallery-feature {
+    aspect-ratio: 16 / 9;
+    background: #ecf1fa;
+}
+
+.detail-gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.55rem;
+    margin-top: 0.7rem;
+}
+
+.detail-gallery-thumb {
+    aspect-ratio: 4 / 3;
+    background: #ecf1fa;
+}
+
+.detail-gallery img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.detail-gallery-empty {
+    border: 1px dashed #b7c5dc;
+    border-radius: 12px;
+    padding: 1rem;
+    color: var(--ink-500);
+    background: #f8fbff;
+}
+
+.detail-description p {
+    margin: 0;
+    color: var(--ink-700);
+    line-height: 1.6;
+}
+
+.detail-muted {
+    color: var(--ink-500);
+}
+
+.detail-facts-list {
+    margin: 0;
+    display: grid;
+    gap: 0.55rem;
+}
+
+.detail-fact-row {
+    margin: 0;
+    display: flex;
+    justify-content: space-between;
+    gap: 0.8rem;
+    border-bottom: 1px solid #e2e9f5;
+    padding-bottom: 0.48rem;
+}
+
+.detail-fact-row dt {
+    color: var(--ink-500);
+    font-weight: 600;
+}
+
+.detail-fact-row dd {
+    margin: 0;
+    text-align: right;
+    font-weight: 700;
+    color: var(--ink-950);
+}
+
+.detail-amenity-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+}
+
+.detail-amenity-list li {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    border: 1px solid #c8d7f2;
+    padding: 0.32rem 0.7rem;
+    background: #edf3fd;
+    color: #274769;
+    font-size: 0.9rem;
+    font-weight: 600;
 }
 
 .empty-state {
@@ -543,6 +708,10 @@ textarea.form-control {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
+    .property-detail-layout {
+        grid-template-columns: 1fr;
+    }
+
     .amenity-checklist {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -574,6 +743,11 @@ textarea.form-control {
         width: 100%;
     }
 
+    .detail-hero-head {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
     .panel-grid,
     .property-grid,
     .form-grid {
@@ -582,6 +756,18 @@ textarea.form-control {
 
     .amenity-checklist {
         grid-template-columns: 1fr;
+    }
+
+    .detail-gallery-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .detail-fact-row {
+        align-items: flex-start;
+    }
+
+    .detail-fact-row dd {
+        text-align: left;
     }
 }
 
@@ -611,5 +797,9 @@ textarea.form-control {
 
     .button {
         width: 100%;
+    }
+
+    .detail-gallery-grid {
+        grid-template-columns: 1fr;
     }
 }

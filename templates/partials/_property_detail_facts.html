@@ -1,0 +1,29 @@
+<section class="detail-facts">
+    <h2>Key Facts</h2>
+    <dl class="detail-facts-list">
+        <div class="detail-fact-row">
+            <dt>Category</dt>
+            <dd>{{ category_label }}</dd>
+        </div>
+        <div class="detail-fact-row">
+            <dt>Price</dt>
+            <dd>EUR {{ property.price }}</dd>
+        </div>
+        <div class="detail-fact-row">
+            <dt>Bedrooms</dt>
+            <dd>{% if property.bedrooms %}{{ property.bedrooms }}{% else %}Unknown{% endif %}</dd>
+        </div>
+        <div class="detail-fact-row">
+            <dt>Bathrooms</dt>
+            <dd>{% if property.bathrooms %}{{ property.bathrooms }}{% else %}Unknown{% endif %}</dd>
+        </div>
+        <div class="detail-fact-row">
+            <dt>Address</dt>
+            <dd>{% if property.address_line %}{{ property.address_line }}{% else %}Not provided{% endif %}</dd>
+        </div>
+        <div class="detail-fact-row">
+            <dt>Availability</dt>
+            <dd>{{ property.availability.label }}</dd>
+        </div>
+    </dl>
+</section>

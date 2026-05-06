@@ -12,7 +12,7 @@ django.setup()
 
 from django.test import Client, TestCase, override_settings
 
-from homefinder.apps.properties.models import Amenity, Property, PropertyCategory, PropertyStatus
+from homefinder.apps.properties.models import Amenity, Property, PropertyCategory, PropertyImage, PropertyStatus
 from homefinder.apps.properties.services import parse_catalog_search_params, search_visible_properties
 
 
@@ -234,3 +234,79 @@ class PublicCatalogPageTests(TestCase):
         self.assertTemplateUsed(response, "properties/catalog.html")
         self.assertFalse(response.context["properties"])
         self.assertContains(response, "No properties match those filters")
+
+    def test_property_detail_page_renders_visible_listing_content(self) -> None:
+        property_obj = self._create_property(
+            title="Visible Detail Listing",
+            status=PropertyStatus.AVAILABLE,
+            city="Athens",
+            area="Kolonaki",
+            price=Decimal("510000.00"),
+            bedrooms=3,
+            category=PropertyCategory.COMMERCIAL,
+        )
+        property_obj.amenities.add(self.pool, self.gym)
+        PropertyImage.objects.create(property=property_obj, image_url="https://img.example.com/detail-visible-1.jpg")
+        PropertyImage.objects.create(property=property_obj, image_url="https://img.example.com/detail-visible-2.jpg")
+
+        response = self.client.get(f"/catalog/{property_obj.id}/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "properties/detail.html")
+        self.assertContains(response, "Visible Detail Listing")
+        self.assertContains(response, "Gallery")
+        self.assertContains(response, "Key Facts")
+        self.assertContains(response, "Amenities")
+        self.assertContains(response, "https://img.example.com/detail-visible-1.jpg")
+        self.assertContains(response, "https://img.example.com/detail-visible-2.jpg")
+        self.assertContains(response, "Pool")
+        self.assertContains(response, "Gym")
+        self.assertContains(response, "EUR 510000.00")
+        self.assertContains(response, "/catalog/")
+        self.assertEqual(response.context["property"]["id"], property_obj.id)
+        self.assertEqual(response.context["category_label"], "Commercial")
+        self.assertTrue(response.context["property"]["availability"]["is_available"])
+
+    def test_property_detail_page_renders_unavailable_listing_with_clear_messaging(self) -> None:
+        property_obj = self._create_property(
+            title="Unavailable Detail Listing",
+            status=PropertyStatus.UNAVAILABLE,
+            city="Patra",
+            area="North",
+            price=Decimal("330000.00"),
+            bedrooms=2,
+        )
+        PropertyImage.objects.create(property=property_obj, image_url="https://img.example.com/detail-unavailable-1.jpg")
+
+        response = self.client.get(f"/catalog/{property_obj.id}/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "properties/detail.html")
+        self.assertContains(response, "Unavailable Detail Listing")
+        self.assertContains(response, "Unavailable")
+        self.assertContains(response, "currently unavailable")
+        self.assertTrue(response.context["property"]["availability"]["is_unavailable"])
+
+    def test_property_detail_page_returns_not_found_for_removed_listing(self) -> None:
+        property_obj = self._create_property(
+            title="Removed Detail Listing",
+            status=PropertyStatus.REMOVED,
+            city="Larisa",
+            area="Center",
+            price=Decimal("290000.00"),
+            bedrooms=2,
+        )
+
+        response = self.client.get(f"/catalog/{property_obj.id}/")
+
+        self.assertEqual(response.status_code, 404)
+        self.assertJSONEqual(
+            response.content,
+            {
+                "status": "error",
+                "error": {
+                    "code": 404,
+                    "message": "Not Found",
+                },
+            },
+        )
