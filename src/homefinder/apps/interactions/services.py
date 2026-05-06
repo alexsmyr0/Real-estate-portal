@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, replace
+from datetime import date
 from typing import Protocol
 
 from django.conf import settings
@@ -22,6 +23,9 @@ from .activity_logging import (
     log_search_activity as log_search_activity,
 )
 from .models import (
+    ALLOWED_BOOKING_STATUS_TRANSITIONS,
+    BookingRequest,
+    BookingRequestStatus,
     EmailNotification,
     EmailNotificationPurpose,
     EmailNotificationStatus,
@@ -217,8 +221,87 @@ class EmailNotificationService:
             )
         )
 
+    def send_booking_update(self, booking_request: BookingRequest) -> EmailNotification:
+        return self.send(
+            EmailNotificationMessage(
+                purpose=EmailNotificationPurpose.BOOKING_UPDATE,
+                user=booking_request.user,
+                recipient_email=booking_request.user.email,
+                subject="Your HomeFinder booking request",
+                body=(
+                    f"Booking request for {booking_request.property.title} "
+                    f"in {booking_request.property.city}.\n\n"
+                    f"Dates: {booking_request.start_date:%Y-%m-%d} to {booking_request.end_date:%Y-%m-%d}\n"
+                    f"Status: {BookingRequestStatus(booking_request.status).label}\n\n"
+                    "A HomeFinder team member will manage the request lifecycle."
+                ),
+            )
+        )
+
+
 
 notification_service = EmailNotificationService()
+
+
+def create_booking_request(
+    *,
+    user: models.Model,
+    property_obj: models.Model,
+    start_date: date | None,
+    end_date: date | None,
+    note: str = "",
+    notification_service_override: EmailNotificationService | None = None,
+) -> BookingRequest:
+    booking_request = BookingRequest(
+        user=user,
+        property=property_obj,
+        start_date=start_date,
+        end_date=end_date,
+        note=note,
+        status=BookingRequestStatus.PENDING,
+    )
+
+    with transaction.atomic():
+        booking_request.save()
+        service = notification_service_override or notification_service
+        service.send_booking_update(booking_request)
+
+    return booking_request
+
+
+def update_booking_request_status(
+    booking_request: BookingRequest,
+    *,
+    status: str,
+    notification_service_override: EmailNotificationService | None = None,
+) -> BookingRequest:
+    with transaction.atomic():
+        locked_booking_request = (
+            BookingRequest.objects.select_for_update()
+            .select_related("user", "property")
+            .get(pk=booking_request.pk)
+        )
+
+        if locked_booking_request.status == status:
+            return locked_booking_request
+
+        allowed_statuses = ALLOWED_BOOKING_STATUS_TRANSITIONS.get(locked_booking_request.status, set())
+        if status not in allowed_statuses:
+            raise ValidationError(
+                {
+                    "status": (
+                        f"Booking requests cannot move from {locked_booking_request.status} to {status}."
+                    )
+                }
+            )
+
+        locked_booking_request.status = status
+        locked_booking_request.full_clean()
+        locked_booking_request.save(update_fields=["status", "updated_at"])
+        service = notification_service_override or notification_service
+        service.send_booking_update(locked_booking_request)
+
+    return locked_booking_request
 
 
 def send_login_2fa_email(*, user: models.Model, token: str) -> EmailNotification:
@@ -235,3 +318,8 @@ def send_viewing_confirmation_email(viewing_request: ViewingRequest) -> EmailNot
 
 def send_similar_listing_alert_email(*, subscription: models.Model, property_obj: models.Model) -> EmailNotification:
     return notification_service.send_similar_listing_alert(subscription=subscription, property_obj=property_obj)
+
+
+
+def send_booking_update_email(booking_request: BookingRequest) -> EmailNotification:
+    return notification_service.send_booking_update(booking_request)
