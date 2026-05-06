@@ -37,8 +37,13 @@ def dispatch_alerts_for_available_listing(
     if current_state is not None and current_state["status"] == PropertyStatus.AVAILABLE:
         _deactivate_source_property_subscriptions(instance.pk)
 
-    if _should_schedule_after_save(instance=instance, created=created, current_state=current_state):
-        _schedule_similar_listing_alert_dispatch(instance)
+    subscription_ids = _subscription_ids_to_dispatch_after_save(
+        instance=instance,
+        created=created,
+        current_state=current_state,
+    )
+    if subscription_ids:
+        _schedule_similar_listing_alert_dispatch(instance, subscription_ids=subscription_ids)
 
 
 @receiver(pre_delete, sender=Property)
@@ -69,43 +74,57 @@ def dispatch_alerts_after_listing_amenities_change(
         return
 
     current_matching_ids = _matching_subscription_ids_for_instance(instance)
-    if current_matching_ids - previous_matching_ids:
-        _schedule_similar_listing_alert_dispatch(instance)
+    newly_matching_ids = current_matching_ids - previous_matching_ids
+    if newly_matching_ids:
+        _schedule_similar_listing_alert_dispatch(instance, subscription_ids=newly_matching_ids)
 
 
-def _schedule_similar_listing_alert_dispatch(property_obj: Property) -> None:
-    if property_obj.pk is None or property_obj.status != PropertyStatus.AVAILABLE:
+def _schedule_similar_listing_alert_dispatch(
+    property_obj: Property,
+    *,
+    subscription_ids: set[int],
+) -> None:
+    if property_obj.pk is None or not subscription_ids:
         return
 
-    transaction.on_commit(lambda property_id=property_obj.pk: _dispatch_for_property_id(property_id))
+    scoped_subscription_ids = tuple(subscription_ids)
+    transaction.on_commit(
+        lambda property_id=property_obj.pk, subscription_ids=scoped_subscription_ids: _dispatch_for_property_id(
+            property_id,
+            subscription_ids=subscription_ids,
+        )
+    )
 
 
-def _should_schedule_after_save(
+def _subscription_ids_to_dispatch_after_save(
     *,
     instance: Property,
     created: bool,
     current_state: dict[str, object] | None,
-) -> bool:
+) -> set[int]:
     if current_state is None or current_state["status"] != PropertyStatus.AVAILABLE:
-        return False
+        return set()
+
+    current_matching_ids = _matching_subscription_ids_for_state(current_state, instance.pk)
+    if not current_matching_ids:
+        return set()
 
     if created:
-        return True
+        return current_matching_ids
 
     previous_state = getattr(instance, "_previous_alert_match_state", None)
     if previous_state is None:
-        return False
+        return set()
 
     previous_status = previous_state["status"]
     if previous_status != PropertyStatus.AVAILABLE:
-        return True
+        return current_matching_ids
 
     if not _material_state_changed(previous_state=previous_state, current_state=current_state):
-        return False
+        return set()
 
     previous_matching_ids = _matching_subscription_ids_for_state(previous_state, instance.pk)
-    current_matching_ids = _matching_subscription_ids_for_state(current_state, instance.pk)
-    return bool(current_matching_ids - previous_matching_ids)
+    return current_matching_ids - previous_matching_ids
 
 
 def _material_state_changed(
@@ -160,9 +179,9 @@ def _normalized_state_value(value: Any) -> Any:
     return value
 
 
-def _dispatch_for_property_id(property_id: int) -> None:
+def _dispatch_for_property_id(property_id: int, *, subscription_ids: tuple[int, ...]) -> None:
     property_obj = Property.objects.filter(pk=property_id).first()
     if property_obj is None or property_obj.status != PropertyStatus.AVAILABLE:
         return
 
-    dispatch_similar_listing_alerts(property_obj)
+    dispatch_similar_listing_alerts(property_obj, subscription_ids=subscription_ids)

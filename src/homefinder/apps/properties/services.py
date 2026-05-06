@@ -182,7 +182,42 @@ def matching_listing_alert_subscriptions(property_obj: Property) -> list[Listing
     if not matching_subscription_ids:
         return []
 
-    candidates = ListingAlertSubscription.objects.filter(pk__in=matching_subscription_ids).select_related("user", "source_property").prefetch_related("amenities")
+    return _matching_listing_alert_subscriptions_from_ids(property_obj, matching_subscription_ids)
+
+
+def matching_listing_alert_subscriptions_for_ids(
+    property_obj: Property,
+    subscription_ids: Iterable[int],
+) -> list[ListingAlertSubscription]:
+    requested_subscription_ids = set(subscription_ids)
+    if not requested_subscription_ids:
+        return []
+
+    matching_subscription_ids = matching_listing_alert_subscription_ids_for_state(
+        property_id=property_obj.pk,
+        status=property_obj.status,
+        category=property_obj.category,
+        city=property_obj.city,
+        price=property_obj.price,
+        bedrooms=property_obj.bedrooms,
+        amenity_ids=property_obj.amenities.values_list("id", flat=True),
+    )
+    scoped_matching_ids = matching_subscription_ids & requested_subscription_ids
+    if not scoped_matching_ids:
+        return []
+
+    return _matching_listing_alert_subscriptions_from_ids(property_obj, scoped_matching_ids)
+
+
+def _matching_listing_alert_subscriptions_from_ids(
+    property_obj: Property,
+    subscription_ids: Iterable[int],
+) -> list[ListingAlertSubscription]:
+    candidates = (
+        ListingAlertSubscription.objects.filter(pk__in=subscription_ids)
+        .select_related("user", "source_property")
+        .prefetch_related("amenities")
+    )
     property_obj = Property.objects.prefetch_related("amenities").get(pk=property_obj.pk)
     return [subscription for subscription in candidates if listing_matches_alert_subscription(subscription, property_obj)]
 
@@ -232,6 +267,7 @@ def dispatch_similar_listing_alerts(
     property_obj: Property,
     *,
     notification_service: Any | None = None,
+    subscription_ids: Iterable[int] | None = None,
 ) -> list[Any]:
     from homefinder.apps.interactions.models import (
         SimilarListingAlertDispatch,
@@ -241,8 +277,13 @@ def dispatch_similar_listing_alerts(
 
     service = notification_service or default_notification_service
     dispatches: list[SimilarListingAlertDispatch] = []
+    subscriptions = (
+        matching_listing_alert_subscriptions(property_obj)
+        if subscription_ids is None
+        else matching_listing_alert_subscriptions_for_ids(property_obj, subscription_ids)
+    )
 
-    for subscription in matching_listing_alert_subscriptions(property_obj):
+    for subscription in subscriptions:
         with transaction.atomic():
             dispatch = _get_or_create_retryable_dispatch(subscription=subscription, property_obj=property_obj)
             if dispatch is None or dispatch.status in {

@@ -371,16 +371,21 @@ class SimilarListingAlertTests(TestCase):
         self.assertEqual(len(adapter.messages), 0)
 
     def test_available_listing_creation_schedules_alert_dispatch(self) -> None:
+        subscription = self._subscription(amenity_ids=[])
+
         with patch("homefinder.apps.properties.signals.dispatch_similar_listing_alerts") as dispatcher:
             with self.captureOnCommitCallbacks(execute=True):
                 listing = self._property(title="Fresh Available Listing", status=PropertyStatus.AVAILABLE)
 
         dispatcher.assert_called_once()
         self.assertEqual(dispatcher.call_args.args[0].pk, listing.pk)
+        self.assertEqual(set(dispatcher.call_args.kwargs["subscription_ids"]), {subscription.pk})
 
     def test_status_transition_to_available_schedules_alert_dispatch_once(self) -> None:
         for starting_status in (PropertyStatus.UNAVAILABLE, PropertyStatus.REMOVED):
             with self.subTest(starting_status=starting_status):
+                ListingAlertSubscription.objects.all().delete()
+                subscription = self._subscription(amenity_ids=[])
                 listing = self._property(title=f"{starting_status} Listing", status=starting_status)
 
                 with patch("homefinder.apps.properties.signals.dispatch_similar_listing_alerts") as dispatcher:
@@ -390,6 +395,7 @@ class SimilarListingAlertTests(TestCase):
 
                 dispatcher.assert_called_once()
                 self.assertEqual(dispatcher.call_args.args[0].pk, listing.pk)
+                self.assertEqual(set(dispatcher.call_args.kwargs["subscription_ids"]), {subscription.pk})
 
     @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
     def test_source_property_becoming_available_does_not_self_alert_and_deactivates_subscription(self) -> None:
@@ -556,6 +562,84 @@ class SimilarListingAlertTests(TestCase):
         self.assertEqual(EmailNotification.objects.count(), 1)
         self.assertEqual(SimilarListingAlertDispatch.objects.count(), 1)
         self.assertEqual(SimilarListingAlertDispatch.objects.get().status, SimilarListingAlertDispatchStatus.SENT)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_mixed_delta_amenity_change_dispatches_only_newly_matching_subscription(self) -> None:
+        listing = self._property(title="Mixed Amenity Delta Listing", status=PropertyStatus.AVAILABLE)
+        already_matching_subscription = self._subscription(amenity_ids=[])
+        newly_matching_subscription = self._subscription(amenity_ids=[self.pool.id])
+
+        with self.captureOnCommitCallbacks(execute=True):
+            listing.amenities.add(self.pool)
+
+        dispatch = SimilarListingAlertDispatch.objects.get()
+        self.assertEqual(dispatch.subscription_id, newly_matching_subscription.pk)
+        self.assertFalse(
+            SimilarListingAlertDispatch.objects.filter(
+                subscription=already_matching_subscription,
+                property=listing,
+            ).exists()
+        )
+        self.assertEqual(EmailNotification.objects.count(), 1)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_mixed_delta_scalar_change_dispatches_only_newly_matching_subscription(self) -> None:
+        listing = self._property(
+            title="Mixed Scalar Delta Listing",
+            status=PropertyStatus.AVAILABLE,
+            price="300000.00",
+        )
+        already_matching_subscription = create_listing_alert_subscription(
+            user=self.user,
+            source_property=self.source_property,
+            min_price="200000.00",
+            max_price="400000.00",
+            bedrooms_min=2,
+            amenity_ids=[],
+        )
+        newly_matching_subscription = create_listing_alert_subscription(
+            user=self.user,
+            source_property=self.source_property,
+            min_price="200000.00",
+            max_price="250000.00",
+            bedrooms_min=2,
+            amenity_ids=[],
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            listing.price = Decimal("240000.00")
+            listing.save(update_fields=["price"])
+
+        dispatch = SimilarListingAlertDispatch.objects.get()
+        self.assertEqual(dispatch.subscription_id, newly_matching_subscription.pk)
+        self.assertFalse(
+            SimilarListingAlertDispatch.objects.filter(
+                subscription=already_matching_subscription,
+                property=listing,
+            ).exists()
+        )
+        self.assertEqual(EmailNotification.objects.count(), 1)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_brand_new_available_listing_dispatches_to_all_currently_matching_subscriptions(self) -> None:
+        first_subscription = self._subscription(amenity_ids=[])
+        second_subscription = create_listing_alert_subscription(
+            user=self.user,
+            source_property=self.source_property,
+            min_price="200000.00",
+            max_price="280000.00",
+            bedrooms_min=2,
+            amenity_ids=[],
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            listing = self._property(title="Fresh Multi Match Listing", status=PropertyStatus.AVAILABLE)
+
+        self.assertEqual(
+            set(SimilarListingAlertDispatch.objects.filter(property=listing).values_list("subscription_id", flat=True)),
+            {first_subscription.pk, second_subscription.pk},
+        )
+        self.assertEqual(EmailNotification.objects.count(), 2)
 
     @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
     def test_no_amenity_subscription_does_not_alert_on_unrelated_amenity_change(self) -> None:
