@@ -137,3 +137,67 @@ class SupervisorReportingAggregationServiceTests(TestCase):
                 {"month": "2026-04", "inquiry_count": 1, "saved_property_count": 0},
             ],
         )
+
+    def test_monthly_reporting_aggregation_swaps_reversed_period_bounds(self) -> None:
+        metrics = get_monthly_inquiry_and_saved_property_metrics(
+            period_start=date(2026, 4, 30),
+            period_end=date(2026, 1, 1),
+        )
+
+        self.assertEqual(
+            metrics,
+            [
+                {"month": "2026-01", "inquiry_count": 2, "saved_property_count": 1},
+                {"month": "2026-02", "inquiry_count": 1, "saved_property_count": 3},
+                {"month": "2026-03", "inquiry_count": 0, "saved_property_count": 0},
+                {"month": "2026-04", "inquiry_count": 1, "saved_property_count": 0},
+            ],
+        )
+
+    def test_monthly_reporting_aggregation_with_only_period_start(self) -> None:
+        metrics = get_monthly_inquiry_and_saved_property_metrics(
+            period_start=date(2026, 2, 1),
+        )
+
+        self.assertEqual(
+            metrics,
+            [
+                {"month": "2026-02", "inquiry_count": 1, "saved_property_count": 3},
+                {"month": "2026-04", "inquiry_count": 1, "saved_property_count": 0},
+            ],
+        )
+
+    def test_monthly_reporting_aggregation_with_only_period_end(self) -> None:
+        metrics = get_monthly_inquiry_and_saved_property_metrics(
+            period_end=date(2026, 1, 31),
+        )
+
+        self.assertEqual(
+            metrics,
+            [
+                {"month": "2026-01", "inquiry_count": 2, "saved_property_count": 1},
+            ],
+        )
+
+    def test_monthly_reporting_aggregation_accepts_datetime_period_inputs(self) -> None:
+        metrics = get_monthly_inquiry_and_saved_property_metrics(
+            period_start=datetime(2026, 2, 15, 12, 0, tzinfo=datetime_timezone.utc),
+            period_end=datetime(2026, 4, 4, 17, 45, tzinfo=datetime_timezone.utc),
+        )
+
+        self.assertEqual(
+            metrics,
+            [
+                {"month": "2026-02", "inquiry_count": 1, "saved_property_count": 3},
+                {"month": "2026-03", "inquiry_count": 0, "saved_property_count": 0},
+                {"month": "2026-04", "inquiry_count": 1, "saved_property_count": 0},
+            ],
+        )
+
+    def test_monthly_reporting_aggregation_returns_empty_list_when_no_data(self) -> None:
+        PropertyInquiry.objects.all().delete()
+        UserFavorite.objects.all().delete()
+
+        metrics = get_monthly_inquiry_and_saved_property_metrics()
+
+        self.assertEqual(metrics, [])
