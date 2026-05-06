@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, replace
 from datetime import date
+from decimal import Decimal, InvalidOperation
 from typing import Protocol
 
 from django.conf import settings
@@ -24,11 +25,15 @@ from .activity_logging import (
 )
 from .models import (
     ALLOWED_BOOKING_STATUS_TRANSITIONS,
+    ALLOWED_PAYMENT_STATUS_TRANSITIONS,
     BookingRequest,
     BookingRequestStatus,
     EmailNotification,
     EmailNotificationPurpose,
     EmailNotificationStatus,
+    Payment,
+    PaymentPurpose,
+    PaymentStatus,
     PropertyInquiry,
     ViewingRequest,
 )
@@ -243,6 +248,93 @@ class EmailNotificationService:
 notification_service = EmailNotificationService()
 
 
+class SimulatedPaymentService:
+    """Internal-only simulated payment lifecycle with no gateway integration."""
+
+    def create_payment(
+        self,
+        *,
+        user: models.Model,
+        amount: Decimal | str,
+        method: str,
+        purpose: str = PaymentPurpose.OTHER,
+        booking_request: BookingRequest | None = None,
+    ) -> Payment:
+        try:
+            normalized_amount = Decimal(str(amount))
+        except (InvalidOperation, ValueError):
+            raise ValidationError({"amount": "Payment amount must be a valid decimal amount."}) from None
+
+        payment = Payment(
+            user=user,
+            booking_request=booking_request,
+            payment_purpose=purpose,
+            payment_method=method,
+            amount=normalized_amount,
+            status=PaymentStatus.PENDING,
+        )
+        payment.full_clean()
+
+        with transaction.atomic():
+            payment.save()
+
+        return payment
+
+    def create_booking_fee_payment(
+        self,
+        *,
+        booking_request: BookingRequest,
+        amount: Decimal | str,
+        method: str,
+    ) -> Payment:
+        if booking_request.pk is None:
+            raise ValidationError({"booking_request": "Booking-fee payments require a persisted booking request."})
+
+        booking_request = BookingRequest.objects.select_related("user", "property").get(pk=booking_request.pk)
+        return self.create_payment(
+            user=booking_request.user,
+            booking_request=booking_request,
+            amount=amount,
+            method=method,
+            purpose=PaymentPurpose.BOOKING_FEE,
+        )
+
+    def complete_payment(self, payment: Payment) -> Payment:
+        return self.transition_payment_status(payment, status=PaymentStatus.COMPLETED)
+
+    def fail_payment(self, payment: Payment) -> Payment:
+        return self.transition_payment_status(payment, status=PaymentStatus.FAILED)
+
+    def cancel_payment(self, payment: Payment) -> Payment:
+        return self.transition_payment_status(payment, status=PaymentStatus.CANCELLED)
+
+    def transition_payment_status(self, payment: Payment, *, status: str) -> Payment:
+        if not isinstance(payment, Payment) or payment.pk is None:
+            raise ValidationError({"payment": "A persisted simulated payment is required."})
+
+        if status not in PaymentStatus.values:
+            raise ValidationError({"status": "Payment status is required and must be valid."})
+
+        with transaction.atomic():
+            locked_payment = Payment.objects.select_for_update().select_related("booking_request").get(pk=payment.pk)
+
+            if locked_payment.status == status:
+                return locked_payment
+
+            allowed_statuses = ALLOWED_PAYMENT_STATUS_TRANSITIONS.get(locked_payment.status, set())
+            if status not in allowed_statuses:
+                raise ValidationError({"status": f"Payments cannot move from {locked_payment.status} to {status}."})
+
+            locked_payment.status = status
+            locked_payment.full_clean()
+            locked_payment.save(update_fields=["status", "updated_at"])
+
+        return locked_payment
+
+
+simulated_payment_service = SimulatedPaymentService()
+
+
 def create_booking_request(
     *,
     user: models.Model,
@@ -323,3 +415,37 @@ def send_similar_listing_alert_email(*, subscription: models.Model, property_obj
 
 def send_booking_update_email(booking_request: BookingRequest) -> EmailNotification:
     return notification_service.send_booking_update(booking_request)
+
+
+def create_simulated_payment(
+    *,
+    user: models.Model,
+    amount: Decimal | str,
+    method: str,
+    purpose: str = PaymentPurpose.OTHER,
+    booking_request: BookingRequest | None = None,
+) -> Payment:
+    return simulated_payment_service.create_payment(
+        user=user,
+        amount=amount,
+        method=method,
+        purpose=purpose,
+        booking_request=booking_request,
+    )
+
+
+def create_booking_fee_payment(
+    *,
+    booking_request: BookingRequest,
+    amount: Decimal | str,
+    method: str,
+) -> Payment:
+    return simulated_payment_service.create_booking_fee_payment(
+        booking_request=booking_request,
+        amount=amount,
+        method=method,
+    )
+
+
+def complete_simulated_payment(payment: Payment) -> Payment:
+    return simulated_payment_service.complete_payment(payment)

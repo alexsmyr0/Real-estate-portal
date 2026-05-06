@@ -211,12 +211,15 @@ CREATE TABLE IF NOT EXISTS payments (
     payment_purpose    ENUM('BOOKING_FEE', 'PREMIUM_SERVICE', 'OTHER') NOT NULL DEFAULT 'OTHER',
     payment_method     ENUM('CREDIT_CARD', 'BANK_TRANSFER') NOT NULL,
     amount             DECIMAL(12, 2) NOT NULL,
-    status             ENUM('PENDING', 'PAID', 'FAILED', 'REFUNDED') NOT NULL DEFAULT 'PENDING',
+    status             ENUM('PENDING', 'COMPLETED', 'FAILED', 'CANCELLED') NOT NULL DEFAULT 'PENDING',
     created_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     KEY idx_payments_user_created (user_id, created_at),
     CONSTRAINT fk_payments_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    CONSTRAINT fk_payments_booking_request FOREIGN KEY (booking_request_id) REFERENCES booking_requests(id) ON DELETE SET NULL
+    CONSTRAINT fk_payments_booking_request FOREIGN KEY (booking_request_id) REFERENCES booking_requests(id) ON DELETE RESTRICT,
+    CONSTRAINT ck_payment_amount_positive CHECK (amount > 0),
+    CONSTRAINT ck_payment_booking_fee_has_booking CHECK (payment_purpose <> 'BOOKING_FEE' OR booking_request_id IS NOT NULL)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS email_notifications (

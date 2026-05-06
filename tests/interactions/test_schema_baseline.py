@@ -143,6 +143,7 @@ class CrossCuttingSchemaBaselineTests(TestCase):
                 "amount": models.DecimalField,
                 "status": models.CharField,
                 "created_at": models.DateTimeField,
+                "updated_at": models.DateTimeField,
             },
         )
 
@@ -223,7 +224,7 @@ class CrossCuttingSchemaBaselineTests(TestCase):
         self.assert_field_contract(BookingRequest, "note", blank=True, max_length=500)
 
         self.assert_fk_contract(Payment, "user", on_delete=models.CASCADE)
-        self.assert_fk_contract(Payment, "booking_request", on_delete=models.SET_NULL, null=True, blank=True)
+        self.assert_fk_contract(Payment, "booking_request", on_delete=models.PROTECT, null=True, blank=True)
         self.assert_field_contract(
             Payment,
             "payment_purpose",
