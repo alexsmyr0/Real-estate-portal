@@ -239,6 +239,7 @@ class EmailNotificationService:
         )
 
 
+
 notification_service = EmailNotificationService()
 
 
@@ -317,6 +318,7 @@ def send_viewing_confirmation_email(viewing_request: ViewingRequest) -> EmailNot
 
 def send_similar_listing_alert_email(*, subscription: models.Model, property_obj: models.Model) -> EmailNotification:
     return notification_service.send_similar_listing_alert(subscription=subscription, property_obj=property_obj)
+
 
 
 def send_booking_update_email(booking_request: BookingRequest) -> EmailNotification:

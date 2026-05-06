@@ -92,6 +92,63 @@ class SimilarListingAlertTests(TestCase):
 
         self.assertEqual(ListingAlertSubscription.objects.count(), 0)
 
+    def test_direct_model_save_rejects_active_subscription_with_available_source_property(self) -> None:
+        available_source = self._property(title="Available Source", status=PropertyStatus.AVAILABLE)
+        subscription = ListingAlertSubscription(
+            user=self.user,
+            source_property=available_source,
+            category=PropertyCategory.RESIDENTIAL,
+            location_city="Athens",
+            is_active=True,
+        )
+
+        with self.assertRaises(ValidationError):
+            subscription.save()
+
+        self.assertEqual(ListingAlertSubscription.objects.count(), 0)
+
+    def test_direct_model_save_rejects_active_subscription_with_removed_source_property(self) -> None:
+        removed_source = self._property(title="Removed Source", status=PropertyStatus.REMOVED)
+        subscription = ListingAlertSubscription(
+            user=self.user,
+            source_property=removed_source,
+            category=PropertyCategory.RESIDENTIAL,
+            location_city="Athens",
+            is_active=True,
+        )
+
+        with self.assertRaises(ValidationError):
+            subscription.save()
+
+        self.assertEqual(ListingAlertSubscription.objects.count(), 0)
+
+    def test_direct_model_save_accepts_active_subscription_with_unavailable_source_property(self) -> None:
+        subscription = ListingAlertSubscription(
+            user=self.user,
+            source_property=self.source_property,
+            category=PropertyCategory.RESIDENTIAL,
+            location_city="Athens",
+            is_active=True,
+        )
+
+        subscription.save()
+
+        self.assertEqual(ListingAlertSubscription.objects.get(), subscription)
+
+    def test_manager_create_cannot_bypass_active_source_property_validation(self) -> None:
+        available_source = self._property(title="Available Source", status=PropertyStatus.AVAILABLE)
+
+        with self.assertRaises(ValidationError):
+            ListingAlertSubscription.objects.create(
+                user=self.user,
+                source_property=available_source,
+                category=PropertyCategory.RESIDENTIAL,
+                location_city="Athens",
+                is_active=True,
+            )
+
+        self.assertEqual(ListingAlertSubscription.objects.count(), 0)
+
     def test_active_subscription_model_validation_rejects_missing_required_criteria(self) -> None:
         invalid_subscriptions = (
             ListingAlertSubscription(user=self.user, is_active=True),
@@ -136,6 +193,7 @@ class SimilarListingAlertTests(TestCase):
         self.assertEqual(ListingAlertSubscription.objects.count(), 0)
 
     def test_model_validation_allows_valid_active_and_minimal_inactive_subscriptions(self) -> None:
+        available_source = self._property(title="Inactive Available Source", status=PropertyStatus.AVAILABLE)
         active_subscription = ListingAlertSubscription.objects.create(
             user=self.user,
             source_property=self.source_property,
@@ -147,10 +205,16 @@ class SimilarListingAlertTests(TestCase):
             is_active=True,
         )
         inactive_subscription = ListingAlertSubscription.objects.create(user=self.user, is_active=False)
+        inactive_with_available_source = ListingAlertSubscription.objects.create(
+            user=self.user,
+            source_property=available_source,
+            is_active=False,
+        )
 
         self.assertTrue(active_subscription.is_active)
         self.assertFalse(inactive_subscription.is_active)
-        self.assertEqual(ListingAlertSubscription.objects.count(), 2)
+        self.assertFalse(inactive_with_available_source.is_active)
+        self.assertEqual(ListingAlertSubscription.objects.count(), 3)
 
     def test_subscription_lifecycle_state_blocks_matching(self) -> None:
         subscription = self._subscription()
@@ -184,6 +248,14 @@ class SimilarListingAlertTests(TestCase):
         listing = self._matching_listing(amenities=[self.parking])
 
         self.assertEqual(matching_listing_alert_subscriptions(listing), [])
+
+    def test_matcher_excludes_subscription_source_property(self) -> None:
+        subscription = self._subscription(amenity_ids=[])
+        Property.objects.filter(pk=self.source_property.pk).update(status=PropertyStatus.AVAILABLE)
+        self.source_property.refresh_from_db()
+
+        self.assertFalse(listing_matches_alert_subscription(subscription, self.source_property))
+        self.assertEqual(matching_listing_alert_subscriptions(self.source_property), [])
 
     def test_matching_rejects_non_qualifying_listings(self) -> None:
         cases = {
@@ -299,15 +371,167 @@ class SimilarListingAlertTests(TestCase):
         self.assertEqual(len(adapter.messages), 0)
 
     def test_available_listing_creation_schedules_alert_dispatch(self) -> None:
+        subscription = self._subscription(amenity_ids=[])
+
         with patch("homefinder.apps.properties.signals.dispatch_similar_listing_alerts") as dispatcher:
             with self.captureOnCommitCallbacks(execute=True):
                 listing = self._property(title="Fresh Available Listing", status=PropertyStatus.AVAILABLE)
 
         dispatcher.assert_called_once()
         self.assertEqual(dispatcher.call_args.args[0].pk, listing.pk)
+        self.assertEqual(set(dispatcher.call_args.kwargs["subscription_ids"]), {subscription.pk})
+
+    def test_status_transition_to_available_schedules_alert_dispatch_once(self) -> None:
+        for starting_status in (PropertyStatus.UNAVAILABLE, PropertyStatus.REMOVED):
+            with self.subTest(starting_status=starting_status):
+                ListingAlertSubscription.objects.all().delete()
+                subscription = self._subscription(amenity_ids=[])
+                listing = self._property(title=f"{starting_status} Listing", status=starting_status)
+
+                with patch("homefinder.apps.properties.signals.dispatch_similar_listing_alerts") as dispatcher:
+                    with self.captureOnCommitCallbacks(execute=True):
+                        listing.status = PropertyStatus.AVAILABLE
+                        listing.save(update_fields=["status"])
+
+                dispatcher.assert_called_once()
+                self.assertEqual(dispatcher.call_args.args[0].pk, listing.pk)
+                self.assertEqual(set(dispatcher.call_args.kwargs["subscription_ids"]), {subscription.pk})
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_source_property_becoming_available_does_not_self_alert_and_deactivates_subscription(self) -> None:
+        subscription = self._subscription(amenity_ids=[])
+
+        with self.captureOnCommitCallbacks(execute=True):
+            self.source_property.status = PropertyStatus.AVAILABLE
+            self.source_property.save(update_fields=["status"])
+
+        subscription.refresh_from_db()
+        self.assertFalse(subscription.is_active)
+        self.assertEqual(EmailNotification.objects.count(), 0)
+        self.assertEqual(SimilarListingAlertDispatch.objects.count(), 0)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_deleting_source_property_deactivates_subscription_before_set_null(self) -> None:
+        subscription = self._subscription(amenity_ids=[])
+
+        with patch("homefinder.apps.properties.signals.dispatch_similar_listing_alerts") as dispatcher:
+            with self.captureOnCommitCallbacks(execute=True):
+                self.source_property.delete()
+
+        subscription.refresh_from_db()
+        self.assertFalse(subscription.is_active)
+        self.assertIsNone(subscription.source_property_id)
+        dispatcher.assert_not_called()
+        self.assertEqual(EmailNotification.objects.count(), 0)
+        self.assertEqual(SimilarListingAlertDispatch.objects.count(), 0)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_deleting_source_property_with_inactive_subscription_keeps_it_inactive_and_set_null(self) -> None:
+        subscription = ListingAlertSubscription.objects.create(
+            user=self.user,
+            source_property=self.source_property,
+            is_active=False,
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            self.source_property.delete()
+
+        subscription.refresh_from_db()
+        self.assertFalse(subscription.is_active)
+        self.assertIsNone(subscription.source_property_id)
+        self.assertEqual(EmailNotification.objects.count(), 0)
+        self.assertEqual(SimilarListingAlertDispatch.objects.count(), 0)
+
+    def test_unrelated_update_to_available_listing_does_not_schedule_alert_dispatch(self) -> None:
+        listing = self._property(title="Already Available Listing", status=PropertyStatus.AVAILABLE)
+
+        with patch("homefinder.apps.properties.signals.dispatch_similar_listing_alerts") as dispatcher:
+            with self.captureOnCommitCallbacks(execute=True):
+                listing.description = "Updated description only."
+                listing.save(update_fields=["description"])
+
+        dispatcher.assert_not_called()
+
+    def test_available_listing_material_matching_field_changes_schedule_alert_dispatch(self) -> None:
+        cases = (
+            ("category", PropertyCategory.COMMERCIAL, PropertyCategory.RESIDENTIAL),
+            ("city", "Patra", "Athens"),
+            ("price", Decimal("300000.00"), Decimal("260000.00")),
+            ("bedrooms", 1, 2),
+        )
+
+        for field_name, old_value, new_value in cases:
+            with self.subTest(field=field_name):
+                self._subscription(amenity_ids=[])
+                listing = self._property(title=f"{field_name} Change Listing", status=PropertyStatus.AVAILABLE)
+                setattr(listing, field_name, old_value)
+                listing.save(update_fields=[field_name])
+
+                with patch("homefinder.apps.properties.signals.dispatch_similar_listing_alerts") as dispatcher:
+                    with self.captureOnCommitCallbacks(execute=True):
+                        setattr(listing, field_name, new_value)
+                        listing.save(update_fields=[field_name])
+
+                dispatcher.assert_called_once()
+                self.assertEqual(dispatcher.call_args.args[0].pk, listing.pk)
+
+    def test_available_listing_unchanged_material_field_does_not_schedule_alert_dispatch(self) -> None:
+        listing = self._property(title="Unchanged Material Listing", status=PropertyStatus.AVAILABLE)
+
+        with patch("homefinder.apps.properties.signals.dispatch_similar_listing_alerts") as dispatcher:
+            with self.captureOnCommitCallbacks(execute=True):
+                listing.price = listing.price
+                listing.save(update_fields=["price"])
+
+        dispatcher.assert_not_called()
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_in_memory_material_change_excluded_from_update_fields_does_not_dispatch(self) -> None:
+        listing = self._property(title="Persisted Patra Listing", status=PropertyStatus.AVAILABLE, city="Patra")
+        self._subscription(amenity_ids=[])
+
+        with patch("homefinder.apps.properties.signals.dispatch_similar_listing_alerts") as dispatcher:
+            with self.captureOnCommitCallbacks(execute=True):
+                listing.city = "Athens"
+                listing.description = "Only this field is persisted."
+                listing.save(update_fields=["description"])
+
+        listing.refresh_from_db()
+        self.assertEqual(listing.city, "Patra")
+        dispatcher.assert_not_called()
+        self.assertEqual(EmailNotification.objects.count(), 0)
+        self.assertEqual(SimilarListingAlertDispatch.objects.count(), 0)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_real_material_update_with_update_fields_dispatches_when_newly_matching(self) -> None:
+        listing = self._property(title="Persisted Patra Listing", status=PropertyStatus.AVAILABLE, city="Patra")
+        self._subscription(amenity_ids=[])
+
+        with self.captureOnCommitCallbacks(execute=True):
+            listing.city = "Athens"
+            listing.save(update_fields=["city"])
+
+        self.assertEqual(EmailNotification.objects.count(), 1)
+        self.assertEqual(SimilarListingAlertDispatch.objects.count(), 1)
+        self.assertEqual(SimilarListingAlertDispatch.objects.get().status, SimilarListingAlertDispatchStatus.SENT)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_unrelated_update_fields_does_not_dispatch_for_existing_match(self) -> None:
+        listing = self._matching_listing()
+        self._subscription(amenity_ids=[])
+
+        with patch("homefinder.apps.properties.signals.dispatch_similar_listing_alerts") as dispatcher:
+            with self.captureOnCommitCallbacks(execute=True):
+                listing.description = "Only description changed."
+                listing.save(update_fields=["description"])
+
+        dispatcher.assert_not_called()
+        self.assertEqual(EmailNotification.objects.count(), 0)
+        self.assertEqual(SimilarListingAlertDispatch.objects.count(), 0)
 
     def test_listing_amenity_change_schedules_alert_dispatch(self) -> None:
         listing = self._property(title="Fresh Available Listing", status=PropertyStatus.AVAILABLE)
+        self._subscription(amenity_ids=[self.pool.id])
 
         with patch("homefinder.apps.properties.signals.dispatch_similar_listing_alerts") as dispatcher:
             with self.captureOnCommitCallbacks(execute=True):
@@ -315,6 +539,127 @@ class SimilarListingAlertTests(TestCase):
 
         dispatcher.assert_called_once()
         self.assertEqual(dispatcher.call_args.args[0].pk, listing.pk)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_existing_matching_listing_amenity_change_does_not_create_stale_alert(self) -> None:
+        listing = self._matching_listing(amenities=[self.pool])
+        self._subscription(amenity_ids=[])
+
+        with self.captureOnCommitCallbacks(execute=True):
+            listing.amenities.add(self.parking)
+
+        self.assertEqual(EmailNotification.objects.count(), 0)
+        self.assertEqual(SimilarListingAlertDispatch.objects.count(), 0)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_amenity_change_that_newly_qualifies_listing_creates_alert(self) -> None:
+        listing = self._property(title="Amenity Gap Listing", status=PropertyStatus.AVAILABLE)
+        self._subscription(amenity_ids=[self.pool.id])
+
+        with self.captureOnCommitCallbacks(execute=True):
+            listing.amenities.add(self.pool)
+
+        self.assertEqual(EmailNotification.objects.count(), 1)
+        self.assertEqual(SimilarListingAlertDispatch.objects.count(), 1)
+        self.assertEqual(SimilarListingAlertDispatch.objects.get().status, SimilarListingAlertDispatchStatus.SENT)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_mixed_delta_amenity_change_dispatches_only_newly_matching_subscription(self) -> None:
+        listing = self._property(title="Mixed Amenity Delta Listing", status=PropertyStatus.AVAILABLE)
+        already_matching_subscription = self._subscription(amenity_ids=[])
+        newly_matching_subscription = self._subscription(amenity_ids=[self.pool.id])
+
+        with self.captureOnCommitCallbacks(execute=True):
+            listing.amenities.add(self.pool)
+
+        dispatch = SimilarListingAlertDispatch.objects.get()
+        self.assertEqual(dispatch.subscription_id, newly_matching_subscription.pk)
+        self.assertFalse(
+            SimilarListingAlertDispatch.objects.filter(
+                subscription=already_matching_subscription,
+                property=listing,
+            ).exists()
+        )
+        self.assertEqual(EmailNotification.objects.count(), 1)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_mixed_delta_scalar_change_dispatches_only_newly_matching_subscription(self) -> None:
+        listing = self._property(
+            title="Mixed Scalar Delta Listing",
+            status=PropertyStatus.AVAILABLE,
+            price="300000.00",
+        )
+        already_matching_subscription = create_listing_alert_subscription(
+            user=self.user,
+            source_property=self.source_property,
+            min_price="200000.00",
+            max_price="400000.00",
+            bedrooms_min=2,
+            amenity_ids=[],
+        )
+        newly_matching_subscription = create_listing_alert_subscription(
+            user=self.user,
+            source_property=self.source_property,
+            min_price="200000.00",
+            max_price="250000.00",
+            bedrooms_min=2,
+            amenity_ids=[],
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            listing.price = Decimal("240000.00")
+            listing.save(update_fields=["price"])
+
+        dispatch = SimilarListingAlertDispatch.objects.get()
+        self.assertEqual(dispatch.subscription_id, newly_matching_subscription.pk)
+        self.assertFalse(
+            SimilarListingAlertDispatch.objects.filter(
+                subscription=already_matching_subscription,
+                property=listing,
+            ).exists()
+        )
+        self.assertEqual(EmailNotification.objects.count(), 1)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_brand_new_available_listing_dispatches_to_all_currently_matching_subscriptions(self) -> None:
+        first_subscription = self._subscription(amenity_ids=[])
+        second_subscription = create_listing_alert_subscription(
+            user=self.user,
+            source_property=self.source_property,
+            min_price="200000.00",
+            max_price="280000.00",
+            bedrooms_min=2,
+            amenity_ids=[],
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            listing = self._property(title="Fresh Multi Match Listing", status=PropertyStatus.AVAILABLE)
+
+        self.assertEqual(
+            set(SimilarListingAlertDispatch.objects.filter(property=listing).values_list("subscription_id", flat=True)),
+            {first_subscription.pk, second_subscription.pk},
+        )
+        self.assertEqual(EmailNotification.objects.count(), 2)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_no_amenity_subscription_does_not_alert_on_unrelated_amenity_change(self) -> None:
+        listing = self._matching_listing(amenities=[])
+        self._subscription(amenity_ids=[])
+
+        with self.captureOnCommitCallbacks(execute=True):
+            listing.amenities.add(self.parking)
+
+        self.assertEqual(EmailNotification.objects.count(), 0)
+        self.assertEqual(SimilarListingAlertDispatch.objects.count(), 0)
+
+    def test_unavailable_listing_amenity_change_does_not_schedule_alert_dispatch(self) -> None:
+        listing = self._property(title="Unavailable Listing", status=PropertyStatus.UNAVAILABLE)
+
+        with patch("homefinder.apps.properties.signals.dispatch_similar_listing_alerts") as dispatcher:
+            with self.captureOnCommitCallbacks(execute=True):
+                listing.amenities.add(self.pool)
+
+        dispatcher.assert_not_called()
 
     @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
     def test_duplicate_save_and_amenity_scheduling_is_idempotent(self) -> None:

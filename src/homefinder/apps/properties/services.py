@@ -140,6 +140,9 @@ def listing_matches_alert_subscription(subscription: ListingAlertSubscription, p
     if property_obj.status != PropertyStatus.AVAILABLE:
         return False
 
+    if subscription.source_property_id == property_obj.pk:
+        return False
+
     if not subscription.category or property_obj.category != subscription.category:
         return False
 
@@ -167,25 +170,86 @@ def listing_matches_alert_subscription(subscription: ListingAlertSubscription, p
 
 
 def matching_listing_alert_subscriptions(property_obj: Property) -> list[ListingAlertSubscription]:
-    if property_obj.status != PropertyStatus.AVAILABLE:
+    matching_subscription_ids = matching_listing_alert_subscription_ids_for_state(
+        property_id=property_obj.pk,
+        status=property_obj.status,
+        category=property_obj.category,
+        city=property_obj.city,
+        price=property_obj.price,
+        bedrooms=property_obj.bedrooms,
+        amenity_ids=property_obj.amenities.values_list("id", flat=True),
+    )
+    if not matching_subscription_ids:
         return []
 
-    property_amenity_ids = list(property_obj.amenities.values_list("id", flat=True))
+    return _matching_listing_alert_subscriptions_from_ids(property_obj, matching_subscription_ids)
+
+
+def matching_listing_alert_subscriptions_for_ids(
+    property_obj: Property,
+    subscription_ids: Iterable[int],
+) -> list[ListingAlertSubscription]:
+    requested_subscription_ids = set(subscription_ids)
+    if not requested_subscription_ids:
+        return []
+
+    matching_subscription_ids = matching_listing_alert_subscription_ids_for_state(
+        property_id=property_obj.pk,
+        status=property_obj.status,
+        category=property_obj.category,
+        city=property_obj.city,
+        price=property_obj.price,
+        bedrooms=property_obj.bedrooms,
+        amenity_ids=property_obj.amenities.values_list("id", flat=True),
+    )
+    scoped_matching_ids = matching_subscription_ids & requested_subscription_ids
+    if not scoped_matching_ids:
+        return []
+
+    return _matching_listing_alert_subscriptions_from_ids(property_obj, scoped_matching_ids)
+
+
+def _matching_listing_alert_subscriptions_from_ids(
+    property_obj: Property,
+    subscription_ids: Iterable[int],
+) -> list[ListingAlertSubscription]:
     candidates = (
-        ListingAlertSubscription.objects.filter(
-            is_active=True,
-            category=property_obj.category,
-            location_city__iexact=property_obj.city,
-        )
-        .filter(Q(min_price__isnull=True) | Q(min_price__lte=property_obj.price))
-        .filter(Q(max_price__isnull=True) | Q(max_price__gte=property_obj.price))
+        ListingAlertSubscription.objects.filter(pk__in=subscription_ids)
         .select_related("user", "source_property")
         .prefetch_related("amenities")
     )
-    if property_obj.bedrooms is None:
+    property_obj = Property.objects.prefetch_related("amenities").get(pk=property_obj.pk)
+    return [subscription for subscription in candidates if listing_matches_alert_subscription(subscription, property_obj)]
+
+
+def matching_listing_alert_subscription_ids_for_state(
+    *,
+    property_id: int | None,
+    status: str,
+    category: str,
+    city: str,
+    price: Decimal,
+    bedrooms: int | None,
+    amenity_ids: Iterable[int],
+) -> set[int]:
+    if property_id is None or status != PropertyStatus.AVAILABLE:
+        return set()
+
+    property_amenity_ids = [amenity_id for amenity_id in amenity_ids if amenity_id is not None]
+    candidates = (
+        ListingAlertSubscription.objects.filter(
+            is_active=True,
+            category=category,
+            location_city__iexact=city,
+        )
+        .exclude(source_property_id=property_id)
+        .filter(Q(min_price__isnull=True) | Q(min_price__lte=price))
+        .filter(Q(max_price__isnull=True) | Q(max_price__gte=price))
+    )
+    if bedrooms is None:
         candidates = candidates.filter(bedrooms_min__isnull=True)
     else:
-        candidates = candidates.filter(Q(bedrooms_min__isnull=True) | Q(bedrooms_min__lte=property_obj.bedrooms))
+        candidates = candidates.filter(Q(bedrooms_min__isnull=True) | Q(bedrooms_min__lte=bedrooms))
 
     candidates = candidates.annotate(
         amenity_count=Count("amenities", distinct=True),
@@ -196,14 +260,14 @@ def matching_listing_alert_subscriptions(property_obj: Property) -> list[Listing
         ),
     ).filter(Q(amenity_count=0) | Q(overlapping_amenity_count__gt=0))
 
-    property_obj = Property.objects.prefetch_related("amenities").get(pk=property_obj.pk)
-    return [subscription for subscription in candidates if listing_matches_alert_subscription(subscription, property_obj)]
+    return set(candidates.values_list("id", flat=True))
 
 
 def dispatch_similar_listing_alerts(
     property_obj: Property,
     *,
     notification_service: Any | None = None,
+    subscription_ids: Iterable[int] | None = None,
 ) -> list[Any]:
     from homefinder.apps.interactions.models import (
         SimilarListingAlertDispatch,
@@ -213,8 +277,13 @@ def dispatch_similar_listing_alerts(
 
     service = notification_service or default_notification_service
     dispatches: list[SimilarListingAlertDispatch] = []
+    subscriptions = (
+        matching_listing_alert_subscriptions(property_obj)
+        if subscription_ids is None
+        else matching_listing_alert_subscriptions_for_ids(property_obj, subscription_ids)
+    )
 
-    for subscription in matching_listing_alert_subscriptions(property_obj):
+    for subscription in subscriptions:
         with transaction.atomic():
             dispatch = _get_or_create_retryable_dispatch(subscription=subscription, property_obj=property_obj)
             if dispatch is None or dispatch.status in {

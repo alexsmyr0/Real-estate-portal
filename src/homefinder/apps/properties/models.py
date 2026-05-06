@@ -149,6 +149,8 @@ class ListingAlertSubscription(models.Model):
         if self.is_active:
             if self.source_property_id is None:
                 errors["source_property"] = "Active alert subscriptions require a source property."
+            elif self.source_property.status != PropertyStatus.UNAVAILABLE:
+                errors["source_property"] = "Active alert subscriptions require an unavailable source property."
             if not (self.category or "").strip():
                 errors["category"] = "Active alert subscriptions require a category."
             if not (self.location_city or "").strip():
