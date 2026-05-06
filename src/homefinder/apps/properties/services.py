@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date, datetime, time
 from decimal import Decimal, InvalidOperation
 from typing import Any, Iterable
 
@@ -8,8 +9,11 @@ from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Prefetch, Q, QuerySet
+from django.db.models.functions import TruncMonth
 from django.http import QueryDict
 from django.utils import timezone
+
+from homefinder.apps.interactions.models import PropertyInquiry, UserFavorite
 
 from .models import Amenity, ListingAlertSubscription, Property, PropertyCategory, PropertyImage, PropertyStatus
 
@@ -54,6 +58,60 @@ class CatalogSearchParams:
     amenity_ids: tuple[int, ...] = ()
     amenity_names: tuple[str, ...] = ()
     page: int = DEFAULT_CATALOG_PAGE
+
+
+@dataclass(frozen=True, slots=True)
+class MonthlyInquiryAndSavedPropertyMetrics:
+    month: date
+    inquiry_count: int
+    saved_property_count: int
+
+    def as_payload(self) -> dict[str, Any]:
+        return {
+            "month": self.month.strftime("%Y-%m"),
+            "inquiry_count": self.inquiry_count,
+            "saved_property_count": self.saved_property_count,
+        }
+
+
+def get_monthly_inquiry_and_saved_property_metrics(
+    *,
+    period_start: date | datetime | None = None,
+    period_end: date | datetime | None = None,
+) -> list[dict[str, Any]]:
+    start_month, end_month = _normalize_reporting_month_window(
+        period_start=period_start,
+        period_end=period_end,
+    )
+    created_after = _month_start_to_datetime(start_month) if start_month is not None else None
+    created_before = _month_start_to_datetime(_next_month_start(end_month)) if end_month is not None else None
+
+    monthly_inquiry_counts = _aggregate_monthly_created_counts(
+        queryset=PropertyInquiry.objects.all(),
+        created_after=created_after,
+        created_before=created_before,
+    )
+    monthly_saved_property_counts = _aggregate_monthly_created_counts(
+        queryset=UserFavorite.objects.all(),
+        created_after=created_after,
+        created_before=created_before,
+    )
+
+    months_with_activity = set(monthly_inquiry_counts) | set(monthly_saved_property_counts)
+    if start_month is not None and end_month is not None:
+        month_range = _iter_month_starts(start_month=start_month, end_month=end_month)
+    else:
+        month_range = sorted(months_with_activity)
+
+    metrics = [
+        MonthlyInquiryAndSavedPropertyMetrics(
+            month=month_start,
+            inquiry_count=monthly_inquiry_counts.get(month_start, 0),
+            saved_property_count=monthly_saved_property_counts.get(month_start, 0),
+        )
+        for month_start in month_range
+    ]
+    return [metric.as_payload() for metric in metrics]
 
 
 def create_listing_alert_subscription(
@@ -649,3 +707,73 @@ def _serialize_catalog_detail(property_obj: Property) -> dict[str, Any]:
         }
     )
     return payload
+
+
+def _normalize_reporting_month_window(
+    *,
+    period_start: date | datetime | None,
+    period_end: date | datetime | None,
+) -> tuple[date | None, date | None]:
+    normalized_start = _coerce_to_month_start(period_start)
+    normalized_end = _coerce_to_month_start(period_end)
+    if normalized_start is not None and normalized_end is not None and normalized_start > normalized_end:
+        normalized_start, normalized_end = normalized_end, normalized_start
+    return normalized_start, normalized_end
+
+
+def _coerce_to_month_start(value: date | datetime | None) -> date | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        if timezone.is_aware(value):
+            value = timezone.localtime(value)
+        value = value.date()
+    return date(value.year, value.month, 1)
+
+
+def _month_start_to_datetime(month_start: date) -> datetime:
+    return timezone.make_aware(
+        datetime.combine(month_start, time.min),
+        timezone.get_current_timezone(),
+    )
+
+
+def _next_month_start(value: date) -> date:
+    if value.month == 12:
+        return date(value.year + 1, 1, 1)
+    return date(value.year, value.month + 1, 1)
+
+
+def _iter_month_starts(*, start_month: date, end_month: date) -> list[date]:
+    month_cursor = start_month
+    month_starts: list[date] = []
+    while month_cursor <= end_month:
+        month_starts.append(month_cursor)
+        month_cursor = _next_month_start(month_cursor)
+    return month_starts
+
+
+def _aggregate_monthly_created_counts(
+    *,
+    queryset: QuerySet[Any],
+    created_after: datetime | None,
+    created_before: datetime | None,
+) -> dict[date, int]:
+    if created_after is not None:
+        queryset = queryset.filter(created_at__gte=created_after)
+    if created_before is not None:
+        queryset = queryset.filter(created_at__lt=created_before)
+
+    monthly_counts: dict[date, int] = {}
+    for row in (
+        queryset.annotate(month=TruncMonth("created_at"))
+        .values("month")
+        .annotate(total=Count("id"))
+        .order_by("month")
+    ):
+        month_start = _coerce_to_month_start(row.get("month"))
+        if month_start is None:
+            continue
+        monthly_counts[month_start] = int(row["total"])
+
+    return monthly_counts
