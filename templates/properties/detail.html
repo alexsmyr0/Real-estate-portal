@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% url "site-catalog" as site_catalog_url %}
+{% url "property-detail" property.id as property_detail_url %}
+
+{% block title %}HomeFinder | {{ property.title }}{% endblock %}
+
+{% block page_header %}
+    <section class="page-hero detail-hero">
+        <div>
+            <p class="eyebrow">Listing Detail</p>
+            <h1>{{ property.title }}</h1>
+            <p>
+                {{ property.city }}{% if property.area %} / {{ property.area }}{% endif %}
+                {% if property.address_line %} / {{ property.address_line }}{% endif %}
+            </p>
+        </div>
+        <span class="status-tag{% if property.availability.is_available %} status-available{% elif property.availability.is_unavailable %} status-unavailable{% endif %}">
+            {{ property.availability.label }}
+        </span>
+    </section>
+{% endblock %}
+
+{% block content %}
+    <div class="property-detail-layout">
+        <section class="panel property-detail-main">
+            <div class="property-gallery">
+                {% if property.image_urls %}
+                    <img class="property-hero-image" src="{{ property.image_urls.0 }}" alt="{{ property.title }}">
+                {% elif property.primary_image_url %}
+                    <img class="property-hero-image" src="{{ property.primary_image_url }}" alt="{{ property.title }}">
+                {% else %}
+                    <div class="property-hero-image property-media-empty">No image available</div>
+                {% endif %}
+            </div>
+
+            <div class="property-detail-facts" aria-label="Property facts">
+                <div class="detail-fact">
+                    <span>Price</span>
+                    <strong>EUR {{ property.price }}</strong>
+                </div>
+                <div class="detail-fact">
+                    <span>Category</span>
+                    <strong>{{ property.category|title }}</strong>
+                </div>
+                <div class="detail-fact">
+                    <span>Bedrooms</span>
+                    <strong>{% if property.bedrooms %}{{ property.bedrooms }}{% else %}Not specified{% endif %}</strong>
+                </div>
+                <div class="detail-fact">
+                    <span>Bathrooms</span>
+                    <strong>{% if property.bathrooms %}{{ property.bathrooms }}{% else %}Not specified{% endif %}</strong>
+                </div>
+            </div>
+
+            {% if property.description %}
+                <div class="property-description">
+                    <h2>Overview</h2>
+                    <p>{{ property.description }}</p>
+                </div>
+            {% endif %}
+
+            {% if property.amenities %}
+                <div>
+                    <h2>Amenities</h2>
+                    <div class="amenity-pills">
+                        {% for amenity in property.amenities %}
+                            <span class="amenity-pill">{{ amenity }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+
+            <div class="hero-actions">
+                <a class="button button-ghost" href="{{ site_catalog_url }}">Back to catalog</a>
+            </div>
+        </section>
+
+        <aside class="panel inquiry-panel" aria-labelledby="inquiry-heading">
+            {% if inquiry_submitted %}
+                <div class="confirmation-panel">
+                    <p class="eyebrow">Inquiry Sent</p>
+                    <h2 id="inquiry-heading">We received your inquiry</h2>
+                    <p>
+                        A confirmation email has been queued for your account, and the HomeFinder team can follow up from the saved inquiry record.
+                    </p>
+                    <a class="button button-ghost" href="{{ property_detail_url }}">Send another inquiry</a>
+                </div>
+            {% else %}
+                <p class="eyebrow">Ask About This Property</p>
+                <h2 id="inquiry-heading">Send an inquiry</h2>
+                {% if request.user.is_authenticated %}
+                    <form method="post" action="{{ property_detail_url }}" class="form-shell inquiry-form">
+                        {% csrf_token %}
+                        {% if inquiry_form.non_field_errors %}
+                            <div class="form-summary-errors">
+                                {% for error in inquiry_form.non_field_errors %}
+                                    <p>{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        {% include "partials/_form_field.html" with field=inquiry_form.message %}
+                        <button type="submit" class="button button-primary">Send inquiry</button>
+                    </form>
+                {% else %}
+                    <div class="inquiry-auth-panel">
+                        <p>Sign in to send an inquiry from your verified HomeFinder session.</p>
+                        <div class="hero-actions">
+                            <a class="button button-primary" href="{{ login_url }}">Sign in</a>
+                            <a class="button button-ghost" href="{{ register_url }}">Register</a>
+                        </div>
+                    </div>
+                {% endif %}
+            {% endif %}
+        </aside>
+    </div>
+{% endblock %}

@@ -29,7 +29,9 @@ from .models import (
     EmailNotification,
     EmailNotificationPurpose,
     EmailNotificationStatus,
+    PROPERTY_INQUIRY_MESSAGE_MAX_LENGTH,
     PropertyInquiry,
+    PropertyInquiryStatus,
     ViewingRequest,
 )
 
@@ -241,6 +243,62 @@ class EmailNotificationService:
 
 
 notification_service = EmailNotificationService()
+
+
+def create_property_inquiry(
+    *,
+    user: models.Model,
+    property_obj: models.Model,
+    message: str,
+    notification_service_override: EmailNotificationService | None = None,
+) -> PropertyInquiry:
+    if not getattr(user, "is_authenticated", False):
+        raise ValidationError({"user": "Sign in before sending an inquiry."})
+    if not (getattr(user, "email", "") or "").strip():
+        raise ValidationError({"user": "Inquiries require a requester with an email address."})
+    if property_obj is None or property_obj.pk is None:
+        raise ValidationError({"property": "Choose a valid property."})
+
+    normalized_message = (message or "").strip()
+    if not normalized_message:
+        raise ValidationError({"message": "Inquiry message is required."})
+    if len(normalized_message) > PROPERTY_INQUIRY_MESSAGE_MAX_LENGTH:
+        raise ValidationError(
+            {"message": f"Inquiry message must be {PROPERTY_INQUIRY_MESSAGE_MAX_LENGTH} characters or fewer."}
+        )
+
+    from homefinder.apps.properties.models import Property
+
+    with transaction.atomic():
+        try:
+            locked_property = Property.objects.select_for_update().get(pk=property_obj.pk)
+        except Property.DoesNotExist as error:
+            raise ValidationError({"property": "Choose a valid property."}) from error
+
+        inquiry = PropertyInquiry(
+            user=user,
+            property=locked_property,
+            message=normalized_message,
+            status=PropertyInquiryStatus.OPEN,
+        )
+        inquiry.save()
+
+        service = notification_service_override or notification_service
+        service.send_inquiry_confirmation(inquiry)
+
+        log_interaction_activity(
+            action="inquiry_submitted",
+            user=user,
+            entity_type="property_inquiry",
+            entity_id=inquiry.pk,
+            details={
+                "property_id": locked_property.pk,
+                "property_status": locked_property.status,
+                "surface": "property_detail",
+            },
+        )
+
+    return inquiry
 
 
 def create_booking_request(

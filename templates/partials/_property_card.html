@@ -19,5 +19,6 @@
             {% if property.bedrooms %}{{ property.bedrooms }} bed{% if property.bedrooms != 1 %}s{% endif %}{% else %}Studio/Unknown beds{% endif %}
             {% if property.bathrooms %} | {{ property.bathrooms }} bath{% if property.bathrooms != 1 %}s{% endif %}{% endif %}
         </p>
+        <a class="button button-ghost property-card-action" href="{% url 'property-detail' property.id %}">View details</a>
     </div>
 </article>

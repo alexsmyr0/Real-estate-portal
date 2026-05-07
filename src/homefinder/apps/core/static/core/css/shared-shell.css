@@ -468,6 +468,112 @@ textarea.form-control {
     color: var(--ink-500);
 }
 
+.property-card-action {
+    margin-top: 0.85rem;
+}
+
+.detail-hero {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.property-detail-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.8fr) minmax(320px, 0.9fr);
+    gap: 1.25rem;
+    align-items: start;
+}
+
+.property-detail-main,
+.inquiry-panel {
+    display: grid;
+    gap: 1.2rem;
+}
+
+.property-gallery {
+    overflow: hidden;
+    border-radius: 12px;
+    background: #ecf1fa;
+}
+
+.property-hero-image {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    display: block;
+}
+
+.property-detail-facts {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.detail-fact {
+    display: grid;
+    gap: 0.25rem;
+    padding: 0.8rem;
+    border: 1px solid var(--ink-200);
+    border-radius: 10px;
+    background: #f9fbfe;
+}
+
+.detail-fact span {
+    color: var(--ink-500);
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.detail-fact strong {
+    color: var(--ink-950);
+    font-size: 1rem;
+}
+
+.property-description p {
+    color: var(--ink-700);
+    line-height: 1.6;
+}
+
+.amenity-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.amenity-pill {
+    border: 1px solid #bcd8d5;
+    border-radius: 999px;
+    padding: 0.35rem 0.6rem;
+    background: #eef8f6;
+    color: #14584f;
+    font-weight: 700;
+    font-size: 0.86rem;
+}
+
+.inquiry-panel {
+    position: sticky;
+    top: 1rem;
+}
+
+.inquiry-form .button {
+    justify-self: start;
+}
+
+.confirmation-panel,
+.inquiry-auth-panel {
+    display: grid;
+    gap: 0.8rem;
+}
+
+.confirmation-panel p,
+.inquiry-auth-panel p {
+    color: var(--ink-700);
+    line-height: 1.5;
+}
+
 .empty-state {
     text-align: center;
     border: 1px dashed #bfcce1;
@@ -543,6 +649,18 @@ textarea.form-control {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
+    .property-detail-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .inquiry-panel {
+        position: static;
+    }
+
+    .property-detail-facts {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     .amenity-checklist {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -558,6 +676,7 @@ textarea.form-control {
     }
 
     .hero-actions,
+    .detail-hero,
     .pagination-shell,
     .results-header {
         flex-direction: column;
@@ -576,6 +695,7 @@ textarea.form-control {
 
     .panel-grid,
     .property-grid,
+    .property-detail-facts,
     .form-grid {
         grid-template-columns: 1fr;
     }
