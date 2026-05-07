@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% url "site-catalog" as site_catalog_url %}
+{% url "site-property-detail" property.id as property_detail_url %}
 
 {% block title %}HomeFinder | {{ property.title }}{% endblock %}
 
@@ -73,6 +74,41 @@
                     </ul>
                 {% else %}
                     <p class="detail-muted">No amenities are listed for this property.</p>
+                {% endif %}
+            </section>
+
+            <section class="inquiry-section" aria-labelledby="inquiry-heading">
+                {% if inquiry_submitted %}
+                    <div class="inquiry-confirmation">
+                        <p class="eyebrow">Inquiry Sent</p>
+                        <h2 id="inquiry-heading">We received your inquiry</h2>
+                        <p>
+                            A confirmation email has been queued for your account, and the HomeFinder team can follow up from the saved inquiry record.
+                        </p>
+                        <a class="button button-ghost" href="{{ property_detail_url }}">Send another inquiry</a>
+                    </div>
+                {% else %}
+                    <p class="eyebrow">Ask About This Property</p>
+                    <h2 id="inquiry-heading">Send an inquiry</h2>
+                    {% if request.user.is_authenticated %}
+                        <form method="post" action="{{ property_detail_url }}" class="form-shell inquiry-form">
+                            {% csrf_token %}
+                            {% if inquiry_form.non_field_errors %}
+                                <div class="form-summary-errors">
+                                    {% for error in inquiry_form.non_field_errors %}
+                                        <p>{{ error }}</p>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            {% include "partials/_form_field.html" with field=inquiry_form.message %}
+                            <button type="submit" class="button button-primary">Send inquiry</button>
+                        </form>
+                    {% else %}
+                        <div class="inquiry-auth-panel">
+                            <p>Sign in to send an inquiry from your verified HomeFinder session.</p>
+                            <a class="button button-primary" href="{% url 'login-page' %}?next={{ request.get_full_path|urlencode }}">Sign in</a>
+                        </div>
+                    {% endif %}
                 {% endif %}
             </section>
         </aside>

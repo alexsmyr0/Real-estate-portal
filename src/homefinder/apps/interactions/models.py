@@ -5,7 +5,10 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 
-from homefinder.apps.properties.models import Property, PropertyCategory
+from homefinder.apps.properties.models import Property, PropertyCategory, PropertyStatus
+
+
+PROPERTY_INQUIRY_MESSAGE_MAX_LENGTH = 2000
 
 
 class ViewingRequestStatus(models.TextChoices):
@@ -146,6 +149,33 @@ class PropertyInquiry(models.Model):
 
     def __str__(self) -> str:
         return f"Inquiry<{self.pk}>"
+
+    def clean(self) -> None:
+        super().clean()
+
+        errors: dict[str, str] = {}
+
+        normalized_message = (self.message or "").strip()
+        if not normalized_message:
+            errors["message"] = "Inquiry message is required."
+        elif len(normalized_message) > PROPERTY_INQUIRY_MESSAGE_MAX_LENGTH:
+            errors["message"] = f"Inquiry message must be {PROPERTY_INQUIRY_MESSAGE_MAX_LENGTH} characters or fewer."
+
+        if self.pk is None and self.property_id is not None and self.property.status not in {
+            PropertyStatus.AVAILABLE,
+            PropertyStatus.UNAVAILABLE,
+        }:
+            errors["property"] = "Inquiries require a visible property."
+
+        if self.user_id is not None and not (self.user.email or "").strip():
+            errors["user"] = "Inquiries require a requester with an email address."
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args: object, **kwargs: object) -> None:
+        self.full_clean()
+        super().save(*args, **kwargs)
 
 
 class BookingRequest(models.Model):

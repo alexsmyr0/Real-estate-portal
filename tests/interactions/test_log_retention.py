@@ -103,9 +103,20 @@ class LogRetentionCleanupTests(TestCase):
             property=self.property,
             requested_datetime=self.reference_time + timedelta(days=1),
         )
-        booking_request = BookingRequest.objects.create(user=self.user, property=self.property)
+        booking_property = Property.objects.create(
+            title="Retention Rental",
+            category=PropertyCategory.RENTAL,
+            city="Athens",
+            price="1200.00",
+        )
+        booking_request = BookingRequest.objects.create(
+            user=self.user,
+            property=booking_property,
+            start_date=(self.reference_time + timedelta(days=1)).date(),
+            end_date=(self.reference_time + timedelta(days=2)).date(),
+        )
 
-        for record in (self.user, self.property, favorite, inquiry, viewing_request, booking_request):
+        for record in (self.user, self.property, favorite, inquiry, viewing_request, booking_property, booking_request):
             self._set_created_at(record, self.older_than_cutoff)
 
         cleanup_log_retention(reference_time=self.reference_time)
@@ -115,6 +126,7 @@ class LogRetentionCleanupTests(TestCase):
         self.assertTrue(UserFavorite.objects.filter(pk=favorite.pk).exists())
         self.assertTrue(PropertyInquiry.objects.filter(pk=inquiry.pk).exists())
         self.assertTrue(ViewingRequest.objects.filter(pk=viewing_request.pk).exists())
+        self.assertTrue(Property.objects.filter(pk=booking_property.pk).exists())
         self.assertTrue(BookingRequest.objects.filter(pk=booking_request.pk).exists())
 
     def test_command_reports_deleted_counts_per_model(self) -> None:

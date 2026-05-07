@@ -3,6 +3,7 @@ from __future__ import annotations
 from urllib.parse import urlencode
 
 from django.contrib import messages
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from django.http import Http404, HttpRequest, HttpResponse, QueryDict
 from django.shortcuts import redirect, render
@@ -10,10 +11,11 @@ from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_http_methods
 
-from homefinder.apps.interactions.models import UserFavorite
-from homefinder.apps.interactions.services import log_interaction_activity
+from homefinder.apps.interactions.forms import PropertyInquiryForm
+from homefinder.apps.interactions.models import PropertyInquiry, UserFavorite
+from homefinder.apps.interactions.services import create_property_inquiry, log_interaction_activity
 
-from .models import Amenity, PropertyCategory
+from .models import Amenity, Property, PropertyCategory
 from .services import (
     DEFAULT_CATALOG_PAGE,
     PUBLICLY_VISIBLE_PROPERTY_STATUSES,
@@ -24,6 +26,7 @@ from .services import (
 )
 
 CATALOG_BEDROOM_FILTER_OPTIONS = (1, 2, 3, 4, 5)
+INQUIRY_CONFIRMATION_SESSION_KEY = "property_inquiry_confirmation"
 
 
 @require_http_methods(["GET"])
@@ -87,13 +90,44 @@ def catalog_page(request: HttpRequest) -> HttpResponse:
     )
 
 
-@require_http_methods(["GET"])
+@require_http_methods(["GET", "POST"])
 def property_detail_page(request: HttpRequest, property_id: int) -> HttpResponse:
     property_payload = get_visible_property_detail(property_id)
     if property_payload is None:
         raise Http404("Property not found.")
 
     _apply_detail_favorite_state(request=request, property_payload=property_payload)
+    inquiry_form = PropertyInquiryForm()
+    inquiry_submitted = False
+
+    if request.method == "POST":
+        guest_redirect = _require_authenticated_user(
+            request,
+            warning_message="Sign in before sending an inquiry.",
+            next_url=request.path,
+        )
+        if guest_redirect is not None:
+            return guest_redirect
+
+        inquiry_form = PropertyInquiryForm(request.POST)
+        if inquiry_form.is_valid():
+            try:
+                inquiry = create_property_inquiry(
+                    user=request.user,
+                    property_obj=Property(id=property_id),
+                    message=inquiry_form.cleaned_data["message"],
+                )
+            except ValidationError as error:
+                _add_validation_error_to_form(form=inquiry_form, error=error)
+                messages.error(request, "Please correct the highlighted fields and send your inquiry again.")
+            else:
+                _store_inquiry_confirmation(request=request, inquiry=inquiry)
+                messages.success(request, "Inquiry sent. We emailed you a confirmation.")
+                return redirect("site-property-detail", property_id=property_id)
+        else:
+            messages.error(request, "Please correct the highlighted fields and send your inquiry again.")
+    else:
+        inquiry_submitted = _consume_inquiry_confirmation(request=request, property_id=property_id)
 
     return render(
         request,
@@ -101,6 +135,8 @@ def property_detail_page(request: HttpRequest, property_id: int) -> HttpResponse
         {
             "property": property_payload,
             "category_label": _get_category_label(property_payload["category"]),
+            "inquiry_form": inquiry_form,
+            "inquiry_submitted": inquiry_submitted,
         },
     )
 
@@ -240,6 +276,52 @@ def _apply_detail_favorite_state(*, request: HttpRequest, property_payload: dict
     property_payload["is_favorited"] = UserFavorite.objects.filter(
         user=request.user,
         property_id=property_payload["id"],
+    ).exists()
+
+
+def _add_validation_error_to_form(*, form: PropertyInquiryForm, error: ValidationError) -> None:
+    if hasattr(error, "message_dict"):
+        for field_name, field_errors in error.message_dict.items():
+            target_field = field_name if field_name in form.fields else None
+            for field_error in field_errors:
+                form.add_error(target_field, field_error)
+        return
+
+    for field_error in error.messages:
+        form.add_error(None, field_error)
+
+
+def _store_inquiry_confirmation(*, request: HttpRequest, inquiry: PropertyInquiry) -> None:
+    request.session[INQUIRY_CONFIRMATION_SESSION_KEY] = {
+        "inquiry_id": inquiry.pk,
+        "property_id": inquiry.property_id,
+        "user_id": inquiry.user_id,
+    }
+    request.session.modified = True
+
+
+def _consume_inquiry_confirmation(*, request: HttpRequest, property_id: int) -> bool:
+    marker = request.session.pop(INQUIRY_CONFIRMATION_SESSION_KEY, None)
+    if marker is not None:
+        request.session.modified = True
+
+    if not request.user.is_authenticated or not isinstance(marker, dict):
+        return False
+
+    try:
+        inquiry_id = int(marker.get("inquiry_id", 0))
+        marker_property_id = int(marker.get("property_id", 0))
+        marker_user_id = int(marker.get("user_id", 0))
+    except (TypeError, ValueError):
+        return False
+
+    if marker_property_id != property_id or marker_user_id != request.user.pk:
+        return False
+
+    return PropertyInquiry.objects.filter(
+        pk=inquiry_id,
+        user=request.user,
+        property_id=property_id,
     ).exists()
 
 
