@@ -188,3 +188,39 @@ class FavoritesFlowTests(TestCase):
 
         self.assertRedirects(remove_response, "/catalog/")
         self.assertFalse(UserFavorite.objects.filter(user=self.user, property=self.available_property).exists())
+
+    def test_favorite_post_returns_not_found_for_removed_or_unknown_property(self) -> None:
+        self.client.force_login(self.user)
+
+        removed_response = self.client.post(
+            f"/catalog/{self.removed_property.id}/favorite/",
+            {"next": "/catalog/", "surface": "catalog"},
+        )
+        missing_response = self.client.post(
+            "/catalog/999999/favorite/",
+            {"next": "/catalog/", "surface": "catalog"},
+        )
+
+        self.assertEqual(removed_response.status_code, 404)
+        self.assertEqual(missing_response.status_code, 404)
+        self.assertEqual(UserFavorite.objects.count(), 0)
+
+    def test_untrusted_next_redirect_target_falls_back_to_property_detail(self) -> None:
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            f"/catalog/{self.available_property.id}/favorite/",
+            {"next": "http://evil.example/attack", "surface": "catalog"},
+        )
+
+        self.assertRedirects(response, f"/catalog/{self.available_property.id}/")
+        self.assertTrue(
+            UserFavorite.objects.filter(user=self.user, property=self.available_property).exists(),
+        )
+
+    def test_guest_templates_show_sign_in_to_save_cta(self) -> None:
+        catalog_response = self.client.get("/catalog/")
+        detail_response = self.client.get(f"/catalog/{self.available_property.id}/")
+
+        self.assertContains(catalog_response, "Sign in to save")
+        self.assertContains(detail_response, "Sign in to save")
