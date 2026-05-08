@@ -25,6 +25,25 @@
         </p>
         <div class="property-card-actions">
             <a class="button button-ghost" href="{% url 'site-property-detail' property.id %}">View details</a>
+            {% if request.user.is_authenticated %}
+                {% if property.is_favorited %}
+                    <form method="post" action="{% url 'site-favorite-remove' property.id %}" class="property-action-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        <input type="hidden" name="surface" value="{{ favorite_action_surface|default:'catalog' }}">
+                        <button type="submit" class="button button-primary">Remove favorite</button>
+                    </form>
+                {% else %}
+                    <form method="post" action="{% url 'site-favorite-add' property.id %}" class="property-action-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        <input type="hidden" name="surface" value="{{ favorite_action_surface|default:'catalog' }}">
+                        <button type="submit" class="button button-primary">Save listing</button>
+                    </form>
+                {% endif %}
+            {% else %}
+                <a class="button button-primary" href="{% url 'login-page' %}?next={{ request.get_full_path|urlencode }}">Sign in to save</a>
+            {% endif %}
         </div>
     </div>
 </article>

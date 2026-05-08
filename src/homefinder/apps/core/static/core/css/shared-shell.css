@@ -191,6 +191,10 @@ h1 {
     margin-top: 1rem;
 }
 
+.hero-actions form {
+    margin: 0;
+}
+
 .landing-hero {
     background:
         linear-gradient(140deg, rgba(224, 241, 237, 0.68), rgba(255, 255, 255, 0.9)),
@@ -509,10 +513,20 @@ textarea.form-control {
 }
 
 .property-card-actions {
+    display: grid;
+    gap: 0.55rem;
     margin-top: 0.95rem;
 }
 
 .property-card-actions .button {
+    width: 100%;
+}
+
+.property-action-form {
+    margin: 0;
+}
+
+.property-action-form .button {
     width: 100%;
 }
 

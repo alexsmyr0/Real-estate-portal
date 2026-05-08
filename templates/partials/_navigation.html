@@ -1,5 +1,6 @@
 {% url "home" as home_url %}
 {% url "site-catalog" as site_catalog_url %}
+{% url "site-favorites" as site_favorites_url %}
 <header class="site-header">
     <a class="brand" href="{{ home_url }}">
         <span class="brand-mark">HF</span>
@@ -8,7 +9,7 @@
     <nav class="site-nav" aria-label="Primary">
         <a class="nav-link{% if request.path == home_url %} is-active{% endif %}" href="{{ home_url }}">Home</a>
         <a class="nav-link{% if request.path == site_catalog_url %} is-active{% endif %}" href="{{ site_catalog_url }}">Browse Listings</a>
-        <span class="nav-link nav-link-disabled" aria-disabled="true">My Activity</span>
+        <a class="nav-link{% if request.path == site_favorites_url %} is-active{% endif %}" href="{{ site_favorites_url }}">Saved Listings</a>
     </nav>
     <div class="nav-auth">
         {% if request.user.is_authenticated %}

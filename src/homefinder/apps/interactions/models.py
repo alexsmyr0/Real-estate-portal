@@ -163,21 +163,21 @@ class BookingRequest(models.Model):
         ordering = ["-created_at"]
         constraints = [
             models.CheckConstraint(
-                check=models.Q(start_date__isnull=False),
+                condition=models.Q(start_date__isnull=False),
                 name="ck_booking_start_date_required",
             ),
             models.CheckConstraint(
-                check=models.Q(end_date__isnull=False),
+                condition=models.Q(end_date__isnull=False),
                 name="ck_booking_end_date_required",
             ),
             models.CheckConstraint(
-                check=models.Q(start_date__isnull=True)
+                condition=models.Q(start_date__isnull=True)
                 | models.Q(end_date__isnull=True)
                 | models.Q(end_date__gt=models.F("start_date")),
                 name="ck_booking_valid_date_range",
             ),
             models.CheckConstraint(
-                check=models.Q(status__in=BookingRequestStatus.values),
+                condition=models.Q(status__in=BookingRequestStatus.values),
                 name="ck_booking_status_valid",
             ),
         ]
@@ -273,23 +273,23 @@ class Payment(models.Model):
         ordering = ["-created_at"]
         constraints = [
             models.CheckConstraint(
-                check=models.Q(payment_purpose__in=PaymentPurpose.values),
+                condition=models.Q(payment_purpose__in=PaymentPurpose.values),
                 name="ck_payment_purpose_valid",
             ),
             models.CheckConstraint(
-                check=models.Q(payment_method__in=PaymentMethod.values),
+                condition=models.Q(payment_method__in=PaymentMethod.values),
                 name="ck_payment_method_valid",
             ),
             models.CheckConstraint(
-                check=models.Q(status__in=PaymentStatus.values),
+                condition=models.Q(status__in=PaymentStatus.values),
                 name="ck_payment_status_valid",
             ),
             models.CheckConstraint(
-                check=models.Q(amount__gt=0),
+                condition=models.Q(amount__gt=0),
                 name="ck_payment_amount_positive",
             ),
             models.CheckConstraint(
-                check=~models.Q(payment_purpose=PaymentPurpose.BOOKING_FEE)
+                condition=~models.Q(payment_purpose=PaymentPurpose.BOOKING_FEE)
                 | models.Q(booking_request__isnull=False),
                 name="ck_payment_booking_fee_has_booking",
             ),

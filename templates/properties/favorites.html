@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% url "site-catalog" as site_catalog_url %}
+
+{% block title %}HomeFinder | Saved Listings{% endblock %}
+
+{% block page_header %}
+    <section class="page-hero detail-hero">
+        <p class="eyebrow">Saved Listings</p>
+        <h1>Your favorites</h1>
+        <p>Review and manage listings you saved from catalog and detail pages.</p>
+        <div class="hero-actions">
+            <a href="{{ site_catalog_url }}" class="button button-ghost">Browse more listings</a>
+        </div>
+    </section>
+{% endblock %}
+
+{% block content %}
+    <section class="panel">
+        <div class="results-header">
+            <h2>Saved Properties</h2>
+            <p class="results-context">{{ properties|length }} saved listing{{ properties|length|pluralize }}</p>
+        </div>
+
+        {% if properties %}
+            <div class="property-grid">
+                {% for property in properties %}
+                    {% include "partials/_property_card.html" with property=property favorite_action_surface="favorites" %}
+                {% endfor %}
+            </div>
+        {% else %}
+            {% include "partials/_empty_state.html" with title="No saved listings yet" message="Save listings from catalog or property detail pages and they will appear here." action_href=site_catalog_url action_label="Explore catalog" %}
+        {% endif %}
+    </section>
+{% endblock %}
