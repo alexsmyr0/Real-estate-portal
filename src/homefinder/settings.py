@@ -76,7 +76,15 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "users.User"
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+EMAIL_BACKEND = ENV.email_backend
+DEFAULT_FROM_EMAIL = ENV.default_from_email
+EMAIL_HOST = ENV.email_host
+EMAIL_PORT = ENV.email_port
+EMAIL_HOST_USER = ENV.email_host_user
+EMAIL_HOST_PASSWORD = ENV.email_host_password
+EMAIL_USE_TLS = ENV.email_use_tls
+EMAIL_USE_SSL = ENV.email_use_ssl
+EMAIL_TIMEOUT = ENV.email_timeout
 
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
