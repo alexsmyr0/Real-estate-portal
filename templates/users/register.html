@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block title %}Create Account | HomeFinder{% endblock %}
+
+{% block page_header %}
+    <section class="page-hero">
+        <p class="eyebrow">Account Access</p>
+        <h1>Create your HomeFinder account</h1>
+        <p>Register to save listings, submit inquiries, and complete secure login with email-based 2FA.</p>
+    </section>
+{% endblock %}
+
+{% block content %}
+    <section class="panel auth-panel">
+        <h2>Registration</h2>
+        {% include "partials/_form_layout.html" with form=form submit_label=submit_label submit_loading_label=submit_loading_label %}
+        <p class="auth-footnote">Already registered? <a href="{% url 'login-page' %}">Sign in here</a>.</p>
+    </section>
+{% endblock %}

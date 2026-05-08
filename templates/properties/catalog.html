@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% url "site-catalog" as site_catalog_url %}
+
+{% block title %}HomeFinder | Property Catalog{% endblock %}
+
+{% block page_header %}
+    <section class="page-hero catalog-hero">
+        <p class="eyebrow">Public Catalog</p>
+        <h1>Browse listings with focused filters</h1>
+        <p>
+            Search by location, category, budget, bedrooms, and amenities. Filter values stay active while paging through results.
+        </p>
+    </section>
+{% endblock %}
+
+{% block content %}
+    <section class="panel">
+        <div class="page-header-inline">
+            <h2>Filter Listings</h2>
+            {% if request.GET %}
+                <a class="button button-ghost" href="{{ site_catalog_url }}">Clear filters</a>
+            {% endif %}
+        </div>
+        <form method="get" action="{{ site_catalog_url }}" class="form-shell catalog-filter-form">
+            <div class="form-grid">
+                <div class="form-field">
+                    <label for="id_location" class="form-label">Location</label>
+                    <input
+                        id="id_location"
+                        class="form-control"
+                        type="text"
+                        name="location"
+                        value="{{ active_filters.location }}"
+                        placeholder="City or area"
+                    >
+                </div>
+                <div class="form-field">
+                    <label for="id_category" class="form-label">Category</label>
+                    <select id="id_category" name="category" class="form-control">
+                        <option value="">All categories</option>
+                        {% for value, label in category_choices %}
+                            <option value="{{ value }}"{% if active_filters.category == value %} selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-field">
+                    <label for="id_bedrooms_min" class="form-label">Minimum Bedrooms</label>
+                    <select id="id_bedrooms_min" name="bedrooms_min" class="form-control">
+                        <option value="">Any</option>
+                        {% for value in bedrooms_min_choices %}
+                            <option value="{{ value }}"{% if active_filters.bedrooms_min == value|stringformat:"s" %} selected{% endif %}>{{ value }}+</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-field">
+                    <label for="id_min_price" class="form-label">Minimum Price (EUR)</label>
+                    <input
+                        id="id_min_price"
+                        class="form-control"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        name="min_price"
+                        value="{{ active_filters.min_price }}"
+                    >
+                </div>
+                <div class="form-field">
+                    <label for="id_max_price" class="form-label">Maximum Price (EUR)</label>
+                    <input
+                        id="id_max_price"
+                        class="form-control"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        name="max_price"
+                        value="{{ active_filters.max_price }}"
+                    >
+                </div>
+            </div>
+
+            {% if amenity_filter_options %}
+                <fieldset class="amenity-fieldset">
+                    <legend class="form-label">Amenities</legend>
+                    <div class="amenity-checklist">
+                        {% for amenity in amenity_filter_options %}
+                            <label class="amenity-option" for="id_amenity_{{ amenity.id }}">
+                                <input
+                                    id="id_amenity_{{ amenity.id }}"
+                                    type="checkbox"
+                                    name="amenities"
+                                    value="{{ amenity.id }}"
+                                    {% if amenity.is_selected %}checked{% endif %}
+                                >
+                                <span>{{ amenity.name }}</span>
+                            </label>
+                        {% endfor %}
+                    </div>
+                </fieldset>
+            {% endif %}
+
+            <div class="hero-actions">
+                <button type="submit" class="button button-primary">Apply filters</button>
+                <a class="button button-ghost" href="{{ site_catalog_url }}">Reset</a>
+            </div>
+        </form>
+    </section>
+
+    <section class="panel">
+        <div class="results-header">
+            <h2>Catalog Results</h2>
+            {% if pagination.total_items %}
+                <p class="results-context">
+                    {{ pagination.total_items }} listing{{ pagination.total_items|pluralize }} found
+                    | Page {{ pagination.page }} of {{ pagination.total_pages }}
+                </p>
+            {% else %}
+                <p class="results-context">No matching listings.</p>
+            {% endif %}
+        </div>
+
+        {% if properties %}
+            <div class="property-grid">
+                {% for property in properties %}
+                    {% include "partials/_property_card.html" with property=property %}
+                {% endfor %}
+            </div>
+        {% else %}
+            {% include "partials/_empty_state.html" with title="No properties match those filters" message="Try broadening location, price, bedroom, or amenity filters to see more results." action_href=site_catalog_url action_label="Clear all filters" %}
+        {% endif %}
+    </section>
+
+    {% if pagination.total_pages > 1 %}
+        <nav class="panel" aria-label="Pagination">
+            <div class="pagination-shell">
+                <p class="pagination-summary">Page {{ pagination.page }} of {{ pagination.total_pages }}</p>
+                <div class="pagination-actions">
+                    {% if pagination.has_previous %}
+                        <a class="button button-ghost" href="?{{ previous_page_query }}">Previous</a>
+                    {% else %}
+                        <span class="button button-disabled" aria-disabled="true">Previous</span>
+                    {% endif %}
+
+                    <div class="pagination-pages">
+                        {% for page_link in page_links %}
+                            {% if page_link.is_current %}
+                                <span class="page-chip is-current" aria-current="page">{{ page_link.number }}</span>
+                            {% else %}
+                                <a class="page-chip" href="?{{ page_link.query_string }}">{{ page_link.number }}</a>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+
+                    {% if pagination.has_next %}
+                        <a class="button button-ghost" href="?{{ next_page_query }}">Next</a>
+                    {% else %}
+                        <span class="button button-disabled" aria-disabled="true">Next</span>
+                    {% endif %}
+                </div>
+            </div>
+        </nav>
+    {% endif %}
+{% endblock %}

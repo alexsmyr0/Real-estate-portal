@@ -75,12 +75,12 @@ Use this as the default claim order for the next wave of work:
 ### Track A
 
 - [x] **A-01** P0 - User Access Domain Baseline | Custom user auth, 2FA token, and active-session schema baseline. (Depends on: None) | Blocks: A-02; N-02
-- [ ] **A-02** P1 - Registration, Login, 2FA Verification, And Single-Session Backend | Auth backend flow for registration, login, token verification, logout, and session replacement. (Depends on: A-01; N-02) | Blocks: A-04; A-07; A-08; A-09
-- [ ] **A-03** P1 - Shared Site Shell, Navigation, And Base Template System | Shared browser shell, layout primitives, responsive navigation, and reusable UI partials. (Depends on: A-01) | Blocks: A-04; A-05; A-06; A-10; A-11; A-12; A-13; A-14; A-15
-- [ ] **A-04** P2 - Auth Pages And Session UX | Registration, login, 2FA, and logout pages built on the shared site shell. (Depends on: A-02; A-03) | Blocks: A-15
-- [ ] **A-05** P2 - Property Discovery Landing And Catalog Frontend | Landing page, public catalog, filters, pagination, and result-state UX. (Depends on: A-03; K-02; K-03) | Blocks: A-07; A-13; A-15
-- [ ] **A-06** P2 - Property Detail Frontend And Listing Presentation | Detail-page UI, image presentation, amenity display, and availability messaging. (Depends on: A-03; K-02; K-04) | Blocks: A-07; A-08; A-09; A-11; A-12; A-13; A-15
-- [ ] **A-07** P2 - Favorites Flow End-To-End | Favorite and unfavorite backend actions plus saved-listings UX. (Depends on: A-02; A-05; A-06) | Blocks: A-10; A-15
+- [x] **A-02** P1 - Registration, Login, 2FA Verification, And Single-Session Backend | Auth backend flow for registration, login, token verification, logout, and session replacement. (Depends on: A-01; N-02) | Blocks: A-04; A-07; A-08; A-09
+- [x] **A-03** P1 - Shared Site Shell, Navigation, And Base Template System | Shared browser shell, layout primitives, responsive navigation, and reusable UI partials. (Depends on: A-01) | Blocks: A-04; A-05; A-06; A-10; A-11; A-12; A-13; A-14; A-15
+- [x] **A-04** P2 - Auth Pages And Session UX | Registration, login, 2FA, and logout pages built on the shared site shell. (Depends on: A-02; A-03) | Blocks: A-15
+- [x] **A-05** P2 - Property Discovery Landing And Catalog Frontend | Landing page, public catalog, filters, pagination, and result-state UX. (Depends on: A-03; K-02; K-03) | Blocks: A-07; A-13; A-15
+- [x] **A-06** P2 - Property Detail Frontend And Listing Presentation | Detail-page UI, image presentation, amenity display, and availability messaging. (Depends on: A-03; K-02; K-04) | Blocks: A-07; A-08; A-09; A-11; A-12; A-13; A-15
+- [x] **A-07** P2 - Favorites Flow End-To-End | Favorite and unfavorite backend actions plus saved-listings UX. (Depends on: A-02; A-05; A-06) | Blocks: A-10; A-15
 - [ ] **A-08** P2 - Inquiry Flow End-To-End | Inquiry backend actions, forms, confirmation states, and email integration. (Depends on: A-02; A-06; N-02) | Blocks: A-10; A-15
 - [ ] **A-09** P2 - Viewing Request Flow End-To-End | Viewing backend actions, datetime validation, confirmation states, and email integration. (Depends on: A-02; A-06; N-02) | Blocks: A-10; A-15
 - [ ] **A-10** P3 - User Activity History And Personal Dashboard | User-facing history for searches, favorites, inquiries, and viewings. (Depends on: A-07; A-08; A-09; N-03) | Blocks: A-15
@@ -99,7 +99,7 @@ Use this as the default claim order for the next wave of work:
 - [x] **K-05** P1 - Demo Catalog Seed Data And Test Fixtures | Repeatable demo and test data for listings, amenities, images, and statuses. (Depends on: K-01) | Blocks: K-08; K-09; K-10; K-11
 - [x] **K-06** P2 - Admin Listing CRUD | Django admin usability for listing creation and maintenance. (Depends on: K-01; K-04) | Blocks: None
 - [x] **K-07** P2 - Interaction Management Admin | Django admin usability for inquiry and viewing-request management. (Depends on: K-05) | Blocks: None
-- [ ] **K-08** P3 - Supervisor Inquiry And Saved-Property Reporting Aggregations | Monthly aggregate metrics for inquiries and favorites. (Depends on: N-03; K-05) | Blocks: K-10
+- [x] **K-08** P3 - Supervisor Inquiry And Saved-Property Reporting Aggregations | Monthly aggregate metrics for inquiries and favorites. (Depends on: N-03; K-05) | Blocks: K-10
 - [ ] **K-09** P3 - Search Trends Aggregation Service | Top-10 monthly search trends for cities, categories, and price bands. (Depends on: K-03; N-03; K-05) | Blocks: K-10
 - [ ] **K-10** P3 - Supervisor Reporting Read-Only Pages | Read-only reporting pages for supervisor and admin roles. (Depends on: K-08; K-09) | Blocks: None
 - [ ] **K-11** P3 - Personalized Recommendations Backend | Rule-based recommendations using catalog similarity and user-behavior signals. (Depends on: K-03; K-04; N-03; K-05) | Blocks: A-13
@@ -107,10 +107,10 @@ Use this as the default claim order for the next wave of work:
 ### Track N
 
 - [x] **N-01** P0 - Notification, Logging, Alerts, And Deferred-Commerce Schema Baseline | Baseline schema for notifications, logs, alerts, bookings, and payments. (Depends on: None) | Blocks: N-02; N-03; N-04; N-05; N-06; N-07; N-08
-- [ ] **N-02** P1 - MVP Email Notification Service And Console Delivery | Shared email service for 2FA and MVP confirmations with notification persistence. (Depends on: N-01; A-01) | Blocks: A-02; A-08; A-09; N-04; N-05; N-06; N-07
-- [ ] **N-03** P1 - Activity And Search Logging Pipeline | Shared logging and search-history pipeline with no-op-safe helper hooks. (Depends on: N-01) | Blocks: A-10; K-08; K-09; K-11; N-08
-- [ ] **N-04** P3 - Similar Listing Alert Matching And Dispatch | Rule-based alert subscriptions and similar-listing notification delivery. (Depends on: N-02; K-04) | Blocks: A-12
-- [ ] **N-05** P3 - Rental Booking Request Backend | Rental-only booking persistence, validation, statuses, and booking notifications. (Depends on: N-01; N-02; K-04) | Blocks: A-11; N-06
-- [ ] **N-06** P4 - Simulated Payment Flow | Fake payment processing and explicit payment-status transitions without a real gateway. (Depends on: N-05; N-02) | Blocks: A-14
+- [x] **N-02** P1 - MVP Email Notification Service And Console Delivery | Shared email service for 2FA and MVP confirmations with notification persistence. (Depends on: N-01; A-01) | Blocks: A-02; A-08; A-09; N-04; N-05; N-06; N-07
+- [x] **N-03** P1 - Activity And Search Logging Pipeline | Shared logging and search-history pipeline with no-op-safe helper hooks. (Depends on: N-01) | Blocks: A-10; K-08; K-09; K-11; N-08
+- [x] **N-04** P3 - Similar Listing Alert Matching And Dispatch | Rule-based alert subscriptions and similar-listing notification delivery. (Depends on: N-02; K-04) | Blocks: A-12
+- [x] **N-05** P3 - Rental Booking Request Backend | Rental-only booking persistence, validation, statuses, and booking notifications. (Depends on: N-01; N-02; K-04) | Blocks: A-11; N-06
+- [x] **N-06** P4 - Simulated Payment Flow | Fake payment processing and explicit payment-status transitions without a real gateway. (Depends on: N-05; N-02) | Blocks: A-14
 - [ ] **N-07** P4 - Production Email Provider Integration | Real email-provider support while preserving the shared notification abstraction. (Depends on: N-02) | Blocks: None
 - [ ] **N-08** P4 - Retention Automation For Log-Style Records | 90-day cleanup for activity logs, search history, and email notification records. (Depends on: N-03) | Blocks: None

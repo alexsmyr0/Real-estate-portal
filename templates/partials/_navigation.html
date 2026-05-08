@@ -1,0 +1,27 @@
+{% url "home" as home_url %}
+{% url "site-catalog" as site_catalog_url %}
+{% url "site-favorites" as site_favorites_url %}
+<header class="site-header">
+    <a class="brand" href="{{ home_url }}">
+        <span class="brand-mark">HF</span>
+        <span>HomeFinder</span>
+    </a>
+    <nav class="site-nav" aria-label="Primary">
+        <a class="nav-link{% if request.path == home_url %} is-active{% endif %}" href="{{ home_url }}">Home</a>
+        <a class="nav-link{% if request.path == site_catalog_url %} is-active{% endif %}" href="{{ site_catalog_url }}">Browse Listings</a>
+        <a class="nav-link{% if request.path == site_favorites_url %} is-active{% endif %}" href="{{ site_favorites_url }}">Saved Listings</a>
+    </nav>
+    <div class="nav-auth">
+        {% if request.user.is_authenticated %}
+            <span class="auth-chip">{{ request.user.full_name|default:request.user.email }}</span>
+            <form method="post" action="{% url 'logout-page' %}">
+                {% csrf_token %}
+                <button type="submit" class="button button-ghost">Sign out</button>
+            </form>
+        {% else %}
+            <span class="auth-chip auth-chip-guest">Guest</span>
+            <a href="{% url 'login-page' %}" class="button button-primary">Sign in</a>
+            <a href="{% url 'register-page' %}" class="button button-ghost">Register</a>
+        {% endif %}
+    </div>
+</header>
