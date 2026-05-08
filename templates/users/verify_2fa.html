@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block title %}Verify 2FA | HomeFinder{% endblock %}
+
+{% block page_header %}
+    <section class="page-hero">
+        <p class="eyebrow">Step 2 of 2</p>
+        <h1>Verify your sign-in code</h1>
+        <p>Enter the 6-digit code sent to your email to complete login and start your authenticated session.</p>
+    </section>
+{% endblock %}
+
+{% block content %}
+    <section class="panel auth-panel">
+        <h2>Two-Factor Verification</h2>
+        {% include "partials/_form_layout.html" with form=form submit_label=submit_label submit_loading_label=submit_loading_label %}
+        <p class="auth-footnote"><a href="{% url 'login-page' %}">Restart login</a> if your code expired.</p>
+    </section>
+{% endblock %}

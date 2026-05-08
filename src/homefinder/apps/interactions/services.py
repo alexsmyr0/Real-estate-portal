@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, replace
+from datetime import date
+from decimal import Decimal, InvalidOperation
 from typing import Protocol
 
 from django.conf import settings
@@ -22,9 +24,16 @@ from .activity_logging import (
     log_search_activity as log_search_activity,
 )
 from .models import (
+    ALLOWED_BOOKING_STATUS_TRANSITIONS,
+    ALLOWED_PAYMENT_STATUS_TRANSITIONS,
+    BookingRequest,
+    BookingRequestStatus,
     EmailNotification,
     EmailNotificationPurpose,
     EmailNotificationStatus,
+    Payment,
+    PaymentPurpose,
+    PaymentStatus,
     PropertyInquiry,
     ViewingRequest,
 )
@@ -200,8 +209,191 @@ class EmailNotificationService:
             )
         )
 
+    def send_similar_listing_alert(self, *, subscription: models.Model, property_obj: models.Model) -> EmailNotification:
+        return self.send(
+            EmailNotificationMessage(
+                purpose=EmailNotificationPurpose.SIMILAR_LISTING_ALERT,
+                user=subscription.user,
+                recipient_email=subscription.user.email,
+                subject="A similar HomeFinder listing is available",
+                body=(
+                    f"A listing similar to your saved alert is now available: {property_obj.title} "
+                    f"in {property_obj.city}.\n\n"
+                    f"Price: {property_obj.price}\n"
+                    f"Bedrooms: {property_obj.bedrooms if property_obj.bedrooms is not None else 'Not specified'}\n\n"
+                    "Visit HomeFinder to review the listing details."
+                ),
+            )
+        )
+
+    def send_booking_update(self, booking_request: BookingRequest) -> EmailNotification:
+        return self.send(
+            EmailNotificationMessage(
+                purpose=EmailNotificationPurpose.BOOKING_UPDATE,
+                user=booking_request.user,
+                recipient_email=booking_request.user.email,
+                subject="Your HomeFinder booking request",
+                body=(
+                    f"Booking request for {booking_request.property.title} "
+                    f"in {booking_request.property.city}.\n\n"
+                    f"Dates: {booking_request.start_date:%Y-%m-%d} to {booking_request.end_date:%Y-%m-%d}\n"
+                    f"Status: {BookingRequestStatus(booking_request.status).label}\n\n"
+                    "A HomeFinder team member will manage the request lifecycle."
+                ),
+            )
+        )
+
+
 
 notification_service = EmailNotificationService()
+
+
+class SimulatedPaymentService:
+    """Internal-only simulated payment lifecycle with no gateway integration."""
+
+    def create_payment(
+        self,
+        *,
+        user: models.Model,
+        amount: Decimal | str,
+        method: str,
+        purpose: str = PaymentPurpose.OTHER,
+        booking_request: BookingRequest | None = None,
+    ) -> Payment:
+        try:
+            normalized_amount = Decimal(str(amount))
+        except (InvalidOperation, ValueError):
+            raise ValidationError({"amount": "Payment amount must be a valid decimal amount."}) from None
+
+        payment = Payment(
+            user=user,
+            booking_request=booking_request,
+            payment_purpose=purpose,
+            payment_method=method,
+            amount=normalized_amount,
+            status=PaymentStatus.PENDING,
+        )
+        payment.full_clean()
+
+        with transaction.atomic():
+            payment.save()
+
+        return payment
+
+    def create_booking_fee_payment(
+        self,
+        *,
+        booking_request: BookingRequest,
+        amount: Decimal | str,
+        method: str,
+    ) -> Payment:
+        if booking_request.pk is None:
+            raise ValidationError({"booking_request": "Booking-fee payments require a persisted booking request."})
+
+        booking_request = BookingRequest.objects.select_related("user", "property").get(pk=booking_request.pk)
+        return self.create_payment(
+            user=booking_request.user,
+            booking_request=booking_request,
+            amount=amount,
+            method=method,
+            purpose=PaymentPurpose.BOOKING_FEE,
+        )
+
+    def complete_payment(self, payment: Payment) -> Payment:
+        return self.transition_payment_status(payment, status=PaymentStatus.COMPLETED)
+
+    def fail_payment(self, payment: Payment) -> Payment:
+        return self.transition_payment_status(payment, status=PaymentStatus.FAILED)
+
+    def cancel_payment(self, payment: Payment) -> Payment:
+        return self.transition_payment_status(payment, status=PaymentStatus.CANCELLED)
+
+    def transition_payment_status(self, payment: Payment, *, status: str) -> Payment:
+        if not isinstance(payment, Payment) or payment.pk is None:
+            raise ValidationError({"payment": "A persisted simulated payment is required."})
+
+        if status not in PaymentStatus.values:
+            raise ValidationError({"status": "Payment status is required and must be valid."})
+
+        with transaction.atomic():
+            locked_payment = Payment.objects.select_for_update().select_related("booking_request").get(pk=payment.pk)
+
+            if locked_payment.status == status:
+                return locked_payment
+
+            allowed_statuses = ALLOWED_PAYMENT_STATUS_TRANSITIONS.get(locked_payment.status, set())
+            if status not in allowed_statuses:
+                raise ValidationError({"status": f"Payments cannot move from {locked_payment.status} to {status}."})
+
+            locked_payment.status = status
+            locked_payment.full_clean()
+            locked_payment.save(update_fields=["status", "updated_at"])
+
+        return locked_payment
+
+
+simulated_payment_service = SimulatedPaymentService()
+
+
+def create_booking_request(
+    *,
+    user: models.Model,
+    property_obj: models.Model,
+    start_date: date | None,
+    end_date: date | None,
+    note: str = "",
+    notification_service_override: EmailNotificationService | None = None,
+) -> BookingRequest:
+    booking_request = BookingRequest(
+        user=user,
+        property=property_obj,
+        start_date=start_date,
+        end_date=end_date,
+        note=note,
+        status=BookingRequestStatus.PENDING,
+    )
+
+    with transaction.atomic():
+        booking_request.save()
+        service = notification_service_override or notification_service
+        service.send_booking_update(booking_request)
+
+    return booking_request
+
+
+def update_booking_request_status(
+    booking_request: BookingRequest,
+    *,
+    status: str,
+    notification_service_override: EmailNotificationService | None = None,
+) -> BookingRequest:
+    with transaction.atomic():
+        locked_booking_request = (
+            BookingRequest.objects.select_for_update()
+            .select_related("user", "property")
+            .get(pk=booking_request.pk)
+        )
+
+        if locked_booking_request.status == status:
+            return locked_booking_request
+
+        allowed_statuses = ALLOWED_BOOKING_STATUS_TRANSITIONS.get(locked_booking_request.status, set())
+        if status not in allowed_statuses:
+            raise ValidationError(
+                {
+                    "status": (
+                        f"Booking requests cannot move from {locked_booking_request.status} to {status}."
+                    )
+                }
+            )
+
+        locked_booking_request.status = status
+        locked_booking_request.full_clean()
+        locked_booking_request.save(update_fields=["status", "updated_at"])
+        service = notification_service_override or notification_service
+        service.send_booking_update(locked_booking_request)
+
+    return locked_booking_request
 
 
 def send_login_2fa_email(*, user: models.Model, token: str) -> EmailNotification:
@@ -214,3 +406,46 @@ def send_inquiry_confirmation_email(inquiry: PropertyInquiry) -> EmailNotificati
 
 def send_viewing_confirmation_email(viewing_request: ViewingRequest) -> EmailNotification:
     return notification_service.send_viewing_confirmation(viewing_request)
+
+
+def send_similar_listing_alert_email(*, subscription: models.Model, property_obj: models.Model) -> EmailNotification:
+    return notification_service.send_similar_listing_alert(subscription=subscription, property_obj=property_obj)
+
+
+
+def send_booking_update_email(booking_request: BookingRequest) -> EmailNotification:
+    return notification_service.send_booking_update(booking_request)
+
+
+def create_simulated_payment(
+    *,
+    user: models.Model,
+    amount: Decimal | str,
+    method: str,
+    purpose: str = PaymentPurpose.OTHER,
+    booking_request: BookingRequest | None = None,
+) -> Payment:
+    return simulated_payment_service.create_payment(
+        user=user,
+        amount=amount,
+        method=method,
+        purpose=purpose,
+        booking_request=booking_request,
+    )
+
+
+def create_booking_fee_payment(
+    *,
+    booking_request: BookingRequest,
+    amount: Decimal | str,
+    method: str,
+) -> Payment:
+    return simulated_payment_service.create_booking_fee_payment(
+        booking_request=booking_request,
+        amount=amount,
+        method=method,
+    )
+
+
+def complete_simulated_payment(payment: Payment) -> Payment:
+    return simulated_payment_service.complete_payment(payment)

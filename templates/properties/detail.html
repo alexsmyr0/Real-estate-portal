@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% url "site-catalog" as site_catalog_url %}
+
+{% block title %}HomeFinder | {{ property.title }}{% endblock %}
+
+{% block page_header %}
+    <section class="page-hero detail-hero">
+        <p class="eyebrow">Property Detail</p>
+        <div class="detail-hero-head">
+            <h1>{{ property.title }}</h1>
+            <span class="status-tag{% if property.availability.is_available %} status-available{% elif property.availability.is_unavailable %} status-unavailable{% endif %}">
+                {{ property.availability.label }}
+            </span>
+        </div>
+        <p class="detail-location">
+            {{ property.city }}{% if property.area %} / {{ property.area }}{% endif %}
+        </p>
+        {% if property.availability.is_unavailable %}
+            <p class="detail-unavailable-note">
+                This listing is currently unavailable, but this page remains visible for reference.
+            </p>
+        {% endif %}
+        <div class="hero-actions">
+            <a href="{{ site_catalog_url }}" class="button button-ghost">Back to Catalog</a>
+            {% if request.user.is_authenticated %}
+                {% if property.is_favorited %}
+                    <form method="post" action="{% url 'site-favorite-remove' property.id %}" class="inline-action-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        <input type="hidden" name="surface" value="detail">
+                        <button type="submit" class="button button-primary">Remove favorite</button>
+                    </form>
+                {% else %}
+                    <form method="post" action="{% url 'site-favorite-add' property.id %}" class="inline-action-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        <input type="hidden" name="surface" value="detail">
+                        <button type="submit" class="button button-primary">Save listing</button>
+                    </form>
+                {% endif %}
+            {% else %}
+                <a href="{% url 'login-page' %}?next={{ request.get_full_path|urlencode }}" class="button button-primary">Sign in to save</a>
+            {% endif %}
+        </div>
+    </section>
+{% endblock %}
+
+{% block content %}
+    <section class="property-detail-layout">
+        <div class="panel detail-main">
+            {% include "partials/_property_detail_gallery.html" with image_urls=property.image_urls title=property.title %}
+
+            <section class="detail-description">
+                <h2>About This Property</h2>
+                {% if property.description %}
+                    <p>{{ property.description }}</p>
+                {% else %}
+                    <p class="detail-muted">No description is available for this listing yet.</p>
+                {% endif %}
+            </section>
+        </div>
+
+        <aside class="panel detail-side">
+            {% include "partials/_property_detail_facts.html" with property=property category_label=category_label %}
+
+            <section class="detail-amenities">
+                <h2>Amenities</h2>
+                {% if property.amenities %}
+                    <ul class="detail-amenity-list">
+                        {% for amenity in property.amenities %}
+                            <li>{{ amenity }}</li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="detail-muted">No amenities are listed for this property.</p>
+                {% endif %}
+            </section>
+        </aside>
+    </section>
+{% endblock %}

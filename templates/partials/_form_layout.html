@@ -1,0 +1,52 @@
+<form method="{{ form_method|default:'post' }}" action="{{ form_action|default:'' }}" class="form-shell">
+    {% if form_method|default:"post" != "get" %}
+        {% csrf_token %}
+    {% endif %}
+    {% if form.non_field_errors %}
+        <div class="form-summary-errors">
+            {% for error in form.non_field_errors %}
+                <p>{{ error }}</p>
+            {% endfor %}
+        </div>
+    {% endif %}
+    <div class="form-grid">
+        {% for field in form %}
+            {% include "partials/_form_field.html" with field=field %}
+        {% endfor %}
+    </div>
+    {% if submit_label %}
+        <button
+            type="submit"
+            class="button button-primary"
+            data-submit-button="1"
+            {% if submit_loading_label %}data-loading-label="{{ submit_loading_label }}"{% endif %}
+        >
+            {{ submit_label }}
+        </button>
+    {% endif %}
+    {% if submit_loading_label %}
+        <script>
+            (function (script) {
+                const form = script.closest("form");
+                if (!form) {
+                    return;
+                }
+
+                form.addEventListener("submit", function () {
+                    const submitButton = form.querySelector("[data-submit-button='1']");
+                    if (!submitButton) {
+                        return;
+                    }
+
+                    submitButton.disabled = true;
+                    submitButton.setAttribute("aria-busy", "true");
+
+                    const loadingLabel = submitButton.getAttribute("data-loading-label");
+                    if (loadingLabel) {
+                        submitButton.textContent = loadingLabel;
+                    }
+                });
+            })(document.currentScript);
+        </script>
+    {% endif %}
+</form>

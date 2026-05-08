@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% url "site-catalog" as site_catalog_url %}
+
+{% block title %}HomeFinder | Discover Properties{% endblock %}
+
+{% block page_header %}
+    <section class="page-hero landing-hero">
+        <p class="eyebrow">Property Discovery</p>
+        <h1>Find the right property for your next move</h1>
+        <p>
+            Explore public residential, commercial, and rental listings across Greece with fast filters and live availability context.
+        </p>
+        <div class="hero-actions">
+            <a href="{{ site_catalog_url }}" class="button button-primary">Browse Catalog</a>
+            <a href="#featured-listings" class="button button-ghost">See Featured Listings</a>
+        </div>
+    </section>
+{% endblock %}
+
+{% block content %}
+    <section class="panel-grid landing-highlights">
+        <article class="panel">
+            <h2>Search By Real Criteria</h2>
+            <p>
+                Filter listings by location, category, price range, bedrooms, and amenities with stable backend semantics.
+            </p>
+        </article>
+        <article class="panel">
+            <h2>Public Catalog Visibility</h2>
+            <p>
+                Availability messaging is consistent: available and unavailable listings stay visible, while removed listings stay hidden.
+            </p>
+        </article>
+        <article class="panel">
+            <h2>Catalog Snapshot</h2>
+            <p>
+                {{ total_visible_listings }} visible listing{{ total_visible_listings|pluralize }} in the current public catalog.
+            </p>
+        </article>
+    </section>
+
+    <section id="featured-listings" class="panel">
+        <div class="page-header-inline">
+            <div>
+                <p class="eyebrow">Featured</p>
+                <h2>Current Listings</h2>
+            </div>
+            <a href="{{ site_catalog_url }}" class="button button-ghost">View Full Catalog</a>
+        </div>
+        {% if featured_properties %}
+            <div class="property-grid">
+                {% for property in featured_properties %}
+                    {% include "partials/_property_card.html" with property=property %}
+                {% endfor %}
+            </div>
+        {% else %}
+            {% include "partials/_empty_state.html" with title="Catalog coming soon" message="No visible listings are available yet. Please check back after demo catalog data is seeded." action_href=site_catalog_url action_label="Open catalog" %}
+        {% endif %}
+    </section>
+{% endblock %}
