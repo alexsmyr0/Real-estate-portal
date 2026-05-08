@@ -100,7 +100,7 @@ Use this as the default claim order for the next wave of work:
 - [x] **K-06** P2 - Admin Listing CRUD | Django admin usability for listing creation and maintenance. (Depends on: K-01; K-04) | Blocks: None
 - [x] **K-07** P2 - Interaction Management Admin | Django admin usability for inquiry and viewing-request management. (Depends on: K-05) | Blocks: None
 - [x] **K-08** P3 - Supervisor Inquiry And Saved-Property Reporting Aggregations | Monthly aggregate metrics for inquiries and favorites. (Depends on: N-03; K-05) | Blocks: K-10
-- [ ] **K-09** P3 - Search Trends Aggregation Service | Top-10 monthly search trends for cities, categories, and price bands. (Depends on: K-03; N-03; K-05) | Blocks: K-10
+- [x] **K-09** P3 - Search Trends Aggregation Service | Top-10 monthly search trends for cities, categories, and price bands. (Depends on: K-03; N-03; K-05) | Blocks: K-10
 - [ ] **K-10** P3 - Supervisor Reporting Read-Only Pages | Read-only reporting pages for supervisor and admin roles. (Depends on: K-08; K-09) | Blocks: None
 - [ ] **K-11** P3 - Personalized Recommendations Backend | Rule-based recommendations using catalog similarity and user-behavior signals. (Depends on: K-03; K-04; N-03; K-05) | Blocks: A-13
 

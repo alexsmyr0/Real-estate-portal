@@ -5,9 +5,12 @@ from decimal import Decimal
 
 from django.test import TestCase
 
-from homefinder.apps.interactions.models import PropertyInquiry, UserFavorite
+from homefinder.apps.interactions.models import PropertyInquiry, SearchHistory, UserFavorite
 from homefinder.apps.properties.models import Property, PropertyCategory, PropertyStatus
-from homefinder.apps.properties.services import get_monthly_inquiry_and_saved_property_metrics
+from homefinder.apps.properties.services import (
+    get_monthly_inquiry_and_saved_property_metrics,
+    get_monthly_search_trend_metrics,
+)
 from homefinder.apps.users.models import User
 
 
@@ -33,6 +36,7 @@ class SupervisorReportingAggregationServiceTests(TestCase):
             ),
         ]
         self._seed_reporting_interactions()
+        self._seed_reporting_search_history()
 
     def _create_property(self, *, title: str, city: str) -> Property:
         return Property.objects.create(
@@ -109,6 +113,111 @@ class SupervisorReportingAggregationServiceTests(TestCase):
         ]
         for favorite, created_at in favorite_records:
             UserFavorite.objects.filter(pk=favorite.pk).update(created_at=created_at)
+
+    def _seed_reporting_search_history(self) -> None:
+        search_records = [
+            (
+                SearchHistory.objects.create(
+                    user=self.users[0],
+                    location_city="Athens",
+                    category=PropertyCategory.RESIDENTIAL,
+                    min_price=Decimal("95000.00"),
+                    max_price=Decimal("120000.00"),
+                    bedrooms_min=2,
+                ),
+                datetime(2026, 1, 6, 9, 10, tzinfo=datetime_timezone.utc),
+            ),
+            (
+                SearchHistory.objects.create(
+                    user=self.users[1],
+                    location_city="ATHENS",
+                    category=PropertyCategory.RESIDENTIAL,
+                    min_price=Decimal("100000.00"),
+                    max_price=Decimal("249999.00"),
+                    bedrooms_min=1,
+                ),
+                datetime(2026, 1, 18, 14, 0, tzinfo=datetime_timezone.utc),
+            ),
+            (
+                SearchHistory.objects.create(
+                    user=self.users[1],
+                    location_city="Thessaloniki",
+                    category=PropertyCategory.COMMERCIAL,
+                    min_price=Decimal("250000.00"),
+                    max_price=Decimal("499999.00"),
+                ),
+                datetime(2026, 1, 22, 16, 45, tzinfo=datetime_timezone.utc),
+            ),
+            (
+                SearchHistory.objects.create(
+                    user=self.users[2],
+                    location_city="Patra",
+                    category=PropertyCategory.RESIDENTIAL,
+                    max_price=Decimal("90000.00"),
+                ),
+                datetime(2026, 1, 29, 11, 55, tzinfo=datetime_timezone.utc),
+            ),
+            (
+                SearchHistory.objects.create(
+                    user=self.users[0],
+                    location_city="Athens",
+                    category=PropertyCategory.RENTAL,
+                    min_price=Decimal("500000.00"),
+                    max_price=Decimal("999999.00"),
+                ),
+                datetime(2026, 2, 2, 8, 0, tzinfo=datetime_timezone.utc),
+            ),
+            (
+                SearchHistory.objects.create(
+                    user=self.users[1],
+                    location_city="Volos",
+                    category=PropertyCategory.RENTAL,
+                    min_price=Decimal("1000000.00"),
+                ),
+                datetime(2026, 2, 7, 10, 5, tzinfo=datetime_timezone.utc),
+            ),
+            (
+                SearchHistory.objects.create(
+                    user=self.users[2],
+                    location_city="Heraklion",
+                    category=PropertyCategory.COMMERCIAL,
+                    min_price=Decimal("200000.00"),
+                    max_price=Decimal("400000.00"),
+                ),
+                datetime(2026, 2, 16, 9, 40, tzinfo=datetime_timezone.utc),
+            ),
+            (
+                SearchHistory.objects.create(
+                    user=self.users[0],
+                    location_city="",
+                    category=PropertyCategory.RESIDENTIAL,
+                    min_price=Decimal("-100.00"),
+                    max_price=Decimal("150000.00"),
+                ),
+                datetime(2026, 2, 20, 13, 25, tzinfo=datetime_timezone.utc),
+            ),
+            (
+                SearchHistory.objects.create(
+                    user=self.users[2],
+                    location_city="Larissa",
+                    min_price=Decimal("300000.00"),
+                    max_price=Decimal("250000.00"),
+                ),
+                datetime(2026, 2, 26, 19, 15, tzinfo=datetime_timezone.utc),
+            ),
+            (
+                SearchHistory.objects.create(
+                    user=self.users[0],
+                    location_city="Athens",
+                    category=PropertyCategory.RESIDENTIAL,
+                    min_price=Decimal("1000000.00"),
+                    max_price=Decimal("1200000.00"),
+                ),
+                datetime(2026, 4, 8, 7, 50, tzinfo=datetime_timezone.utc),
+            ),
+        ]
+        for search_history, created_at in search_records:
+            SearchHistory.objects.filter(pk=search_history.pk).update(created_at=created_at)
 
     def test_monthly_reporting_aggregations_include_inquiries_and_saved_properties(self) -> None:
         metrics = get_monthly_inquiry_and_saved_property_metrics()
@@ -199,5 +308,122 @@ class SupervisorReportingAggregationServiceTests(TestCase):
         UserFavorite.objects.all().delete()
 
         metrics = get_monthly_inquiry_and_saved_property_metrics()
+
+        self.assertEqual(metrics, [])
+
+    def test_monthly_search_trend_aggregation_returns_city_category_and_price_band_metrics(self) -> None:
+        metrics = get_monthly_search_trend_metrics()
+
+        self.assertEqual(
+            metrics,
+            [
+                {
+                    "month": "2026-01",
+                    "top_cities": [
+                        {"city": "Athens", "search_count": 2},
+                        {"city": "Patra", "search_count": 1},
+                        {"city": "Thessaloniki", "search_count": 1},
+                    ],
+                    "top_categories": [
+                        {"category": PropertyCategory.RESIDENTIAL, "search_count": 3},
+                        {"category": PropertyCategory.COMMERCIAL, "search_count": 1},
+                    ],
+                    "top_price_bands": [
+                        {"price_band": "<100k", "search_count": 2},
+                        {"price_band": "100k-249,999", "search_count": 2},
+                        {"price_band": "250k-499,999", "search_count": 1},
+                    ],
+                },
+                {
+                    "month": "2026-02",
+                    "top_cities": [
+                        {"city": "Athens", "search_count": 1},
+                        {"city": "Heraklion", "search_count": 1},
+                        {"city": "Larissa", "search_count": 1},
+                        {"city": "Volos", "search_count": 1},
+                    ],
+                    "top_categories": [
+                        {"category": PropertyCategory.RENTAL, "search_count": 2},
+                        {"category": PropertyCategory.COMMERCIAL, "search_count": 1},
+                        {"category": PropertyCategory.RESIDENTIAL, "search_count": 1},
+                    ],
+                    "top_price_bands": [
+                        {"price_band": "100k-249,999", "search_count": 2},
+                        {"price_band": "250k-499,999", "search_count": 2},
+                        {"price_band": "<100k", "search_count": 1},
+                        {"price_band": "500k-999,999", "search_count": 1},
+                        {"price_band": "1,000,000+", "search_count": 1},
+                    ],
+                },
+                {
+                    "month": "2026-04",
+                    "top_cities": [
+                        {"city": "Athens", "search_count": 1},
+                    ],
+                    "top_categories": [
+                        {"category": PropertyCategory.RESIDENTIAL, "search_count": 1},
+                    ],
+                    "top_price_bands": [
+                        {"price_band": "1,000,000+", "search_count": 1},
+                    ],
+                },
+            ],
+        )
+
+    def test_monthly_search_trend_aggregation_accepts_period_filters_and_fills_missing_months(self) -> None:
+        metrics = get_monthly_search_trend_metrics(
+            period_start=date(2026, 1, 1),
+            period_end=date(2026, 4, 30),
+        )
+
+        self.assertEqual(
+            [record["month"] for record in metrics],
+            ["2026-01", "2026-02", "2026-03", "2026-04"],
+        )
+        self.assertEqual(metrics[2]["top_cities"], [])
+        self.assertEqual(metrics[2]["top_categories"], [])
+        self.assertEqual(metrics[2]["top_price_bands"], [])
+
+    def test_monthly_search_trend_aggregation_limits_city_trends_to_top_ten(self) -> None:
+        for index in range(1, 13):
+            search_history = SearchHistory.objects.create(
+                location_city=f"City{index:02d}",
+                category=PropertyCategory.RESIDENTIAL,
+            )
+            SearchHistory.objects.filter(pk=search_history.pk).update(
+                created_at=datetime(2026, 6, 10, 9, index, tzinfo=datetime_timezone.utc),
+            )
+
+        metrics = get_monthly_search_trend_metrics(
+            period_start=date(2026, 6, 1),
+            period_end=date(2026, 6, 30),
+        )
+
+        self.assertEqual(len(metrics), 1)
+        june_metrics = metrics[0]
+        self.assertEqual(june_metrics["month"], "2026-06")
+        self.assertEqual(len(june_metrics["top_cities"]), 10)
+        self.assertEqual(
+            [entry["city"] for entry in june_metrics["top_cities"]],
+            [
+                "City01",
+                "City02",
+                "City03",
+                "City04",
+                "City05",
+                "City06",
+                "City07",
+                "City08",
+                "City09",
+                "City10",
+            ],
+        )
+        self.assertLessEqual(len(june_metrics["top_categories"]), 10)
+        self.assertLessEqual(len(june_metrics["top_price_bands"]), 10)
+
+    def test_monthly_search_trend_aggregation_returns_empty_list_when_no_search_data(self) -> None:
+        SearchHistory.objects.all().delete()
+
+        metrics = get_monthly_search_trend_metrics()
 
         self.assertEqual(metrics, [])
