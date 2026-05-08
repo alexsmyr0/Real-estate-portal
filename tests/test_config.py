@@ -22,6 +22,15 @@ class ConfigLoadingTests(unittest.TestCase):
         self.assertEqual(settings.database_url, "mysql://homefinder_app:admin@127.0.0.1:3306/homefinder")
         self.assertEqual(settings.database_engine, "django.db.backends.mysql")
         self.assertEqual(settings.database_config["NAME"], "homefinder")
+        self.assertEqual(settings.email_backend, "django.core.mail.backends.console.EmailBackend")
+        self.assertEqual(settings.default_from_email, "HomeFinder <no-reply@homefinder.local>")
+        self.assertEqual(settings.email_host, "")
+        self.assertEqual(settings.email_port, 587)
+        self.assertEqual(settings.email_host_user, "")
+        self.assertEqual(settings.email_host_password, "")
+        self.assertFalse(settings.email_use_tls)
+        self.assertFalse(settings.email_use_ssl)
+        self.assertEqual(settings.email_timeout, 10)
 
     def test_load_settings_reads_env_values_and_mysql_fallbacks(self) -> None:
         env_contents = "\n".join(
@@ -35,10 +44,22 @@ class ConfigLoadingTests(unittest.TestCase):
                 "MYSQL_DATABASE=homefinder_test",
                 "MYSQL_USER=test_user",
                 "MYSQL_PASSWORD=secret",
+                "EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend",
+                "DEFAULT_FROM_EMAIL=HomeFinder <hello@example.com>",
+                "EMAIL_HOST=smtp.example.com",
+                "EMAIL_PORT=2525",
+                "EMAIL_HOST_USER=smtp-user",
+                "EMAIL_HOST_PASSWORD=smtp-secret",
+                "EMAIL_USE_TLS=true",
+                "EMAIL_USE_SSL=false",
+                "EMAIL_TIMEOUT=15",
             ]
         )
 
-        with tempfile.TemporaryDirectory() as temp_dir:
+        temp_parent = Path.cwd() / ".tmp"
+        temp_parent.mkdir(exist_ok=True)
+
+        with tempfile.TemporaryDirectory(dir=temp_parent) as temp_dir:
             env_path = Path(temp_dir) / ".env"
             env_path.write_text(env_contents, encoding="utf-8")
 
@@ -60,6 +81,15 @@ class ConfigLoadingTests(unittest.TestCase):
         )
         self.assertEqual(settings.database_engine, "django.db.backends.mysql")
         self.assertEqual(settings.database_config["HOST"], "db.local")
+        self.assertEqual(settings.email_backend, "django.core.mail.backends.smtp.EmailBackend")
+        self.assertEqual(settings.default_from_email, "HomeFinder <hello@example.com>")
+        self.assertEqual(settings.email_host, "smtp.example.com")
+        self.assertEqual(settings.email_port, 2525)
+        self.assertEqual(settings.email_host_user, "smtp-user")
+        self.assertEqual(settings.email_host_password, "smtp-secret")
+        self.assertTrue(settings.email_use_tls)
+        self.assertFalse(settings.email_use_ssl)
+        self.assertEqual(settings.email_timeout, 15)
 
 
 if __name__ == "__main__":
