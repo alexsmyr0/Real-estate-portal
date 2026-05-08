@@ -113,4 +113,4 @@ Use this as the default claim order for the next wave of work:
 - [x] **N-05** P3 - Rental Booking Request Backend | Rental-only booking persistence, validation, statuses, and booking notifications. (Depends on: N-01; N-02; K-04) | Blocks: A-11; N-06
 - [x] **N-06** P4 - Simulated Payment Flow | Fake payment processing and explicit payment-status transitions without a real gateway. (Depends on: N-05; N-02) | Blocks: A-14
 - [x] **N-07** P4 - Production Email Provider Integration | Real email-provider support while preserving the shared notification abstraction. (Depends on: N-02) | Blocks: None
-- [ ] **N-08** P4 - Retention Automation For Log-Style Records | 90-day cleanup for activity logs, search history, and email notification records. (Depends on: N-03) | Blocks: None
+- [x] **N-08** P4 - Retention Automation For Log-Style Records | 90-day cleanup for activity logs, search history, and email notification records. (Depends on: N-03) | Blocks: None
