@@ -11,6 +11,7 @@ import django
 
 django.setup()
 
+from django.core.exceptions import ValidationError
 from django.test import Client, TestCase, override_settings
 from django.utils import timezone
 
@@ -25,6 +26,7 @@ from homefinder.apps.interactions.models import (
     ViewingRequest,
     ViewingRequestStatus,
 )
+from homefinder.apps.interactions.services import create_viewing_request
 from homefinder.apps.properties.models import Property, PropertyCategory, PropertyStatus
 from homefinder.apps.users.models import User
 
@@ -217,7 +219,7 @@ class ViewingRequestFlowTests(TestCase):
             ).exists()
         )
 
-    def test_existing_viewing_request_remains_saveable_after_property_is_removed(self) -> None:
+    def test_removed_property_blocks_new_viewing_requests_but_preserves_existing_records(self) -> None:
         viewing_request = ViewingRequest.objects.create(
             user=self.user,
             property=self.available_property,
@@ -265,18 +267,51 @@ class ViewingRequestFlowTests(TestCase):
     def test_logging_failure_does_not_break_viewing_persistence_or_notification(self) -> None:
         self.client.force_login(self.user)
 
-        with patch("homefinder.apps.properties.views.log_interaction_activity", side_effect=RuntimeError("logger down")):
-            with self.captureOnCommitCallbacks(execute=True):
-                response = self.client.post(
-                    f"/catalog/{self.available_property.id}/viewing-request/",
-                    {"requested_datetime": self._form_datetime(timezone.now() + timedelta(days=2))},
-                    follow=True,
-                )
+        with self.assertLogs("homefinder.apps.properties.views", level="ERROR"):
+            with patch(
+                "homefinder.apps.properties.views.log_interaction_activity",
+                side_effect=RuntimeError("logger down"),
+            ):
+                with self.captureOnCommitCallbacks(execute=True):
+                    response = self.client.post(
+                        f"/catalog/{self.available_property.id}/viewing-request/",
+                        {"requested_datetime": self._form_datetime(timezone.now() + timedelta(days=2))},
+                        follow=True,
+                    )
 
         self.assertRedirects(response, f"/catalog/{self.available_property.id}/")
         self.assertEqual(ViewingRequest.objects.count(), 1)
         self.assertEqual(EmailNotification.objects.count(), 1)
         self.assertEqual(ActivityLog.objects.count(), 0)
+
+    def test_service_rejects_note_longer_than_500_characters(self) -> None:
+        with self.assertRaises(ValidationError) as context:
+            create_viewing_request(
+                user=self.user,
+                property_obj=self.available_property,
+                requested_datetime=timezone.now() + timedelta(days=2),
+                note="x" * 501,
+            )
+
+        self.assertIn("note", context.exception.message_dict)
+        self.assertEqual(ViewingRequest.objects.count(), 0)
+        self.assertEqual(EmailNotification.objects.count(), 0)
+
+    def test_confirmation_marker_does_not_leak_to_other_user_on_shared_session(self) -> None:
+        self.client.force_login(self.user)
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(
+                f"/catalog/{self.available_property.id}/viewing-request/",
+                {"requested_datetime": self._form_datetime(timezone.now() + timedelta(days=1))},
+                follow=True,
+            )
+
+        self.client.force_login(self.other_user)
+        response = self.client.get(f"/catalog/{self.available_property.id}/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Viewing request sent")
+        self.assertIsNone(response.context["viewing_confirmation"])
 
     def _create_property(self, *, title: str, status: str, city: str) -> Property:
         return Property.objects.create(

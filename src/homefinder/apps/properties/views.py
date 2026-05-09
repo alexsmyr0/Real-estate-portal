@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from urllib.parse import urlencode
 
 from django.contrib import messages
@@ -15,14 +16,18 @@ from homefinder.apps.interactions.models import UserFavorite, ViewingRequest
 from homefinder.apps.interactions.services import create_viewing_request, log_interaction_activity
 
 from .forms import ViewingRequestForm
-from .models import Amenity, Property, PropertyCategory
+from .models import Amenity, PropertyCategory
+
+logger = logging.getLogger(__name__)
 from .services import (
     DEFAULT_CATALOG_PAGE,
     PUBLICLY_VISIBLE_PROPERTY_STATUSES,
+    get_visible_property,
     get_visible_property_detail,
     parse_catalog_search_params,
     search_visible_properties,
     serialize_property_for_catalog_card,
+    serialize_property_for_detail,
 )
 
 CATALOG_BEDROOM_FILTER_OPTIONS = (1, 2, 3, 4, 5)
@@ -229,13 +234,14 @@ def viewing_request_action(request: HttpRequest, property_id: int) -> HttpRespon
     if guest_redirect is not None:
         return guest_redirect
 
-    property_payload = get_visible_property_detail(property_id)
-    if property_payload is None:
+    property_obj = get_visible_property(property_id)
+    if property_obj is None:
         raise Http404("Property not found.")
 
-    _apply_detail_favorite_state(request=request, property_payload=property_payload)
     viewing_form = ViewingRequestForm(request.POST)
     if not viewing_form.is_valid():
+        property_payload = serialize_property_for_detail(property_obj)
+        _apply_detail_favorite_state(request=request, property_payload=property_payload)
         return _render_property_detail(
             request=request,
             property_payload=property_payload,
@@ -245,12 +251,14 @@ def viewing_request_action(request: HttpRequest, property_id: int) -> HttpRespon
     try:
         viewing_request = create_viewing_request(
             user=request.user,
-            property_obj=Property.objects.get(pk=property_id),
+            property_obj=property_obj,
             requested_datetime=viewing_form.cleaned_data["requested_datetime"],
             note=viewing_form.cleaned_data.get("note", ""),
         )
     except ValidationError as error:
         _add_validation_error_to_form(viewing_form, error)
+        property_payload = serialize_property_for_detail(property_obj)
+        _apply_detail_favorite_state(request=request, property_payload=property_payload)
         return _render_property_detail(
             request=request,
             property_payload=property_payload,
@@ -393,7 +401,10 @@ def _safe_log_favorite_action(
             details=details,
         )
     except Exception:
-        return
+        logger.exception(
+            "Failed to log favorite interaction.",
+            extra={"action": action, "property_id": property_id},
+        )
 
 
 def _safe_log_viewing_action(
@@ -410,7 +421,10 @@ def _safe_log_viewing_action(
             details=details,
         )
     except Exception:
-        return
+        logger.exception(
+            "Failed to log viewing-request interaction.",
+            extra={"viewing_request_id": viewing_request.pk},
+        )
 
 
 def _add_validation_error_to_form(form: ViewingRequestForm, error: ValidationError) -> None:
