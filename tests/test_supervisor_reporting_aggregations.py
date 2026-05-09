@@ -427,3 +427,88 @@ class SupervisorReportingAggregationServiceTests(TestCase):
         metrics = get_monthly_search_trend_metrics()
 
         self.assertEqual(metrics, [])
+
+    def test_monthly_search_trend_aggregation_breaks_category_ties_alphabetically(self) -> None:
+        search_history = SearchHistory.objects.create(
+            user=self.users[1],
+            location_city="Patra",
+            category=PropertyCategory.COMMERCIAL,
+            min_price=Decimal("300000.00"),
+            max_price=Decimal("350000.00"),
+        )
+        SearchHistory.objects.filter(pk=search_history.pk).update(
+            created_at=datetime(2026, 4, 11, 10, 0, tzinfo=datetime_timezone.utc),
+        )
+
+        metrics = get_monthly_search_trend_metrics(
+            period_start=date(2026, 4, 1),
+            period_end=date(2026, 4, 30),
+        )
+
+        self.assertEqual(len(metrics), 1)
+        self.assertEqual(
+            metrics[0]["top_categories"],
+            [
+                {"category": PropertyCategory.COMMERCIAL, "search_count": 1},
+                {"category": PropertyCategory.RESIDENTIAL, "search_count": 1},
+            ],
+        )
+
+    def test_blank_category_is_excluded_from_category_trends_but_kept_in_city_and_price_band_trends(self) -> None:
+        metrics = get_monthly_search_trend_metrics(
+            period_start=date(2026, 2, 1),
+            period_end=date(2026, 2, 28),
+        )
+
+        self.assertEqual(len(metrics), 1)
+        february_metrics = metrics[0]
+        self.assertIn({"city": "Larissa", "search_count": 1}, february_metrics["top_cities"])
+        self.assertIn({"price_band": "250k-499,999", "search_count": 2}, february_metrics["top_price_bands"])
+        self.assertEqual(
+            february_metrics["top_categories"],
+            [
+                {"category": PropertyCategory.RENTAL, "search_count": 2},
+                {"category": PropertyCategory.COMMERCIAL, "search_count": 1},
+                {"category": PropertyCategory.RESIDENTIAL, "search_count": 1},
+            ],
+        )
+
+    def test_monthly_search_trend_aggregation_uses_half_open_month_window_boundaries(self) -> None:
+        boundary_row = SearchHistory.objects.create(
+            user=self.users[2],
+            location_city="Boundaryville",
+            category=PropertyCategory.RESIDENTIAL,
+            min_price=Decimal("1000000.00"),
+        )
+        SearchHistory.objects.filter(pk=boundary_row.pk).update(
+            created_at=datetime(2026, 3, 1, 0, 0, tzinfo=datetime_timezone.utc),
+        )
+
+        narrowed_metrics = get_monthly_search_trend_metrics(
+            period_start=date(2026, 1, 1),
+            period_end=date(2026, 2, 28),
+        )
+        self.assertEqual(
+            [record["month"] for record in narrowed_metrics],
+            ["2026-01", "2026-02"],
+        )
+        self.assertFalse(
+            any(
+                city_entry["city"] == "Boundaryville"
+                for month_record in narrowed_metrics
+                for city_entry in month_record["top_cities"]
+            )
+        )
+
+        widened_metrics = get_monthly_search_trend_metrics(
+            period_start=date(2026, 1, 1),
+            period_end=date(2026, 3, 31),
+        )
+        self.assertEqual(
+            [record["month"] for record in widened_metrics],
+            ["2026-01", "2026-02", "2026-03"],
+        )
+        self.assertEqual(
+            widened_metrics[2]["top_cities"],
+            [{"city": "Boundaryville", "search_count": 1}],
+        )

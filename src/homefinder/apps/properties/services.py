@@ -912,6 +912,8 @@ def _matching_search_price_bands(
     if min_price is None and max_price is None:
         return ()
 
+    # A single search can overlap multiple locked bands; we intentionally count it in each
+    # overlapping band, so price-band totals are not additive with total search volume.
     matching_bands = []
     for band_label, band_min, band_max in LOCKED_SEARCH_PRICE_BANDS:
         if _price_range_overlaps_band(
