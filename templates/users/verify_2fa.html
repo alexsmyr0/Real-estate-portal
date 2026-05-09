@@ -13,7 +13,7 @@
 {% block content %}
     <section class="panel auth-panel">
         <h2>Two-Factor Verification</h2>
-        {% include "partials/_form_layout.html" with form=form submit_label=submit_label submit_loading_label=submit_loading_label %}
+        {% include "partials/_form_layout.html" with form=form next_url=next_url submit_label=submit_label submit_loading_label=submit_loading_label %}
         <p class="auth-footnote"><a href="{% url 'login-page' %}">Restart login</a> if your code expired.</p>
     </section>
 {% endblock %}

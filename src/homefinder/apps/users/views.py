@@ -7,6 +7,7 @@ from django.contrib.auth import authenticate
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_http_methods
 
 from homefinder.apps.core.views import json_error_response, unauthorized_response
@@ -20,6 +21,8 @@ from .services import (
     start_pending_login,
     verify_pending_login,
 )
+
+PENDING_LOGIN_NEXT_SESSION_KEY = "pending_login_next"
 
 
 @require_http_methods(["GET", "POST"])
@@ -62,23 +65,26 @@ def login_page(request: HttpRequest) -> HttpResponse:
         messages.info(request, "You are already signed in.")
         return redirect("home")
 
+    next_url = _safe_next_url(request)
+
     if request.method == "POST":
         form = LoginForm(request.POST)
         if not form.is_valid():
             log_auth_activity(action="login_failed_validation", details={"errors": form.errors.get_json_data()})
             messages.error(request, "Please correct the highlighted fields and try again.")
-            return _render_login_page(request=request, form=form)
+            return _render_login_page(request=request, form=form, next_url=next_url)
 
         email = form.cleaned_data["email"]
         user = authenticate(request, email=email, password=form.cleaned_data["password"])
         if user is None or not user.is_active:
             log_auth_activity(action="login_failed_credentials", details={"email": email})
             form.add_error(None, "Invalid email or password.")
-            return _render_login_page(request=request, form=form)
+            return _render_login_page(request=request, form=form, next_url=next_url)
 
         start_pending_login(request=request, user=user)
+        _set_pending_login_next(request=request, next_url=next_url)
         messages.success(request, "Credentials accepted. Enter your 2FA code to finish login.")
-        return redirect("verify-2fa-page")
+        return redirect(_verify_2fa_url(next_url))
 
     initial: dict[str, str] = {}
     prefilled_email = (request.GET.get("email") or "").strip()
@@ -86,7 +92,7 @@ def login_page(request: HttpRequest) -> HttpResponse:
         initial["email"] = prefilled_email
 
     form = LoginForm(initial=initial)
-    return _render_login_page(request=request, form=form)
+    return _render_login_page(request=request, form=form, next_url=next_url)
 
 
 @require_http_methods(["GET", "POST"])
@@ -97,35 +103,44 @@ def verify_2fa_page(request: HttpRequest) -> HttpResponse:
 
     pending_state = get_pending_login_state(request.session)
     if pending_state is None:
+        _clear_pending_login_next(request)
         messages.warning(request, "Start the login flow before entering a 2FA code.")
         return redirect("login-page")
+
+    next_url = _safe_next_url(request) or _get_pending_login_next(request)
 
     if request.method == "POST":
         form = TwoFactorVerificationForm(request.POST)
         if not form.is_valid():
             log_auth_activity(action="login_2fa_failed_validation", details={"errors": form.errors.get_json_data()})
             messages.error(request, "Enter a valid 6-digit code.")
-            return _render_verify_2fa_page(request=request, form=form)
+            return _render_verify_2fa_page(request=request, form=form, next_url=next_url)
 
         verification_result = verify_pending_login(request=request, token=form.cleaned_data["token"])
         if verification_result.success and verification_result.user is not None:
             messages.success(request, "Login completed successfully.")
-            return redirect("home")
+            redirect_target = _pop_pending_login_next(request)
+            return redirect(redirect_target or "home")
 
         error_code = verification_result.error_code or "token_invalid"
         if error_code == "pending_login_required":
+            _clear_pending_login_next(request)
             messages.warning(request, "Pending login not found. Start the login flow again.")
             return redirect("login-page")
         if error_code == "token_expired":
+            _clear_pending_login_next(request)
             messages.error(request, "This 2FA token has expired. Start the login flow again.")
             return redirect("login-page")
         if error_code == "token_already_used":
+            _clear_pending_login_next(request)
             messages.error(request, "This 2FA token has already been used. Start the login flow again.")
             return redirect("login-page")
         if error_code == "max_attempts_exceeded":
+            _clear_pending_login_next(request)
             messages.error(request, "Too many invalid 2FA attempts. Start the login flow again.")
             return redirect("login-page")
         if error_code == "inactive_user":
+            _clear_pending_login_next(request)
             messages.error(request, "This account is inactive.")
             return redirect("login-page")
 
@@ -136,10 +151,10 @@ def verify_2fa_page(request: HttpRequest) -> HttpResponse:
             error_message = f"Invalid 2FA token. {attempts_remaining} {attempt_label} remaining."
         form.add_error("token", error_message)
         messages.error(request, "Unable to verify that code.")
-        return _render_verify_2fa_page(request=request, form=form)
+        return _render_verify_2fa_page(request=request, form=form, next_url=next_url)
 
     form = TwoFactorVerificationForm()
-    return _render_verify_2fa_page(request=request, form=form)
+    return _render_verify_2fa_page(request=request, form=form, next_url=next_url)
 
 
 @require_http_methods(["POST"])
@@ -311,25 +326,83 @@ def _render_register_page(*, request: HttpRequest, form: RegistrationForm) -> Ht
     )
 
 
-def _render_login_page(*, request: HttpRequest, form: LoginForm) -> HttpResponse:
+def _render_login_page(*, request: HttpRequest, form: LoginForm, next_url: str = "") -> HttpResponse:
     return render(
         request,
         "users/login.html",
         {
             "form": form,
+            "next_url": next_url,
             "submit_label": "Continue to 2FA",
             "submit_loading_label": "Checking credentials...",
         },
     )
 
 
-def _render_verify_2fa_page(*, request: HttpRequest, form: TwoFactorVerificationForm) -> HttpResponse:
+def _render_verify_2fa_page(
+    *,
+    request: HttpRequest,
+    form: TwoFactorVerificationForm,
+    next_url: str = "",
+) -> HttpResponse:
     return render(
         request,
         "users/verify_2fa.html",
         {
             "form": form,
+            "next_url": next_url,
             "submit_label": "Verify code",
             "submit_loading_label": "Verifying code...",
         },
     )
+
+
+def _safe_next_url(request: HttpRequest) -> str:
+    candidate = (request.POST.get("next") or request.GET.get("next") or "").strip()
+    if not candidate:
+        return ""
+    if url_has_allowed_host_and_scheme(
+        url=candidate,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return candidate
+    return ""
+
+
+def _set_pending_login_next(*, request: HttpRequest, next_url: str) -> None:
+    if next_url:
+        request.session[PENDING_LOGIN_NEXT_SESSION_KEY] = next_url
+    else:
+        request.session.pop(PENDING_LOGIN_NEXT_SESSION_KEY, None)
+    request.session.modified = True
+
+
+def _get_pending_login_next(request: HttpRequest) -> str:
+    next_url = (request.session.get(PENDING_LOGIN_NEXT_SESSION_KEY) or "").strip()
+    if next_url and url_has_allowed_host_and_scheme(
+        url=next_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return next_url
+    return ""
+
+
+def _pop_pending_login_next(request: HttpRequest) -> str:
+    next_url = _get_pending_login_next(request)
+    _clear_pending_login_next(request)
+    return next_url
+
+
+def _clear_pending_login_next(request: HttpRequest) -> None:
+    if PENDING_LOGIN_NEXT_SESSION_KEY in request.session:
+        request.session.pop(PENDING_LOGIN_NEXT_SESSION_KEY, None)
+        request.session.modified = True
+
+
+def _verify_2fa_url(next_url: str) -> str:
+    verify_url = reverse("verify-2fa-page")
+    if next_url:
+        return f"{verify_url}?{urlencode({'next': next_url})}"
+    return verify_url
