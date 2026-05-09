@@ -63,6 +63,7 @@ class PropertyInquiryFlowTests(TestCase):
             image_url="https://example.com/central-apartment.jpg",
         )
         self.detail_url = reverse("site-property-detail", args=[self.property.id])
+        self.inquiry_url = reverse("site-inquiry-create", args=[self.property.id])
 
     def test_authenticated_user_can_access_detail_inquiry_flow(self) -> None:
         self.client.force_login(self.user)
@@ -102,7 +103,7 @@ class PropertyInquiryFlowTests(TestCase):
         self.assertContains(get_response, "Sign in to send an inquiry")
         self.assertNotContains(get_response, 'name="message"')
 
-        post_response = self.client.post(self.detail_url, {"message": "Please send more details."})
+        post_response = self.client.post(self.inquiry_url, {"message": "Please send more details."})
 
         self.assertEqual(post_response.status_code, 302)
         self.assertTrue(post_response["Location"].startswith(reverse("login-page")))
@@ -119,7 +120,7 @@ class PropertyInquiryFlowTests(TestCase):
         with redirect_stdout(stdout):
             with self.captureOnCommitCallbacks(execute=True):
                 response = self.client.post(
-                    self.detail_url,
+                    self.inquiry_url,
                     {"message": " I would like to know the monthly maintenance costs. "},
                     follow=True,
                 )
@@ -156,7 +157,7 @@ class PropertyInquiryFlowTests(TestCase):
     def test_missing_message_shows_field_error_without_persistence(self) -> None:
         self.client.force_login(self.user)
 
-        response = self.client.post(self.detail_url, {"message": ""})
+        response = self.client.post(self.inquiry_url, {"message": ""})
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "properties/detail.html")
@@ -171,7 +172,7 @@ class PropertyInquiryFlowTests(TestCase):
         self.client.force_login(self.user)
         message = "a" * (PROPERTY_INQUIRY_MESSAGE_MAX_LENGTH + 1)
 
-        response = self.client.post(self.detail_url, {"message": message})
+        response = self.client.post(self.inquiry_url, {"message": message})
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, f"Keep your inquiry to {PROPERTY_INQUIRY_MESSAGE_MAX_LENGTH} characters or fewer.")
@@ -181,7 +182,10 @@ class PropertyInquiryFlowTests(TestCase):
     def test_invalid_property_returns_not_found_without_persistence(self) -> None:
         self.client.force_login(self.user)
 
-        response = self.client.post("/catalog/999999/", {"message": "Is this still available?"})
+        response = self.client.post(
+            reverse("site-inquiry-create", args=[999999]),
+            {"message": "Is this still available?"},
+        )
 
         self.assertEqual(response.status_code, 404)
         self.assertEqual(PropertyInquiry.objects.count(), 0)
@@ -194,9 +198,10 @@ class PropertyInquiryFlowTests(TestCase):
             status=PropertyStatus.REMOVED,
         )
         removed_url = reverse("site-property-detail", args=[removed_property.id])
+        removed_inquiry_url = reverse("site-inquiry-create", args=[removed_property.id])
 
         get_response = self.client.get(removed_url)
-        post_response = self.client.post(removed_url, {"message": "Can I ask about this?"})
+        post_response = self.client.post(removed_inquiry_url, {"message": "Can I ask about this?"})
 
         self.assertEqual(get_response.status_code, 404)
         self.assertEqual(post_response.status_code, 404)
@@ -209,11 +214,11 @@ class PropertyInquiryFlowTests(TestCase):
             title="Unavailable But Public Listing",
             status=PropertyStatus.UNAVAILABLE,
         )
-        unavailable_url = reverse("site-property-detail", args=[unavailable_property.id])
+        unavailable_inquiry_url = reverse("site-inquiry-create", args=[unavailable_property.id])
 
         with self.captureOnCommitCallbacks(execute=True):
             response = self.client.post(
-                unavailable_url,
+                unavailable_inquiry_url,
                 {"message": "Please let me know if this becomes available again."},
             )
 

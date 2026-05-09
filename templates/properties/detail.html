@@ -91,7 +91,7 @@
                     <p class="eyebrow">Ask About This Property</p>
                     <h2 id="inquiry-heading">Send an inquiry</h2>
                     {% if request.user.is_authenticated %}
-                        <form method="post" action="{{ property_detail_url }}" class="form-shell inquiry-form">
+                        <form method="post" action="{% url 'site-inquiry-create' property.id %}" class="form-shell inquiry-form">
                             {% csrf_token %}
                             {% if inquiry_form.non_field_errors %}
                                 <div class="form-summary-errors">
@@ -109,6 +109,43 @@
                             <a class="button button-primary" href="{% url 'login-page' %}?next={{ request.get_full_path|urlencode }}">Sign in</a>
                         </div>
                     {% endif %}
+                {% endif %}
+            </section>
+
+            <section class="viewing-request-panel" aria-labelledby="viewing-request-title">
+                <h2 id="viewing-request-title">Request a Viewing</h2>
+                {% if viewing_confirmation %}
+                    <div class="verified-confirmation" role="status">
+                        <h3>Viewing request sent</h3>
+                        <p>
+                            We received your request for
+                            {{ viewing_confirmation.requested_datetime|date:"M j, Y, H:i" }}.
+                        </p>
+                    </div>
+                {% endif %}
+
+                {% if request.user.is_authenticated %}
+                    <form method="post" action="{% url 'site-viewing-request' property.id %}" class="form-shell viewing-request-form" novalidate>
+                        {% csrf_token %}
+                        {% if viewing_form.non_field_errors %}
+                            <div class="form-summary-errors">
+                                {% for error in viewing_form.non_field_errors %}
+                                    <p>{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        <div class="form-grid viewing-form-grid">
+                            {% for field in viewing_form %}
+                                {% include "partials/_form_field.html" with field=field %}
+                            {% endfor %}
+                        </div>
+                        <button type="submit" class="button button-primary">Send request</button>
+                    </form>
+                {% else %}
+                    <div class="viewing-auth-gate">
+                        <p class="detail-muted">Sign in to request a viewing for this property.</p>
+                        <a href="{% url 'login-page' %}?next={{ request.get_full_path|urlencode }}" class="button button-primary">Sign in to request</a>
+                    </div>
                 {% endif %}
             </section>
         </aside>

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import date, datetime, time
 from decimal import Decimal, InvalidOperation
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
@@ -13,12 +14,13 @@ from django.db.models.functions import TruncMonth
 from django.http import QueryDict
 from django.utils import timezone
 
-from homefinder.apps.interactions.models import PropertyInquiry, UserFavorite
+from homefinder.apps.interactions.models import PropertyInquiry, SearchHistory, UserFavorite
 
 from .models import Amenity, ListingAlertSubscription, Property, PropertyCategory, PropertyImage, PropertyStatus
 
 CATALOG_PAGE_SIZE = 12
 DEFAULT_CATALOG_PAGE = 1
+MAX_MONTHLY_TREND_ITEMS = 10
 VALID_PROPERTY_CATEGORIES = {choice for choice, _label in PropertyCategory.choices}
 PUBLICLY_VISIBLE_PROPERTY_STATUSES = frozenset(
     {
@@ -26,6 +28,16 @@ PUBLICLY_VISIBLE_PROPERTY_STATUSES = frozenset(
         PropertyStatus.UNAVAILABLE,
     }
 )
+LOCKED_SEARCH_PRICE_BANDS: tuple[tuple[str, Decimal | None, Decimal | None], ...] = (
+    ("<100k", None, Decimal("100000")),
+    ("100k-249,999", Decimal("100000"), Decimal("250000")),
+    ("250k-499,999", Decimal("250000"), Decimal("500000")),
+    ("500k-999,999", Decimal("500000"), Decimal("1000000")),
+    ("1,000,000+", Decimal("1000000"), None),
+)
+LOCKED_SEARCH_PRICE_BAND_SORT_ORDER = {
+    band_label: index for index, (band_label, _band_min, _band_max) in enumerate(LOCKED_SEARCH_PRICE_BANDS)
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,6 +86,22 @@ class MonthlyInquiryAndSavedPropertyMetrics:
         }
 
 
+@dataclass(frozen=True, slots=True)
+class MonthlySearchTrendMetrics:
+    month: date
+    top_cities: list[dict[str, Any]]
+    top_categories: list[dict[str, Any]]
+    top_price_bands: list[dict[str, Any]]
+
+    def as_payload(self) -> dict[str, Any]:
+        return {
+            "month": self.month.strftime("%Y-%m"),
+            "top_cities": self.top_cities,
+            "top_categories": self.top_categories,
+            "top_price_bands": self.top_price_bands,
+        }
+
+
 def get_monthly_inquiry_and_saved_property_metrics(
     *,
     period_start: date | datetime | None = None,
@@ -108,6 +136,78 @@ def get_monthly_inquiry_and_saved_property_metrics(
             month=month_start,
             inquiry_count=monthly_inquiry_counts.get(month_start, 0),
             saved_property_count=monthly_saved_property_counts.get(month_start, 0),
+        )
+        for month_start in month_range
+    ]
+    return [metric.as_payload() for metric in metrics]
+
+
+def get_monthly_search_trend_metrics(
+    *,
+    period_start: date | datetime | None = None,
+    period_end: date | datetime | None = None,
+) -> list[dict[str, Any]]:
+    start_month, end_month = _normalize_reporting_month_window(
+        period_start=period_start,
+        period_end=period_end,
+    )
+    created_after = _month_start_to_datetime(start_month) if start_month is not None else None
+    created_before = _month_start_to_datetime(_next_month_start(end_month)) if end_month is not None else None
+
+    search_history_queryset = SearchHistory.objects.all()
+    if created_after is not None:
+        search_history_queryset = search_history_queryset.filter(created_at__gte=created_after)
+    if created_before is not None:
+        search_history_queryset = search_history_queryset.filter(created_at__lt=created_before)
+
+    monthly_city_counts: defaultdict[date, Counter[str]] = defaultdict(Counter)
+    monthly_category_counts: defaultdict[date, Counter[str]] = defaultdict(Counter)
+    monthly_price_band_counts: defaultdict[date, Counter[str]] = defaultdict(Counter)
+    months_with_activity: set[date] = set()
+
+    for row in search_history_queryset.values("created_at", "location_city", "category", "min_price", "max_price"):
+        month_start = _coerce_to_month_start(row.get("created_at"))
+        if month_start is None:
+            continue
+        months_with_activity.add(month_start)
+
+        location_term = _normalize_location_search_term(row.get("location_city"))
+        if location_term is not None:
+            monthly_city_counts[month_start][location_term] += 1
+
+        category = _normalize_category(row.get("category"))
+        if category is not None:
+            monthly_category_counts[month_start][category] += 1
+
+        min_price, max_price = _normalize_search_price_bounds_for_trends(
+            min_price=row.get("min_price"),
+            max_price=row.get("max_price"),
+        )
+        for price_band in _matching_search_price_bands(min_price=min_price, max_price=max_price):
+            monthly_price_band_counts[month_start][price_band] += 1
+
+    if start_month is not None and end_month is not None:
+        month_range = _iter_month_starts(start_month=start_month, end_month=end_month)
+    else:
+        month_range = sorted(months_with_activity)
+
+    metrics = [
+        MonthlySearchTrendMetrics(
+            month=month_start,
+            top_cities=_build_top_trend_payload(
+                monthly_city_counts.get(month_start, Counter()),
+                key_name="city",
+                value_formatter=_format_location_search_term,
+            ),
+            top_categories=_build_top_trend_payload(
+                monthly_category_counts.get(month_start, Counter()),
+                key_name="category",
+            ),
+            top_price_bands=_build_top_trend_payload(
+                monthly_price_band_counts.get(month_start, Counter()),
+                key_name="price_band",
+                secondary_sort_keys=LOCKED_SEARCH_PRICE_BAND_SORT_ORDER,
+            ),
         )
         for month_start in month_range
     ]
@@ -519,9 +619,17 @@ def search_visible_properties(search_params: CatalogSearchParams) -> dict[str, A
 
 
 def get_visible_property_detail(property_id: int) -> dict[str, Any] | None:
-    property_obj = visible_properties_queryset().filter(pk=property_id).first()
+    property_obj = get_visible_property(property_id)
     if property_obj is None:
         return None
+    return _serialize_catalog_detail(property_obj)
+
+
+def get_visible_property(property_id: int) -> Property | None:
+    return visible_properties_queryset().filter(pk=property_id).first()
+
+
+def serialize_property_for_detail(property_obj: Property) -> dict[str, Any]:
     return _serialize_catalog_detail(property_obj)
 
 
@@ -781,3 +889,90 @@ def _aggregate_monthly_created_counts(
         monthly_counts[month_start] = int(row["total"])
 
     return monthly_counts
+
+
+def _normalize_location_search_term(value: str | None) -> str | None:
+    normalized_text = _normalize_text(value)
+    if normalized_text is None:
+        return None
+    return normalized_text.casefold()
+
+
+def _format_location_search_term(value: str) -> str:
+    return value.title()
+
+
+def _normalize_search_price_bounds_for_trends(
+    *,
+    min_price: Decimal | None,
+    max_price: Decimal | None,
+) -> tuple[Decimal | None, Decimal | None]:
+    normalized_min = min_price if min_price is not None and min_price >= 0 else None
+    normalized_max = max_price if max_price is not None and max_price >= 0 else None
+
+    if normalized_min is not None and normalized_max is not None and normalized_min > normalized_max:
+        normalized_min, normalized_max = normalized_max, normalized_min
+
+    return normalized_min, normalized_max
+
+
+def _matching_search_price_bands(
+    *,
+    min_price: Decimal | None,
+    max_price: Decimal | None,
+) -> tuple[str, ...]:
+    if min_price is None and max_price is None:
+        return ()
+
+    # A single search can overlap multiple locked bands; we intentionally count it in each
+    # overlapping band, so price-band totals are not additive with total search volume.
+    matching_bands = []
+    for band_label, band_min, band_max in LOCKED_SEARCH_PRICE_BANDS:
+        if _price_range_overlaps_band(
+            min_price=min_price,
+            max_price=max_price,
+            band_min=band_min,
+            band_max=band_max,
+        ):
+            matching_bands.append(band_label)
+    return tuple(matching_bands)
+
+
+def _price_range_overlaps_band(
+    *,
+    min_price: Decimal | None,
+    max_price: Decimal | None,
+    band_min: Decimal | None,
+    band_max: Decimal | None,
+) -> bool:
+    if max_price is not None and band_min is not None and max_price < band_min:
+        return False
+    if min_price is not None and band_max is not None and min_price >= band_max:
+        return False
+    return True
+
+
+def _build_top_trend_payload(
+    counter: Counter[str],
+    *,
+    key_name: str,
+    value_formatter: Callable[[str], str] | None = None,
+    secondary_sort_keys: dict[str, int] | None = None,
+) -> list[dict[str, Any]]:
+    if not counter:
+        return []
+
+    def sort_key(item: tuple[str, int]) -> tuple[int, int | str]:
+        item_key, item_count = item
+        if secondary_sort_keys and item_key in secondary_sort_keys:
+            return (-item_count, secondary_sort_keys[item_key])
+        return (-item_count, item_key)
+
+    formatter = value_formatter or (lambda value: value)
+    return [
+        {
+            key_name: formatter(item_key),
+            "search_count": item_count,
+        }
+        for item_key, item_count in sorted(counter.items(), key=sort_key)[:MAX_MONTHLY_TREND_ITEMS]
+    ]

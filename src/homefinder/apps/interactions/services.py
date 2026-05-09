@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, replace
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Protocol
 
@@ -38,7 +38,9 @@ from .models import (
     PropertyInquiry,
     PropertyInquiryStatus,
     ViewingRequest,
+    ViewingRequestStatus,
 )
+from homefinder.apps.properties.models import PropertyStatus
 
 logger = logging.getLogger(__name__)
 
@@ -395,6 +397,58 @@ class SimulatedPaymentService:
 
 
 simulated_payment_service = SimulatedPaymentService()
+
+
+def create_viewing_request(
+    *,
+    user: models.Model,
+    property_obj: models.Model,
+    requested_datetime: datetime,
+    note: str = "",
+    notification_service_override: EmailNotificationService | None = None,
+) -> ViewingRequest:
+    errors: dict[str, str] = {}
+    normalized_note = (note or "").strip()
+
+    if not getattr(user, "is_authenticated", False) or getattr(user, "pk", None) is None:
+        errors["user"] = "Viewing requests require an authenticated user."
+
+    if getattr(property_obj, "pk", None) is None:
+        errors["property"] = "A visible property is required."
+    elif getattr(property_obj, "status", None) not in {
+        PropertyStatus.AVAILABLE,
+        PropertyStatus.UNAVAILABLE,
+    }:
+        errors["property"] = "Viewing requests can only be submitted for visible properties."
+
+    if requested_datetime is None or not isinstance(requested_datetime, datetime):
+        errors["requested_datetime"] = "Requested date and time is required."
+    else:
+        if timezone.is_naive(requested_datetime):
+            requested_datetime = timezone.make_aware(requested_datetime, timezone.get_current_timezone())
+        if requested_datetime <= timezone.now():
+            errors["requested_datetime"] = "Requested date and time must be in the future."
+
+    if len(normalized_note) > 500:
+        errors["note"] = "Viewing request notes must be 500 characters or fewer."
+
+    if errors:
+        raise ValidationError(errors)
+
+    viewing_request = ViewingRequest(
+        user=user,
+        property=property_obj,
+        requested_datetime=requested_datetime,
+        note=normalized_note,
+        status=ViewingRequestStatus.PENDING,
+    )
+
+    with transaction.atomic():
+        viewing_request.save()
+        service = notification_service_override or notification_service
+        service.send_viewing_confirmation(viewing_request)
+
+    return viewing_request
 
 
 def create_booking_request(

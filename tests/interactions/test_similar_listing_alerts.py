@@ -332,7 +332,7 @@ class SimilarListingAlertTests(TestCase):
         self.assertEqual(retry_dispatch.status, SimilarListingAlertDispatchStatus.SENT)
         self.assertEqual(retry_dispatch.attempt_count, 2)
         self.assertEqual(EmailNotification.objects.count(), 2)
-        self.assertEqual(EmailNotification.objects.order_by("-created_at").first().status, EmailNotificationStatus.SENT)
+        self.assertEqual(EmailNotification.objects.order_by("-pk").first().status, EmailNotificationStatus.SENT)
         self.assertEqual(len(successful_adapter.messages), 1)
 
     def test_duplicate_dispatch_is_prevented_for_same_subscription_and_listing(self) -> None:
