@@ -8,4 +8,10 @@ urlpatterns = [
     path("catalog/<int:property_id>/favorite/", views.add_favorite_action, name="site-favorite-add"),
     path("catalog/<int:property_id>/unfavorite/", views.remove_favorite_action, name="site-favorite-remove"),
     path("saved-listings/", views.favorites_page, name="site-favorites"),
+    path("staff/reports/", views.reporting_overview_page, name="staff-reporting-overview"),
+    path(
+        "staff/reports/search-trends/",
+        views.reporting_search_trends_page,
+        name="staff-reporting-search-trends",
+    ),
 ]

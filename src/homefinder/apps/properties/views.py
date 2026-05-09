@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from urllib.parse import urlencode
+from typing import Any
 
 from django.contrib import messages
+from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError
 from django.http import Http404, HttpRequest, HttpResponse, QueryDict
 from django.shortcuts import redirect, render
@@ -12,11 +14,14 @@ from django.views.decorators.http import require_http_methods
 
 from homefinder.apps.interactions.models import UserFavorite
 from homefinder.apps.interactions.services import log_interaction_activity
+from homefinder.apps.users.models import UserRole
 
 from .models import Amenity, PropertyCategory
 from .services import (
     DEFAULT_CATALOG_PAGE,
     PUBLICLY_VISIBLE_PROPERTY_STATUSES,
+    get_monthly_inquiry_and_saved_property_metrics,
+    get_monthly_search_trend_metrics,
     get_visible_property_detail,
     parse_catalog_search_params,
     search_visible_properties,
@@ -24,6 +29,7 @@ from .services import (
 )
 
 CATALOG_BEDROOM_FILTER_OPTIONS = (1, 2, 3, 4, 5)
+REPORTING_ALLOWED_ROLES = frozenset({UserRole.SUPERVISOR, UserRole.ADMIN})
 
 
 @require_http_methods(["GET"])
@@ -214,6 +220,41 @@ def remove_favorite_action(request: HttpRequest, property_id: int) -> HttpRespon
     return redirect(redirect_target)
 
 
+@require_http_methods(["GET"])
+def reporting_overview_page(request: HttpRequest) -> HttpResponse:
+    access_redirect = _require_reporting_user(request=request, next_url=request.get_full_path())
+    if access_redirect is not None:
+        return access_redirect
+
+    monthly_summary_metrics = get_monthly_inquiry_and_saved_property_metrics()
+    search_trend_metrics = _decorate_search_trend_metrics(get_monthly_search_trend_metrics())
+
+    return render(
+        request,
+        "properties/reporting_overview.html",
+        {
+            "monthly_summary_metrics": monthly_summary_metrics,
+            "search_trend_metrics": search_trend_metrics,
+        },
+    )
+
+
+@require_http_methods(["GET"])
+def reporting_search_trends_page(request: HttpRequest) -> HttpResponse:
+    access_redirect = _require_reporting_user(request=request, next_url=request.get_full_path())
+    if access_redirect is not None:
+        return access_redirect
+
+    search_trend_metrics = _decorate_search_trend_metrics(get_monthly_search_trend_metrics())
+    return render(
+        request,
+        "properties/reporting_search_trends.html",
+        {
+            "search_trend_metrics": search_trend_metrics,
+        },
+    )
+
+
 def _apply_catalog_favorite_state(*, request: HttpRequest, properties: list[dict[str, object]]) -> None:
     if not properties:
         return
@@ -276,6 +317,28 @@ def _require_authenticated_user(
     return redirect(login_url)
 
 
+def _require_reporting_user(*, request: HttpRequest, next_url: str) -> HttpResponse | None:
+    guest_redirect = _require_authenticated_user(
+        request=request,
+        warning_message="Sign in with a supervisor or admin account to view reporting pages.",
+        next_url=next_url,
+    )
+    if guest_redirect is not None:
+        return guest_redirect
+
+    if not _is_reporting_authorized_user(request.user):
+        raise PermissionDenied("Reporting access is restricted to supervisor and admin staff roles.")
+    return None
+
+
+def _is_reporting_authorized_user(user: Any) -> bool:
+    if not getattr(user, "is_authenticated", False):
+        return False
+    if not getattr(user, "is_active", False):
+        return False
+    return getattr(user, "role", "") in REPORTING_ALLOWED_ROLES
+
+
 def _safe_log_favorite_action(
     *,
     request: HttpRequest,
@@ -307,6 +370,29 @@ def _get_category_label(category_code: str) -> str:
         return PropertyCategory(category_code).label
     except ValueError:
         return category_code.title()
+
+
+def _decorate_search_trend_metrics(search_trend_metrics: list[dict[str, object]]) -> list[dict[str, object]]:
+    decorated_metrics: list[dict[str, object]] = []
+    for metric in search_trend_metrics:
+        top_categories = []
+        for category_entry in metric.get("top_categories", []):
+            category_code = category_entry.get("category", "")
+            top_categories.append(
+                {
+                    **category_entry,
+                    "category_label": _get_category_label(category_code),
+                }
+            )
+
+        decorated_metrics.append(
+            {
+                **metric,
+                "top_categories": top_categories,
+            }
+        )
+
+    return decorated_metrics
 
 
 def _build_page_query_string(query_params: QueryDict, page_number: int) -> str:

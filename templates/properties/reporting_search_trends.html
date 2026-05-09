@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% url "staff-reporting-overview" as staff_reporting_overview_url %}
+
+{% block title %}HomeFinder | Search Trend Reports{% endblock %}
+
+{% block page_header %}
+    <section class="page-hero report-hero">
+        <p class="eyebrow">Supervisor Reporting</p>
+        <h1>Search trend summaries by month</h1>
+        <p>
+            Read-only monthly trend snapshots for city, category, and locked price-band demand signals.
+        </p>
+        <div class="hero-actions">
+            <a class="button button-ghost" href="{{ staff_reporting_overview_url }}">Back to reporting overview</a>
+        </div>
+    </section>
+{% endblock %}
+
+{% block content %}
+    <section class="panel">
+        <div class="page-header-inline">
+            <h2>Monthly search trends</h2>
+            <p class="results-context">Top-10 trends per month</p>
+        </div>
+
+        {% if search_trend_metrics %}
+            <div class="report-table-shell">
+                <table class="report-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Month</th>
+                            <th scope="col">Top Cities</th>
+                            <th scope="col">Top Categories</th>
+                            <th scope="col">Top Price Bands</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for trend in search_trend_metrics %}
+                            <tr>
+                                <td>{{ trend.month }}</td>
+                                <td>
+                                    {% if trend.top_cities %}
+                                        <ul class="report-list">
+                                            {% for city in trend.top_cities %}
+                                                <li>{{ city.city }} ({{ city.search_count }})</li>
+                                            {% endfor %}
+                                        </ul>
+                                    {% else %}
+                                        <span class="detail-muted">No city trend data.</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if trend.top_categories %}
+                                        <ul class="report-list">
+                                            {% for category in trend.top_categories %}
+                                                <li>{{ category.category_label }} ({{ category.search_count }})</li>
+                                            {% endfor %}
+                                        </ul>
+                                    {% else %}
+                                        <span class="detail-muted">No category trend data.</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if trend.top_price_bands %}
+                                        <ul class="report-list">
+                                            {% for price_band in trend.top_price_bands %}
+                                                <li>{{ price_band.price_band }} ({{ price_band.search_count }})</li>
+                                            {% endfor %}
+                                        </ul>
+                                    {% else %}
+                                        <span class="detail-muted">No price-band trend data.</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            {% include "partials/_empty_state.html" with title="No search trend records yet" message="Search-trend summaries will populate after catalog search activity is logged." %}
+        {% endif %}
+    </section>
+{% endblock %}
