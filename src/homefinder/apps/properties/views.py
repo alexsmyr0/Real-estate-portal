@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import logging
 from urllib.parse import urlencode
 
 from django.contrib import messages
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from django.http import Http404, HttpRequest, HttpResponse, QueryDict
 from django.shortcuts import redirect, render
@@ -10,20 +12,26 @@ from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_http_methods
 
-from homefinder.apps.interactions.models import UserFavorite
-from homefinder.apps.interactions.services import log_interaction_activity
+from homefinder.apps.interactions.models import UserFavorite, ViewingRequest
+from homefinder.apps.interactions.services import create_viewing_request, log_interaction_activity
 
+from .forms import ViewingRequestForm
 from .models import Amenity, PropertyCategory
+
+logger = logging.getLogger(__name__)
 from .services import (
     DEFAULT_CATALOG_PAGE,
     PUBLICLY_VISIBLE_PROPERTY_STATUSES,
+    get_visible_property,
     get_visible_property_detail,
     parse_catalog_search_params,
     search_visible_properties,
     serialize_property_for_catalog_card,
+    serialize_property_for_detail,
 )
 
 CATALOG_BEDROOM_FILTER_OPTIONS = (1, 2, 3, 4, 5)
+VERIFIED_VIEWING_REQUEST_SESSION_KEY = "verified_viewing_request_id"
 
 
 @require_http_methods(["GET"])
@@ -95,13 +103,14 @@ def property_detail_page(request: HttpRequest, property_id: int) -> HttpResponse
 
     _apply_detail_favorite_state(request=request, property_payload=property_payload)
 
-    return render(
-        request,
-        "properties/detail.html",
-        {
-            "property": property_payload,
-            "category_label": _get_category_label(property_payload["category"]),
-        },
+    return _render_property_detail(
+        request=request,
+        property_payload=property_payload,
+        viewing_form=ViewingRequestForm(),
+        viewing_confirmation=_consume_verified_viewing_confirmation(
+            request=request,
+            property_id=property_id,
+        ),
     )
 
 
@@ -214,6 +223,62 @@ def remove_favorite_action(request: HttpRequest, property_id: int) -> HttpRespon
     return redirect(redirect_target)
 
 
+@require_http_methods(["POST"])
+def viewing_request_action(request: HttpRequest, property_id: int) -> HttpResponse:
+    detail_url = reverse("site-property-detail", args=[property_id])
+    guest_redirect = _require_authenticated_user(
+        request,
+        warning_message="Sign in to request a viewing.",
+        next_url=detail_url,
+    )
+    if guest_redirect is not None:
+        return guest_redirect
+
+    property_obj = get_visible_property(property_id)
+    if property_obj is None:
+        raise Http404("Property not found.")
+
+    viewing_form = ViewingRequestForm(request.POST)
+    if not viewing_form.is_valid():
+        property_payload = serialize_property_for_detail(property_obj)
+        _apply_detail_favorite_state(request=request, property_payload=property_payload)
+        return _render_property_detail(
+            request=request,
+            property_payload=property_payload,
+            viewing_form=viewing_form,
+        )
+
+    try:
+        viewing_request = create_viewing_request(
+            user=request.user,
+            property_obj=property_obj,
+            requested_datetime=viewing_form.cleaned_data["requested_datetime"],
+            note=viewing_form.cleaned_data.get("note", ""),
+        )
+    except ValidationError as error:
+        _add_validation_error_to_form(viewing_form, error)
+        property_payload = serialize_property_for_detail(property_obj)
+        _apply_detail_favorite_state(request=request, property_payload=property_payload)
+        return _render_property_detail(
+            request=request,
+            property_payload=property_payload,
+            viewing_form=viewing_form,
+        )
+
+    request.session[VERIFIED_VIEWING_REQUEST_SESSION_KEY] = viewing_request.pk
+    messages.success(request, "Your viewing request was sent.")
+    _safe_log_viewing_action(
+        request=request,
+        viewing_request=viewing_request,
+        details={
+            "surface": "detail",
+            "property_id": property_id,
+            "requested_datetime": viewing_request.requested_datetime,
+        },
+    )
+    return redirect(detail_url)
+
+
 def _apply_catalog_favorite_state(*, request: HttpRequest, properties: list[dict[str, object]]) -> None:
     if not properties:
         return
@@ -241,6 +306,50 @@ def _apply_detail_favorite_state(*, request: HttpRequest, property_payload: dict
         user=request.user,
         property_id=property_payload["id"],
     ).exists()
+
+
+def _render_property_detail(
+    *,
+    request: HttpRequest,
+    property_payload: dict[str, object],
+    viewing_form: ViewingRequestForm,
+    viewing_confirmation: ViewingRequest | None = None,
+) -> HttpResponse:
+    return render(
+        request,
+        "properties/detail.html",
+        {
+            "property": property_payload,
+            "category_label": _get_category_label(str(property_payload["category"])),
+            "viewing_form": viewing_form,
+            "viewing_confirmation": viewing_confirmation,
+        },
+    )
+
+
+def _consume_verified_viewing_confirmation(
+    *,
+    request: HttpRequest,
+    property_id: int,
+) -> ViewingRequest | None:
+    marker = request.session.pop(VERIFIED_VIEWING_REQUEST_SESSION_KEY, None)
+    if not request.user.is_authenticated or marker is None:
+        return None
+
+    try:
+        marker_id = int(marker)
+    except (TypeError, ValueError):
+        return None
+
+    return (
+        ViewingRequest.objects.filter(
+            pk=marker_id,
+            user=request.user,
+            property_id=property_id,
+        )
+        .select_related("property", "user")
+        .first()
+    )
 
 
 def _preferred_surface(request: HttpRequest) -> str:
@@ -292,7 +401,41 @@ def _safe_log_favorite_action(
             details=details,
         )
     except Exception:
+        logger.exception(
+            "Failed to log favorite interaction.",
+            extra={"action": action, "property_id": property_id},
+        )
+
+
+def _safe_log_viewing_action(
+    *,
+    request: HttpRequest,
+    viewing_request: ViewingRequest,
+    details: dict[str, object],
+) -> None:
+    try:
+        log_interaction_activity(
+            action="viewing_requested",
+            user=request.user,
+            entity=viewing_request,
+            details=details,
+        )
+    except Exception:
+        logger.exception(
+            "Failed to log viewing-request interaction.",
+            extra={"viewing_request_id": viewing_request.pk},
+        )
+
+
+def _add_validation_error_to_form(form: ViewingRequestForm, error: ValidationError) -> None:
+    if hasattr(error, "message_dict"):
+        for field_name, messages_for_field in error.message_dict.items():
+            target_field = field_name if field_name in form.fields else None
+            for message in messages_for_field:
+                form.add_error(target_field, message)
         return
+
+    form.add_error(None, error)
 
 
 def _first_query_value(query_params: QueryDict, *keys: str) -> str:

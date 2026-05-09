@@ -545,7 +545,8 @@ textarea.form-control {
 .detail-gallery h2,
 .detail-description h2,
 .detail-facts h2,
-.detail-amenities h2 {
+.detail-amenities h2,
+.viewing-request-panel h2 {
     margin-bottom: 0.75rem;
 }
 
@@ -645,6 +646,41 @@ textarea.form-control {
     color: #274769;
     font-size: 0.9rem;
     font-weight: 600;
+}
+
+.viewing-request-panel {
+    border-top: 1px solid #e2e9f5;
+    padding-top: 1rem;
+}
+
+.viewing-form-grid {
+    grid-template-columns: 1fr;
+}
+
+.verified-confirmation {
+    display: grid;
+    gap: 0.25rem;
+    margin-bottom: 0.85rem;
+    border: 1px solid #b9e1d6;
+    border-radius: 12px;
+    padding: 0.8rem 0.9rem;
+    background: #eaf8f4;
+    color: #0b5748;
+}
+
+.verified-confirmation h3,
+.verified-confirmation p,
+.viewing-auth-gate p {
+    margin: 0;
+}
+
+.verified-confirmation h3 {
+    font-size: 1rem;
+}
+
+.viewing-auth-gate {
+    display: grid;
+    gap: 0.85rem;
 }
 
 .empty-state {
