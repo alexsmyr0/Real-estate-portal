@@ -619,9 +619,17 @@ def search_visible_properties(search_params: CatalogSearchParams) -> dict[str, A
 
 
 def get_visible_property_detail(property_id: int) -> dict[str, Any] | None:
-    property_obj = visible_properties_queryset().filter(pk=property_id).first()
+    property_obj = get_visible_property(property_id)
     if property_obj is None:
         return None
+    return _serialize_catalog_detail(property_obj)
+
+
+def get_visible_property(property_id: int) -> Property | None:
+    return visible_properties_queryset().filter(pk=property_id).first()
+
+
+def serialize_property_for_detail(property_obj: Property) -> dict[str, Any]:
     return _serialize_catalog_detail(property_obj)
 
 
