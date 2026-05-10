@@ -21,6 +21,8 @@ from .models import Amenity, ListingAlertSubscription, Property, PropertyCategor
 CATALOG_PAGE_SIZE = 12
 DEFAULT_CATALOG_PAGE = 1
 MAX_MONTHLY_TREND_ITEMS = 10
+MAX_RECOMMENDATION_CANDIDATES = 6
+MAX_RECENT_RECOMMENDATION_SIGNALS = 20
 VALID_PROPERTY_CATEGORIES = {choice for choice, _label in PropertyCategory.choices}
 PUBLICLY_VISIBLE_PROPERTY_STATUSES = frozenset(
     {
@@ -100,6 +102,26 @@ class MonthlySearchTrendMetrics:
             "top_categories": self.top_categories,
             "top_price_bands": self.top_price_bands,
         }
+
+
+@dataclass(frozen=True, slots=True)
+class RecommendationSignal:
+    category: str | None
+    city_key: str | None
+    price_bands: tuple[str, ...]
+    amenity_ids: frozenset[int]
+    weight: int
+
+
+@dataclass(frozen=True, slots=True)
+class RecommendationProfile:
+    required_category: str | None
+    preferred_city_weights: Counter[str]
+    preferred_price_band_weights: Counter[str]
+    preferred_amenity_ids: frozenset[int]
+    preferred_amenity_weights: Counter[int]
+    recent_signals: tuple[RecommendationSignal, ...]
+    excluded_property_ids: frozenset[int]
 
 
 def get_monthly_inquiry_and_saved_property_metrics(
@@ -567,6 +589,37 @@ def get_featured_visible_properties(limit: int = 3) -> list[dict[str, Any]]:
     return [_serialize_catalog_list_item(p) for p in visible_properties_queryset()[:limit]]
 
 
+def get_personalized_recommendations(
+    *,
+    user: Any | None,
+    request_surface: str,
+    source_property: Property | None = None,
+    limit: int = MAX_RECOMMENDATION_CANDIDATES,
+) -> list[dict[str, Any]]:
+    normalized_limit = max(0, min(limit, MAX_RECOMMENDATION_CANDIDATES))
+    if normalized_limit == 0:
+        return []
+
+    profile = _build_recommendation_profile(
+        user=user,
+        request_surface=request_surface,
+        source_property=source_property,
+    )
+    if profile.required_category is None:
+        return []
+
+    candidates = visible_properties_queryset().filter(category=profile.required_category)
+    if profile.excluded_property_ids:
+        candidates = candidates.exclude(pk__in=profile.excluded_property_ids)
+
+    ranked_candidates = sorted(
+        candidates,
+        key=lambda property_obj: _recommendation_sort_key(property_obj, profile),
+        reverse=True,
+    )
+    return [serialize_property_for_catalog_card(property_obj) for property_obj in ranked_candidates[:normalized_limit]]
+
+
 def serialize_property_for_catalog_card(property_obj: Property) -> dict[str, Any]:
     return _serialize_catalog_list_item(property_obj)
 
@@ -659,6 +712,210 @@ def _apply_search_filters(queryset: QuerySet[Property], search_params: CatalogSe
         queryset = queryset.distinct()
 
     return queryset
+
+
+def _build_recommendation_profile(
+    *,
+    user: Any | None,
+    request_surface: str,
+    source_property: Property | None,
+) -> RecommendationProfile:
+    del request_surface
+
+    category_weights: Counter[str] = Counter()
+    city_weights: Counter[str] = Counter()
+    price_band_weights: Counter[str] = Counter()
+    amenity_weights: Counter[int] = Counter()
+    recent_signals: list[RecommendationSignal] = []
+    excluded_property_ids: set[int] = set()
+
+    if source_property is not None:
+        source_signal = _build_recommendation_signal_from_property(source_property, weight=MAX_RECENT_RECOMMENDATION_SIGNALS * 3)
+        _apply_recommendation_signal(
+            source_signal,
+            category_weights=category_weights,
+            city_weights=city_weights,
+            price_band_weights=price_band_weights,
+            amenity_weights=amenity_weights,
+            recent_signals=recent_signals,
+        )
+        if source_property.pk is not None:
+            excluded_property_ids.add(source_property.pk)
+
+    if _is_authenticated_user(user):
+        excluded_property_ids.update(
+            UserFavorite.objects.filter(user=user).values_list("property_id", flat=True)
+        )
+        favorite_rows = list(
+            UserFavorite.objects.filter(user=user)
+            .select_related("property")
+            .prefetch_related("property__amenities")
+            .order_by("-created_at")[:MAX_RECENT_RECOMMENDATION_SIGNALS]
+        )
+        for index, favorite in enumerate(favorite_rows):
+            weight = (MAX_RECENT_RECOMMENDATION_SIGNALS - index) * 2
+            signal = _build_recommendation_signal_from_property(favorite.property, weight=weight)
+            _apply_recommendation_signal(
+                signal,
+                category_weights=category_weights,
+                city_weights=city_weights,
+                price_band_weights=price_band_weights,
+                amenity_weights=amenity_weights,
+                recent_signals=recent_signals,
+            )
+
+        search_rows = list(
+            SearchHistory.objects.filter(user=user)
+            .order_by("-created_at")[:MAX_RECENT_RECOMMENDATION_SIGNALS]
+        )
+        for index, search_history in enumerate(search_rows):
+            weight = MAX_RECENT_RECOMMENDATION_SIGNALS - index
+            signal = _build_recommendation_signal_from_search_history(search_history, weight=weight)
+            _apply_recommendation_signal(
+                signal,
+                category_weights=category_weights,
+                city_weights=city_weights,
+                price_band_weights=price_band_weights,
+                amenity_weights=amenity_weights,
+                recent_signals=recent_signals,
+            )
+
+    required_category = None
+    if source_property is not None:
+        required_category = _normalize_category(source_property.category)
+    if required_category is None and category_weights:
+        required_category = category_weights.most_common(1)[0][0]
+
+    preferred_amenity_ids = frozenset(amenity_weights.keys())
+    return RecommendationProfile(
+        required_category=required_category,
+        preferred_city_weights=city_weights,
+        preferred_price_band_weights=price_band_weights,
+        preferred_amenity_ids=preferred_amenity_ids,
+        preferred_amenity_weights=amenity_weights,
+        recent_signals=tuple(recent_signals),
+        excluded_property_ids=frozenset(excluded_property_ids),
+    )
+
+
+def _apply_recommendation_signal(
+    signal: RecommendationSignal,
+    *,
+    category_weights: Counter[str],
+    city_weights: Counter[str],
+    price_band_weights: Counter[str],
+    amenity_weights: Counter[int],
+    recent_signals: list[RecommendationSignal],
+) -> None:
+    if signal.weight <= 0:
+        return
+
+    recent_signals.append(signal)
+    if signal.category is not None:
+        category_weights[signal.category] += signal.weight
+    if signal.city_key is not None:
+        city_weights[signal.city_key] += signal.weight
+    for price_band in signal.price_bands:
+        price_band_weights[price_band] += signal.weight
+    for amenity_id in signal.amenity_ids:
+        amenity_weights[amenity_id] += signal.weight
+
+
+def _build_recommendation_signal_from_property(property_obj: Property, *, weight: int) -> RecommendationSignal:
+    price_bands = _price_bands_for_property_price(property_obj.price)
+    amenity_ids = frozenset(amenity.id for amenity in property_obj.amenities.all())
+    return RecommendationSignal(
+        category=_normalize_category(property_obj.category),
+        city_key=_normalize_location_search_term(property_obj.city),
+        price_bands=price_bands,
+        amenity_ids=amenity_ids,
+        weight=max(weight, 1),
+    )
+
+
+def _build_recommendation_signal_from_search_history(search_history: SearchHistory, *, weight: int) -> RecommendationSignal:
+    min_price, max_price = _normalize_search_price_bounds_for_trends(
+        min_price=search_history.min_price,
+        max_price=search_history.max_price,
+    )
+    price_bands = _matching_search_price_bands(min_price=min_price, max_price=max_price)
+    return RecommendationSignal(
+        category=_normalize_category(search_history.category),
+        city_key=_normalize_location_search_term(search_history.location_city),
+        price_bands=price_bands,
+        amenity_ids=frozenset(),
+        weight=max(weight, 1),
+    )
+
+
+def _recommendation_sort_key(
+    property_obj: Property,
+    profile: RecommendationProfile,
+) -> tuple[int, int, int, int, datetime, int]:
+    city_key = _normalize_location_search_term(property_obj.city)
+    price_bands = _price_bands_for_property_price(property_obj.price)
+    amenity_ids = frozenset(amenity.id for amenity in property_obj.amenities.all())
+
+    city_score = profile.preferred_city_weights.get(city_key, 0) if city_key is not None else 0
+    price_band_score = sum(profile.preferred_price_band_weights.get(price_band, 0) for price_band in price_bands)
+    amenity_overlap_score = len(amenity_ids & profile.preferred_amenity_ids)
+    behavior_signal_score = _recommendation_behavior_signal_score(
+        property_obj=property_obj,
+        city_key=city_key,
+        price_bands=price_bands,
+        amenity_ids=amenity_ids,
+        profile=profile,
+    )
+    created_at = property_obj.created_at
+    if timezone.is_naive(created_at):
+        created_at = timezone.make_aware(created_at, timezone.get_current_timezone())
+    return (
+        city_score,
+        price_band_score,
+        amenity_overlap_score,
+        behavior_signal_score,
+        created_at,
+        property_obj.pk or 0,
+    )
+
+
+def _recommendation_behavior_signal_score(
+    *,
+    property_obj: Property,
+    city_key: str | None,
+    price_bands: tuple[str, ...],
+    amenity_ids: frozenset[int],
+    profile: RecommendationProfile,
+) -> int:
+    score = 0
+    property_price_bands = frozenset(price_bands)
+
+    for signal in profile.recent_signals:
+        if signal.category is not None and signal.category == property_obj.category:
+            score += signal.weight
+        if signal.city_key is not None and city_key is not None and signal.city_key == city_key:
+            score += signal.weight
+        if signal.price_bands and property_price_bands.intersection(signal.price_bands):
+            score += signal.weight
+        if signal.amenity_ids:
+            overlapping_amenities = amenity_ids.intersection(signal.amenity_ids)
+            if overlapping_amenities:
+                score += len(overlapping_amenities) * signal.weight
+
+    score += sum(profile.preferred_amenity_weights.get(amenity_id, 0) for amenity_id in amenity_ids)
+    return score
+
+
+def _price_bands_for_property_price(price: Decimal) -> tuple[str, ...]:
+    return _matching_search_price_bands(min_price=price, max_price=price)
+
+
+def _is_authenticated_user(user: Any | None) -> bool:
+    if user is None:
+        return False
+    if not getattr(user, "is_authenticated", False):
+        return False
+    return getattr(user, "pk", None) is not None
 
 
 def _normalize_text(value: str | None) -> str | None:
