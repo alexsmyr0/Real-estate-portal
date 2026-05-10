@@ -648,6 +648,30 @@ textarea.form-control {
     font-weight: 600;
 }
 
+.inquiry-section {
+    border-top: 1px solid var(--ink-200);
+    padding-top: 1rem;
+}
+
+.inquiry-section h2 {
+    margin-bottom: 0.75rem;
+}
+
+.inquiry-form {
+    gap: 0.9rem;
+}
+
+.inquiry-auth-panel {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.inquiry-auth-panel p {
+    margin: 0;
+    color: var(--ink-700);
+    line-height: 1.5;
+}
+
 .viewing-request-panel {
     border-top: 1px solid #e2e9f5;
     padding-top: 1rem;
