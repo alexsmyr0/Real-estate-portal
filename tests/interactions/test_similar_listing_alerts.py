@@ -674,14 +674,13 @@ class SimilarListingAlertTests(TestCase):
         dispatch = SimilarListingAlertDispatch.objects.get(property=listing)
         self.assertEqual(dispatch.status, SimilarListingAlertDispatchStatus.SENT)
 
-    def test_no_frontend_or_ui_routes_are_added_for_alert_subscriptions(self) -> None:
+    def test_alert_subscription_ui_route_is_owned_by_a12_frontend(self) -> None:
         from homefinder.apps.properties.urls import urlpatterns
 
         route_names = {pattern.name for pattern in urlpatterns}
 
-        self.assertNotIn("listing-alert-subscribe", route_names)
+        self.assertIn("site-listing-alert-subscribe", route_names)
         self.assertNotIn("similar-listing-alerts", route_names)
-        self.assertTrue(all("alert" not in (route_name or "") for route_name in route_names))
 
     def _subscription(
         self,

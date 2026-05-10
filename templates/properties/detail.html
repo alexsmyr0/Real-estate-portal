@@ -76,6 +76,40 @@
                 {% endif %}
             </section>
 
+            {% if property.alert_subscription.can_show %}
+                <section class="alert-subscription-panel" aria-labelledby="alert-subscription-title">
+                    <h2 id="alert-subscription-title">Similar Listing Alerts</h2>
+                    {% if alert_subscription_confirmation %}
+                        <div class="verified-confirmation" role="status">
+                            <h3>Alert subscription active</h3>
+                            <p>We will watch for similar available listings and let you know when one matches.</p>
+                        </div>
+                    {% endif %}
+
+                    {% if request.user.is_authenticated %}
+                        {% if property.alert_subscription.is_subscribed %}
+                            <div class="subscribed-state" role="status">
+                                <h3>You are subscribed</h3>
+                                <p>We will watch for similar available listings based on this unavailable property.</p>
+                            </div>
+                        {% else %}
+                            <p class="detail-muted">
+                                Get notified when a similar property becomes available in this area.
+                            </p>
+                            <form method="post" action="{% url 'site-listing-alert-subscribe' property.id %}" class="property-action-form">
+                                {% csrf_token %}
+                                <button type="submit" class="button button-primary">Subscribe to alerts</button>
+                            </form>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert-auth-gate">
+                            <p class="detail-muted">Sign in to get alerts for similar available listings.</p>
+                            <a href="{% url 'login-page' %}?next={{ request.get_full_path|urlencode }}" class="button button-primary">Sign in for alerts</a>
+                        </div>
+                    {% endif %}
+                </section>
+            {% endif %}
+
             <section class="viewing-request-panel" aria-labelledby="viewing-request-title">
                 <h2 id="viewing-request-title">Request a Viewing</h2>
                 {% if viewing_confirmation %}
