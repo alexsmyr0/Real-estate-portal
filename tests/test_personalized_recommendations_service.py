@@ -246,6 +246,35 @@ class PersonalizedRecommendationsServiceTests(TestCase):
         self.assertNotIn(commercial_candidate.id, recommendation_ids)
         self.assertTrue(all(candidate["category"] == PropertyCategory.RESIDENTIAL for candidate in recommendations))
 
+    def test_already_favorited_properties_are_excluded_from_recommendations(self) -> None:
+        favorited_visible = self._property(
+            title="Already Favorited",
+            category=PropertyCategory.RESIDENTIAL,
+            status=PropertyStatus.AVAILABLE,
+            city="Athens",
+            price="230000.00",
+        )
+        favorited_visible.amenities.add(self.pool, self.gym)
+        UserFavorite.objects.create(user=self.user, property=favorited_visible)
+
+        fresh_candidate = self._property(
+            title="Fresh Candidate",
+            category=PropertyCategory.RESIDENTIAL,
+            status=PropertyStatus.AVAILABLE,
+            city="Athens",
+            price="230000.00",
+        )
+        fresh_candidate.amenities.add(self.pool)
+
+        recommendations = get_personalized_recommendations(
+            user=self.user,
+            request_surface="catalog",
+        )
+        recommendation_ids = [candidate["id"] for candidate in recommendations]
+
+        self.assertNotIn(favorited_visible.id, recommendation_ids)
+        self.assertIn(fresh_candidate.id, recommendation_ids)
+
     def _property(
         self,
         *,

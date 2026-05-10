@@ -743,6 +743,9 @@ def _build_recommendation_profile(
             excluded_property_ids.add(source_property.pk)
 
     if _is_authenticated_user(user):
+        excluded_property_ids.update(
+            UserFavorite.objects.filter(user=user).values_list("property_id", flat=True)
+        )
         favorite_rows = list(
             UserFavorite.objects.filter(user=user)
             .select_related("property")
