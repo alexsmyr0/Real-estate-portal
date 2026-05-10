@@ -14,7 +14,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_http_methods
 
 from homefinder.apps.interactions.forms import PropertyInquiryForm
-from homefinder.apps.interactions.models import PropertyInquiry, UserFavorite, ViewingRequest
+from homefinder.apps.interactions.models import UserFavorite, ViewingRequest
 from homefinder.apps.interactions.services import (
     create_property_inquiry,
     create_viewing_request,
@@ -37,7 +37,6 @@ from .services import (
 logger = logging.getLogger(__name__)
 
 CATALOG_BEDROOM_FILTER_OPTIONS = (1, 2, 3, 4, 5)
-INQUIRY_CONFIRMATION_SESSION_KEY = "property_inquiry_confirmation"
 VERIFIED_VIEWING_REQUEST_SESSION_KEY = "verified_viewing_request_id"
 
 
@@ -118,10 +117,6 @@ def property_detail_page(request: HttpRequest, property_id: int) -> HttpResponse
             request=request,
             property_id=property_id,
         ),
-        inquiry_submitted=_consume_inquiry_confirmation(
-            request=request,
-            property_id=property_id,
-        ),
     )
 
 
@@ -170,7 +165,6 @@ def submit_inquiry_action(request: HttpRequest, property_id: int) -> HttpRespons
             inquiry_form=inquiry_form,
         )
 
-    _store_inquiry_confirmation(request=request, inquiry=inquiry)
     messages.success(request, "Inquiry sent. We emailed you a confirmation.")
     return redirect(detail_url)
 
@@ -376,7 +370,6 @@ def _render_property_detail(
     viewing_form: ViewingRequestForm,
     viewing_confirmation: ViewingRequest | None = None,
     inquiry_form: PropertyInquiryForm | None = None,
-    inquiry_submitted: bool = False,
 ) -> HttpResponse:
     return render(
         request,
@@ -387,7 +380,6 @@ def _render_property_detail(
             "viewing_form": viewing_form,
             "viewing_confirmation": viewing_confirmation,
             "inquiry_form": inquiry_form if inquiry_form is not None else PropertyInquiryForm(),
-            "inquiry_submitted": inquiry_submitted,
         },
     )
 
@@ -415,40 +407,6 @@ def _consume_verified_viewing_confirmation(
         .select_related("property", "user")
         .first()
     )
-
-
-def _store_inquiry_confirmation(*, request: HttpRequest, inquiry: PropertyInquiry) -> None:
-    request.session[INQUIRY_CONFIRMATION_SESSION_KEY] = {
-        "inquiry_id": inquiry.pk,
-        "property_id": inquiry.property_id,
-        "user_id": inquiry.user_id,
-    }
-    request.session.modified = True
-
-
-def _consume_inquiry_confirmation(*, request: HttpRequest, property_id: int) -> bool:
-    marker = request.session.pop(INQUIRY_CONFIRMATION_SESSION_KEY, None)
-    if marker is not None:
-        request.session.modified = True
-
-    if not request.user.is_authenticated or not isinstance(marker, dict):
-        return False
-
-    try:
-        inquiry_id = int(marker.get("inquiry_id", 0))
-        marker_property_id = int(marker.get("property_id", 0))
-        marker_user_id = int(marker.get("user_id", 0))
-    except (TypeError, ValueError):
-        return False
-
-    if marker_property_id != property_id or marker_user_id != request.user.pk:
-        return False
-
-    return PropertyInquiry.objects.filter(
-        pk=inquiry_id,
-        user=request.user,
-        property_id=property_id,
-    ).exists()
 
 
 def _preferred_surface(request: HttpRequest) -> str:

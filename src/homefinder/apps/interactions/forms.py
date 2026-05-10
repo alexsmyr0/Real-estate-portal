@@ -7,16 +7,7 @@ from django import forms
 from .models import PROPERTY_INQUIRY_MESSAGE_MAX_LENGTH
 
 
-class StyledInteractionFormMixin:
-    def _apply_control_classes(self) -> None:
-        for field in self.fields.values():
-            existing_css_class = field.widget.attrs.get("class", "")
-            field.widget.attrs["class"] = " ".join(
-                class_name for class_name in ("form-control", existing_css_class) if class_name
-            )
-
-
-class PropertyInquiryForm(StyledInteractionFormMixin, forms.Form):
+class PropertyInquiryForm(forms.Form):
     message = forms.CharField(
         label="Message",
         max_length=PROPERTY_INQUIRY_MESSAGE_MAX_LENGTH,
@@ -30,7 +21,11 @@ class PropertyInquiryForm(StyledInteractionFormMixin, forms.Form):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self._apply_control_classes()
+        for field in self.fields.values():
+            existing_css_class = field.widget.attrs.get("class", "")
+            field.widget.attrs["class"] = " ".join(
+                class_name for class_name in ("form-control", existing_css_class) if class_name
+            )
         self.fields["message"].widget.attrs.update(
             {
                 "placeholder": "I am interested in this property and would like to know more about...",

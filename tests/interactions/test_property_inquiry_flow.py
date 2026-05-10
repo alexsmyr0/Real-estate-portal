@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 from contextlib import redirect_stdout
 from decimal import Decimal
+from urllib.parse import urlencode
 from unittest.mock import patch
 
 from django.core.exceptions import ValidationError
@@ -17,6 +18,7 @@ from homefinder.apps.interactions.models import (
     PROPERTY_INQUIRY_MESSAGE_MAX_LENGTH,
     PropertyInquiry,
     PropertyInquiryStatus,
+    UserFavorite,
 )
 from homefinder.apps.interactions.services import (
     EmailNotificationMessage,
@@ -84,6 +86,7 @@ class PropertyInquiryFlowTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "We received your inquiry")
+        self.assertNotContains(response, "Inquiry sent. We emailed you a confirmation.")
         self.assertContains(response, "Send an inquiry")
         self.assertContains(response, 'name="message"')
         self.assertEqual(PropertyInquiry.objects.count(), 0)
@@ -93,6 +96,7 @@ class PropertyInquiryFlowTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "We received your inquiry")
+        self.assertNotContains(response, "Inquiry sent. We emailed you a confirmation.")
         self.assertContains(response, "Sign in to send an inquiry")
         self.assertNotContains(response, 'name="message"')
 
@@ -106,8 +110,10 @@ class PropertyInquiryFlowTests(TestCase):
         post_response = self.client.post(self.inquiry_url, {"message": "Please send more details."})
 
         self.assertEqual(post_response.status_code, 302)
-        self.assertTrue(post_response["Location"].startswith(reverse("login-page")))
-        self.assertIn("next=", post_response["Location"])
+        self.assertEqual(
+            post_response["Location"],
+            f"{reverse('login-page')}?{urlencode({'next': self.detail_url})}",
+        )
         self.assertEqual(PropertyInquiry.objects.count(), 0)
         self.assertEqual(EmailNotification.objects.count(), 0)
         self.assertEqual(ActivityLog.objects.count(), 0)
@@ -127,7 +133,8 @@ class PropertyInquiryFlowTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertRedirects(response, self.detail_url)
-        self.assertContains(response, "We received your inquiry")
+        self.assertContains(response, "Inquiry sent. We emailed you a confirmation.")
+        self.assertContains(response, "Send an inquiry")
 
         inquiry = PropertyInquiry.objects.get()
         self.assertEqual(inquiry.user, self.user)
@@ -151,8 +158,21 @@ class PropertyInquiryFlowTests(TestCase):
         self.assertEqual(activity_log.details["surface"], "property_detail")
 
         refreshed_response = self.client.get(self.detail_url)
-        self.assertNotContains(refreshed_response, "We received your inquiry")
+        self.assertNotContains(refreshed_response, "Inquiry sent. We emailed you a confirmation.")
         self.assertContains(refreshed_response, "Send an inquiry")
+
+    def test_detail_page_preserves_existing_favorite_state_with_inquiry_section(self) -> None:
+        UserFavorite.objects.create(user=self.user, property=self.property)
+        self.client.force_login(self.user)
+
+        response = self.client.get(self.detail_url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["property"]["is_favorited"])
+        self.assertContains(response, "Remove favorite")
+        self.assertContains(response, reverse("site-favorite-remove", args=[self.property.id]))
+        self.assertContains(response, "Send an inquiry")
+        self.assertContains(response, 'name="message"')
 
     def test_missing_message_shows_field_error_without_persistence(self) -> None:
         self.client.force_login(self.user)
@@ -262,20 +282,44 @@ class PropertyInquiryFlowTests(TestCase):
         self.assertEqual(EmailNotification.objects.count(), 0)
         self.assertEqual(ActivityLog.objects.count(), 0)
 
-    def test_direct_removed_property_inquiry_creation_fails(self) -> None:
+    def test_service_accepts_unsaved_property_id_shape_for_available_property(self) -> None:
+        adapter = RecordingDeliveryAdapter()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            inquiry = create_property_inquiry(
+                user=self.user,
+                property_obj=Property(id=self.property.id),
+                message="Please share the latest disclosure package.",
+                notification_service_override=EmailNotificationService(delivery_adapter=adapter),
+            )
+
+        self.assertEqual(inquiry.property, self.property)
+        self.assertEqual(inquiry.status, PropertyInquiryStatus.OPEN)
+        self.assertEqual(inquiry.message, "Please share the latest disclosure package.")
+        self.assertEqual(PropertyInquiry.objects.count(), 1)
+        self.assertEqual(EmailNotification.objects.count(), 1)
+        self.assertEqual(ActivityLog.objects.count(), 1)
+        self.assertEqual(len(adapter.messages), 1)
+
+    def test_service_rejects_removed_property_id_before_side_effects(self) -> None:
         removed_property = self._create_property(
             title="Removed Direct Inquiry Listing",
             status=PropertyStatus.REMOVED,
         )
 
         with self.assertRaises(ValidationError):
-            PropertyInquiry.objects.create(
+            create_property_inquiry(
                 user=self.user,
-                property=removed_property,
+                property_obj=Property(id=removed_property.id),
                 message="Can I ask about this removed listing?",
+                notification_service_override=EmailNotificationService(
+                    delivery_adapter=RecordingDeliveryAdapter(),
+                ),
             )
 
         self.assertEqual(PropertyInquiry.objects.count(), 0)
+        self.assertEqual(EmailNotification.objects.count(), 0)
+        self.assertEqual(ActivityLog.objects.count(), 0)
 
     def test_existing_inquiry_remains_editable_after_property_removal(self) -> None:
         inquiry = PropertyInquiry.objects.create(
