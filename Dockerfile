@@ -5,10 +5,14 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-COPY manage.py requirements.txt pyproject.toml ./
-COPY src ./src
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
 
-RUN pip install --no-cache-dir .
+COPY manage.py pyproject.toml ./
+COPY src ./src
+COPY templates ./templates
+
+RUN pip install --no-cache-dir --no-deps .
 
 EXPOSE 8080
 
