@@ -92,10 +92,23 @@ class BookingRequestForm(StyledPropertyFormMixin, forms.Form):
             format="%Y-%m-%d",
         ),
     )
+    note = forms.CharField(
+        label="Note",
+        required=False,
+        max_length=500,
+        help_text="Optional: share check-in preferences or questions for the host.",
+        widget=forms.Textarea(attrs={"rows": 4, "maxlength": "500"}),
+    )
 
     def __init__(self, *args: object, **kwargs: object) -> None:
         super().__init__(*args, **kwargs)
         self._apply_control_classes()
+        today_iso = timezone.localdate().isoformat()
+        self.fields["start_date"].widget.attrs["min"] = today_iso
+        self.fields["end_date"].widget.attrs["min"] = today_iso
+        self.fields["note"].widget.attrs.update(
+            {"placeholder": "Arriving late evening; need parking for one car."}
+        )
 
     def clean_start_date(self) -> date:
         start_date = self.cleaned_data["start_date"]

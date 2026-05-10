@@ -416,6 +416,7 @@ def booking_request_action(request: HttpRequest, property_id: int) -> HttpRespon
             property_obj=property_obj,
             start_date=booking_form.cleaned_data["start_date"],
             end_date=booking_form.cleaned_data["end_date"],
+            note=booking_form.cleaned_data.get("note", ""),
         )
     except ValidationError as error:
         _add_validation_error_to_form(booking_form, error)
