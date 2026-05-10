@@ -213,6 +213,12 @@ h1 {
         var(--white);
 }
 
+.report-hero {
+    background:
+        linear-gradient(140deg, rgba(227, 244, 241, 0.68), rgba(248, 252, 255, 0.96)),
+        var(--white);
+}
+
 .dashboard-hero {
     background:
         linear-gradient(135deg, rgba(238, 246, 243, 0.85), rgba(255, 255, 255, 0.94)),
@@ -864,6 +870,49 @@ textarea.form-control {
     border-color: var(--accent);
     background: #def2ef;
     color: var(--accent-deep);
+}
+
+.report-table-shell {
+    overflow-x: auto;
+}
+
+.report-table {
+    width: 100%;
+    min-width: 700px;
+    border-collapse: collapse;
+    border: 1px solid var(--ink-200);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.report-table th,
+.report-table td {
+    padding: 0.65rem 0.7rem;
+    text-align: left;
+    border-bottom: 1px solid #e1e8f4;
+}
+
+.report-table th {
+    background: #f4f8fd;
+    color: var(--ink-700);
+    font-size: 0.87rem;
+    letter-spacing: 0.02em;
+}
+
+.report-table td {
+    vertical-align: top;
+}
+
+.report-table tbody tr:nth-child(even) {
+    background: #fafcff;
+}
+
+.report-list {
+    margin: 0;
+    padding-left: 1rem;
+    display: grid;
+    gap: 0.25rem;
+    color: var(--ink-700);
 }
 
 @media (max-width: 920px) {

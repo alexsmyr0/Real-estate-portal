@@ -10,4 +10,10 @@ urlpatterns = [
     path("catalog/<int:property_id>/viewing-request/", views.viewing_request_action, name="site-viewing-request"),
     path("catalog/<int:property_id>/inquiry/", views.submit_inquiry_action, name="site-inquiry-create"),
     path("saved-listings/", views.favorites_page, name="site-favorites"),
+    path("staff/reports/", views.reporting_overview_page, name="staff-reporting-overview"),
+    path(
+        "staff/reports/search-trends/",
+        views.reporting_search_trends_page,
+        name="staff-reporting-search-trends",
+    ),
 ]
