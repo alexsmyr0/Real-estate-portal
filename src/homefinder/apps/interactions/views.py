@@ -9,7 +9,7 @@ from django.urls import reverse
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
-from homefinder.apps.properties.models import Property
+from homefinder.apps.properties.models import ListingAlertSubscription, Property, PropertyCategory
 from homefinder.apps.properties.services import PUBLICLY_VISIBLE_PROPERTY_STATUSES
 
 from .models import PropertyInquiry, SearchHistory, UserFavorite, ViewingRequest
@@ -48,6 +48,12 @@ def dashboard_page(request: HttpRequest) -> HttpResponse:
         .select_related("property")
         .order_by("-created_at", "-id")[:DASHBOARD_SECTION_LIMIT],
     )
+    alert_rows = list(
+        ListingAlertSubscription.objects.filter(user=request.user, is_active=True)
+        .select_related("source_property")
+        .prefetch_related("amenities")
+        .order_by("-created_at", "-id")[:DASHBOARD_SECTION_LIMIT],
+    )
 
     return render(
         request,
@@ -72,6 +78,11 @@ def dashboard_page(request: HttpRequest) -> HttpResponse:
                 rows=[_serialize_property_activity(row) for row in viewing_rows],
                 empty_title="No viewing requests yet",
                 empty_message="You have not requested any viewings yet.",
+            ),
+            "alerts": _build_section(
+                rows=[_serialize_alert_subscription(row) for row in alert_rows],
+                empty_title="No alert subscriptions yet",
+                empty_message="You have not subscribed to similar-listing alerts yet.",
             ),
             "dashboard_current_limit": DASHBOARD_CURRENT_LIMIT,
             "dashboard_older_limit": DASHBOARD_OLDER_LIMIT,
@@ -141,3 +152,34 @@ def _serialize_property_activity(activity: PropertyInquiry | ViewingRequest) -> 
 
 def _is_publicly_visible_property(property_obj: Property) -> bool:
     return property_obj.status in PUBLICLY_VISIBLE_PROPERTY_STATUSES
+
+
+def _serialize_alert_subscription(subscription: ListingAlertSubscription) -> dict[str, object]:
+    source_property = subscription.source_property
+    source_is_visible = source_property is not None and _is_publicly_visible_property(source_property)
+
+    criteria: list[str] = []
+    if subscription.location_city:
+        criteria.append(f"Location: {subscription.location_city}")
+    if subscription.category:
+        criteria.append(f"Category: {PropertyCategory(subscription.category).label}")
+    if subscription.min_price is not None:
+        criteria.append(f"Min price: EUR {subscription.min_price}")
+    if subscription.max_price is not None:
+        criteria.append(f"Max price: EUR {subscription.max_price}")
+    if subscription.bedrooms_min is not None:
+        criteria.append(f"Bedrooms: {subscription.bedrooms_min}+")
+    amenity_names = [amenity.name for amenity in subscription.amenities.all()]
+    if amenity_names:
+        criteria.append(f"Amenities: {', '.join(amenity_names)}")
+
+    return {
+        "created_at": subscription.created_at,
+        "criteria": criteria or ["All matching listings"],
+        "source_property_title": source_property.title if source_is_visible else "Source listing removed",
+        "source_property_detail_url": (
+            reverse("site-property-detail", args=[source_property.id]) if source_is_visible else ""
+        ),
+        "removed_message": "" if source_property is None or source_is_visible else "The source listing is no longer available.",
+        "missing_source_message": "The source listing was removed." if source_property is None else "",
+    }

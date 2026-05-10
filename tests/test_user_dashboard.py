@@ -24,7 +24,14 @@ from homefinder.apps.interactions.models import (
     ViewingRequest,
     ViewingRequestStatus,
 )
-from homefinder.apps.properties.models import Property, PropertyCategory, PropertyStatus
+from homefinder.apps.properties.models import (
+    Amenity,
+    ListingAlertSubscription,
+    Property,
+    PropertyCategory,
+    PropertyStatus,
+)
+from homefinder.apps.properties.services import create_listing_alert_subscription
 from homefinder.apps.users.models import User
 
 
@@ -61,10 +68,12 @@ class UserDashboardTests(TestCase):
         self.assertContains(response, "You have not saved any properties yet.")
         self.assertContains(response, "You have not submitted inquiries yet.")
         self.assertContains(response, "You have not requested any viewings yet.")
+        self.assertContains(response, "You have not subscribed to similar-listing alerts yet.")
         self.assertEqual(response.context["searches"]["shown_count"], 0)
         self.assertEqual(response.context["favorites"]["shown_count"], 0)
         self.assertEqual(response.context["inquiries"]["shown_count"], 0)
         self.assertEqual(response.context["viewings"]["shown_count"], 0)
+        self.assertEqual(response.context["alerts"]["shown_count"], 0)
 
     def test_populated_dashboard_shows_only_current_users_activity(self) -> None:
         self.client.force_login(self.user)
@@ -262,6 +271,109 @@ class UserDashboardTests(TestCase):
         self.assertContains(response, "Historical removed-property viewing")
         self.assertNotContains(response, "Removed Interaction Listing")
         self.assertNotContains(response, f'href="/catalog/{removed_property.id}/"')
+
+    def test_dashboard_shows_only_current_users_active_alert_subscriptions(self) -> None:
+        self.client.force_login(self.user)
+
+        unavailable_property = self._create_property(
+            title="Unavailable Source Listing",
+            city="Athens",
+            status=PropertyStatus.UNAVAILABLE,
+        )
+        other_unavailable_property = self._create_property(
+            title="Other User Source Listing",
+            city="Patra",
+            status=PropertyStatus.UNAVAILABLE,
+        )
+        pool = Amenity.objects.create(name="Pool")
+        unavailable_property.amenities.add(pool)
+
+        own_subscription = create_listing_alert_subscription(
+            user=self.user,
+            source_property=unavailable_property,
+        )
+        other_subscription = create_listing_alert_subscription(
+            user=self.other_user,
+            source_property=other_unavailable_property,
+        )
+        inactive_subscription = create_listing_alert_subscription(
+            user=self.user,
+            source_property=unavailable_property,
+        )
+        inactive_subscription.is_active = False
+        inactive_subscription.save(update_fields=["is_active"])
+
+        response = self.client.get("/dashboard/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["alerts"]["shown_count"], 1)
+        self.assertEqual(response.context["alerts"]["current"][0]["source_property_title"], "Unavailable Source Listing")
+        self.assertIn("Location: Athens", response.context["alerts"]["current"][0]["criteria"])
+        self.assertIn("Category: Residential", response.context["alerts"]["current"][0]["criteria"])
+        self.assertIn("Amenities: Pool", response.context["alerts"]["current"][0]["criteria"])
+        self.assertContains(response, "Unavailable Source Listing")
+        self.assertContains(response, f'href="/catalog/{unavailable_property.id}/"')
+        self.assertNotContains(response, "Other User Source Listing")
+        self.assertNotIn(other_subscription.pk, [item.get("id") for item in response.context["alerts"]["current"]])
+        self.assertEqual(
+            ListingAlertSubscription.objects.filter(user=self.user).count(),
+            2,
+        )
+
+    def test_dashboard_alert_subscriptions_orders_limits_and_groups_predictably(self) -> None:
+        self.client.force_login(self.user)
+        base_time = timezone.now() - timedelta(days=1)
+
+        for index in range(12):
+            source_property = self._create_property(
+                title=f"Alert Source Listing {index:02d}",
+                city="Athens",
+                status=PropertyStatus.UNAVAILABLE,
+            )
+            subscription = create_listing_alert_subscription(
+                user=self.user,
+                source_property=source_property,
+            )
+            self._set_created_at(subscription, base_time + timedelta(minutes=index))
+
+        response = self.client.get("/dashboard/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context["alerts"]["current"]), 5)
+        self.assertEqual(len(response.context["alerts"]["older"]), 5)
+        self.assertEqual(response.context["alerts"]["shown_count"], 10)
+        self.assertEqual(response.context["alerts"]["current"][0]["source_property_title"], "Alert Source Listing 11")
+        self.assertEqual(response.context["alerts"]["older"][-1]["source_property_title"], "Alert Source Listing 02")
+        self.assertNotContains(response, "Alert Source Listing 00")
+        self.assertNotContains(response, "Alert Source Listing 01")
+
+    def test_dashboard_alert_subscription_with_removed_source_renders_without_dead_link(self) -> None:
+        self.client.force_login(self.user)
+        unavailable_property = self._create_property(
+            title="Will Be Removed Source",
+            city="Athens",
+            status=PropertyStatus.UNAVAILABLE,
+        )
+        subscription = create_listing_alert_subscription(
+            user=self.user,
+            source_property=unavailable_property,
+        )
+        unavailable_property.status = PropertyStatus.REMOVED
+        unavailable_property.save(update_fields=["status"])
+
+        response = self.client.get("/dashboard/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Source listing removed")
+        self.assertContains(response, "The source listing is no longer available.")
+        self.assertNotContains(response, "Will Be Removed Source")
+        self.assertNotContains(response, f'href="/catalog/{unavailable_property.id}/"')
+        self.assertEqual(response.context["alerts"]["shown_count"], 1)
+        self.assertEqual(response.context["alerts"]["current"][0]["source_property_detail_url"], "")
+        self.assertEqual(
+            ListingAlertSubscription.objects.filter(pk=subscription.pk).get().is_active,
+            True,
+        )
 
     def test_dashboard_does_not_add_reporting_recommendations_or_logging_side_effects(self) -> None:
         self.client.force_login(self.user)
