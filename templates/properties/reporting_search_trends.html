@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% url "staff-reporting-overview" as staff_reporting_overview_url %}
+
+{% block title %}HomeFinder | Search Trend Reports{% endblock %}
+
+{% block page_header %}
+    <section class="page-hero report-hero">
+        <p class="eyebrow">Supervisor Reporting</p>
+        <h1>Search trend summaries by month</h1>
+        <p>
+            Read-only monthly trend snapshots for city, category, and locked price-band demand signals.
+        </p>
+        <div class="hero-actions">
+            <a class="button button-ghost" href="{{ staff_reporting_overview_url }}">Back to reporting overview</a>
+        </div>
+    </section>
+{% endblock %}
+
+{% block content %}
+    <section class="panel">
+        <div class="page-header-inline">
+            <h2>Monthly search trends</h2>
+            <p class="results-context">Top-10 trends per month</p>
+        </div>
+
+        {% if search_trend_metrics %}
+            {% include "partials/_search_trend_table.html" with search_trend_metrics=search_trend_metrics %}
+        {% else %}
+            {% include "partials/_empty_state.html" with title="No search trend records yet" message="Search-trend summaries will populate after catalog search activity is logged." %}
+        {% endif %}
+    </section>
+{% endblock %}

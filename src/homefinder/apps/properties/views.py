@@ -3,8 +3,11 @@ from __future__ import annotations
 import logging
 from urllib.parse import urlencode
 
+from django import forms
+from django.contrib.auth.base_user import AbstractBaseUser
+from django.contrib.auth.models import AnonymousUser
 from django.contrib import messages
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError
 from django.http import Http404, HttpRequest, HttpResponse, QueryDict
 from django.shortcuts import redirect, render
@@ -12,16 +15,22 @@ from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_http_methods
 
+from homefinder.apps.interactions.forms import PropertyInquiryForm
 from homefinder.apps.interactions.models import BookingRequest, UserFavorite, ViewingRequest
-from homefinder.apps.interactions.services import create_booking_request, create_viewing_request, log_interaction_activity
+from homefinder.apps.interactions.services import (
+    create_booking_request,
+    create_property_inquiry,
+    create_viewing_request,
+    log_interaction_activity,
+)
 
 from .forms import BookingRequestForm, ViewingRequestForm
 from .models import Amenity, PropertyCategory
-
-logger = logging.getLogger(__name__)
 from .services import (
     DEFAULT_CATALOG_PAGE,
     PUBLICLY_VISIBLE_PROPERTY_STATUSES,
+    get_monthly_inquiry_and_saved_property_metrics,
+    get_monthly_search_trend_metrics,
     get_visible_property,
     get_visible_property_detail,
     parse_catalog_search_params,
@@ -29,6 +38,8 @@ from .services import (
     serialize_property_for_catalog_card,
     serialize_property_for_detail,
 )
+
+logger = logging.getLogger(__name__)
 
 CATALOG_BEDROOM_FILTER_OPTIONS = (1, 2, 3, 4, 5)
 VERIFIED_VIEWING_REQUEST_SESSION_KEY = "verified_viewing_request_id"
@@ -118,6 +129,55 @@ def property_detail_page(request: HttpRequest, property_id: int) -> HttpResponse
             property_id=property_id,
         ),
     )
+
+
+@require_http_methods(["POST"])
+def submit_inquiry_action(request: HttpRequest, property_id: int) -> HttpResponse:
+    detail_url = reverse("site-property-detail", args=[property_id])
+    guest_redirect = _require_authenticated_user(
+        request,
+        warning_message="Sign in before sending an inquiry.",
+        next_url=detail_url,
+    )
+    if guest_redirect is not None:
+        return guest_redirect
+
+    property_obj = get_visible_property(property_id)
+    if property_obj is None:
+        raise Http404("Property not found.")
+
+    inquiry_form = PropertyInquiryForm(request.POST)
+    if not inquiry_form.is_valid():
+        messages.error(request, "Please correct the highlighted fields and send your inquiry again.")
+        property_payload = serialize_property_for_detail(property_obj)
+        _apply_detail_favorite_state(request=request, property_payload=property_payload)
+        return _render_property_detail(
+            request=request,
+            property_payload=property_payload,
+            viewing_form=ViewingRequestForm(),
+            inquiry_form=inquiry_form,
+        )
+
+    try:
+        inquiry = create_property_inquiry(
+            user=request.user,
+            property_obj=property_obj,
+            message=inquiry_form.cleaned_data["message"],
+        )
+    except ValidationError as error:
+        _add_validation_error_to_form(inquiry_form, error)
+        messages.error(request, "Please correct the highlighted fields and send your inquiry again.")
+        property_payload = serialize_property_for_detail(property_obj)
+        _apply_detail_favorite_state(request=request, property_payload=property_payload)
+        return _render_property_detail(
+            request=request,
+            property_payload=property_payload,
+            viewing_form=ViewingRequestForm(),
+            inquiry_form=inquiry_form,
+        )
+
+    messages.success(request, "Inquiry sent. We emailed you a confirmation.")
+    return redirect(detail_url)
 
 
 @require_http_methods(["GET"])
@@ -227,6 +287,41 @@ def remove_favorite_action(request: HttpRequest, property_id: int) -> HttpRespon
         },
     )
     return redirect(redirect_target)
+
+
+@require_http_methods(["GET"])
+def reporting_overview_page(request: HttpRequest) -> HttpResponse:
+    access_redirect = _require_reporting_user(request=request, next_url=request.get_full_path())
+    if access_redirect is not None:
+        return access_redirect
+
+    monthly_summary_metrics = get_monthly_inquiry_and_saved_property_metrics()
+    search_trend_metrics = _decorate_search_trend_metrics(get_monthly_search_trend_metrics())
+
+    return render(
+        request,
+        "properties/reporting_overview.html",
+        {
+            "monthly_summary_metrics": monthly_summary_metrics,
+            "search_trend_metrics": search_trend_metrics,
+        },
+    )
+
+
+@require_http_methods(["GET"])
+def reporting_search_trends_page(request: HttpRequest) -> HttpResponse:
+    access_redirect = _require_reporting_user(request=request, next_url=request.get_full_path())
+    if access_redirect is not None:
+        return access_redirect
+
+    search_trend_metrics = _decorate_search_trend_metrics(get_monthly_search_trend_metrics())
+    return render(
+        request,
+        "properties/reporting_search_trends.html",
+        {
+            "search_trend_metrics": search_trend_metrics,
+        },
+    )
 
 
 @require_http_methods(["POST"])
@@ -385,6 +480,7 @@ def _render_property_detail(
     booking_form: BookingRequestForm | None = None,
     viewing_confirmation: ViewingRequest | None = None,
     booking_confirmation: BookingRequest | None = None,
+    inquiry_form: PropertyInquiryForm | None = None,
 ) -> HttpResponse:
     return render(
         request,
@@ -397,6 +493,7 @@ def _render_property_detail(
             "is_rental_listing": _is_rental_property_payload(property_payload),
             "viewing_confirmation": viewing_confirmation,
             "booking_confirmation": booking_confirmation,
+            "inquiry_form": inquiry_form if inquiry_form is not None else PropertyInquiryForm(),
         },
     )
 
@@ -488,6 +585,24 @@ def _require_authenticated_user(
     return redirect(login_url)
 
 
+def _require_reporting_user(*, request: HttpRequest, next_url: str) -> HttpResponse | None:
+    guest_redirect = _require_authenticated_user(
+        request=request,
+        warning_message="Sign in with a supervisor or admin account to view reporting pages.",
+        next_url=next_url,
+    )
+    if guest_redirect is not None:
+        return guest_redirect
+
+    if not _is_reporting_authorized_user(request.user):
+        raise PermissionDenied("Reporting access is restricted to supervisor and admin staff roles.")
+    return None
+
+
+def _is_reporting_authorized_user(user: AbstractBaseUser | AnonymousUser) -> bool:
+    return bool(getattr(user, "can_view_reports", False))
+
+
 def _safe_log_favorite_action(
     *,
     request: HttpRequest,
@@ -550,7 +665,7 @@ def _safe_log_booking_action(
         )
 
 
-def _add_validation_error_to_form(form: ViewingRequestForm | BookingRequestForm, error: ValidationError) -> None:
+def _add_validation_error_to_form(form: forms.Form, error: ValidationError) -> None:
     if hasattr(error, "message_dict"):
         for field_name, messages_for_field in error.message_dict.items():
             target_field = field_name if field_name in form.fields else None
@@ -573,6 +688,29 @@ def _get_category_label(category_code: str) -> str:
         return PropertyCategory(category_code).label
     except ValueError:
         return category_code.title()
+
+
+def _decorate_search_trend_metrics(search_trend_metrics: list[dict[str, object]]) -> list[dict[str, object]]:
+    decorated_metrics: list[dict[str, object]] = []
+    for metric in search_trend_metrics:
+        top_categories = []
+        for category_entry in metric.get("top_categories", []):
+            category_code = category_entry.get("category", "")
+            top_categories.append(
+                {
+                    **category_entry,
+                    "category_label": _get_category_label(category_code),
+                }
+            )
+
+        decorated_metrics.append(
+            {
+                **metric,
+                "top_categories": top_categories,
+            }
+        )
+
+    return decorated_metrics
 
 
 def _build_page_query_string(query_params: QueryDict, page_number: int) -> str:

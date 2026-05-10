@@ -8,6 +8,7 @@ urlpatterns = [
     path("", include("homefinder.apps.core.urls")),
     path("", include("homefinder.apps.users.urls")),
     path("", include("homefinder.apps.properties.urls")),
+    path("", include("homefinder.apps.interactions.urls")),
 ]
 
 handler400 = "homefinder.apps.core.views.bad_request_view"
