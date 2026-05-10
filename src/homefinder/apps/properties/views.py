@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from urllib.parse import urlencode
 
+from django import forms
 from django.contrib.auth.base_user import AbstractBaseUser
 from django.contrib.auth.models import AnonymousUser
 from django.contrib import messages
@@ -14,8 +15,13 @@ from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_http_methods
 
+from homefinder.apps.interactions.forms import PropertyInquiryForm
 from homefinder.apps.interactions.models import UserFavorite, ViewingRequest
-from homefinder.apps.interactions.services import create_viewing_request, log_interaction_activity
+from homefinder.apps.interactions.services import (
+    create_property_inquiry,
+    create_viewing_request,
+    log_interaction_activity,
+)
 
 from .forms import ViewingRequestForm
 from .models import Amenity, PropertyCategory
@@ -116,6 +122,55 @@ def property_detail_page(request: HttpRequest, property_id: int) -> HttpResponse
             property_id=property_id,
         ),
     )
+
+
+@require_http_methods(["POST"])
+def submit_inquiry_action(request: HttpRequest, property_id: int) -> HttpResponse:
+    detail_url = reverse("site-property-detail", args=[property_id])
+    guest_redirect = _require_authenticated_user(
+        request,
+        warning_message="Sign in before sending an inquiry.",
+        next_url=detail_url,
+    )
+    if guest_redirect is not None:
+        return guest_redirect
+
+    property_obj = get_visible_property(property_id)
+    if property_obj is None:
+        raise Http404("Property not found.")
+
+    inquiry_form = PropertyInquiryForm(request.POST)
+    if not inquiry_form.is_valid():
+        messages.error(request, "Please correct the highlighted fields and send your inquiry again.")
+        property_payload = serialize_property_for_detail(property_obj)
+        _apply_detail_favorite_state(request=request, property_payload=property_payload)
+        return _render_property_detail(
+            request=request,
+            property_payload=property_payload,
+            viewing_form=ViewingRequestForm(),
+            inquiry_form=inquiry_form,
+        )
+
+    try:
+        inquiry = create_property_inquiry(
+            user=request.user,
+            property_obj=property_obj,
+            message=inquiry_form.cleaned_data["message"],
+        )
+    except ValidationError as error:
+        _add_validation_error_to_form(inquiry_form, error)
+        messages.error(request, "Please correct the highlighted fields and send your inquiry again.")
+        property_payload = serialize_property_for_detail(property_obj)
+        _apply_detail_favorite_state(request=request, property_payload=property_payload)
+        return _render_property_detail(
+            request=request,
+            property_payload=property_payload,
+            viewing_form=ViewingRequestForm(),
+            inquiry_form=inquiry_form,
+        )
+
+    messages.success(request, "Inquiry sent. We emailed you a confirmation.")
+    return redirect(detail_url)
 
 
 @require_http_methods(["GET"])
@@ -353,6 +408,7 @@ def _render_property_detail(
     property_payload: dict[str, object],
     viewing_form: ViewingRequestForm,
     viewing_confirmation: ViewingRequest | None = None,
+    inquiry_form: PropertyInquiryForm | None = None,
 ) -> HttpResponse:
     return render(
         request,
@@ -362,6 +418,7 @@ def _render_property_detail(
             "category_label": _get_category_label(str(property_payload["category"])),
             "viewing_form": viewing_form,
             "viewing_confirmation": viewing_confirmation,
+            "inquiry_form": inquiry_form if inquiry_form is not None else PropertyInquiryForm(),
         },
     )
 
@@ -484,7 +541,7 @@ def _safe_log_viewing_action(
         )
 
 
-def _add_validation_error_to_form(form: ViewingRequestForm, error: ValidationError) -> None:
+def _add_validation_error_to_form(form: forms.Form, error: ValidationError) -> None:
     if hasattr(error, "message_dict"):
         for field_name, messages_for_field in error.message_dict.items():
             target_field = field_name if field_name in form.fields else None

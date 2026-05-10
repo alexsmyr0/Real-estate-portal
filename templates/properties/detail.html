@@ -76,6 +76,30 @@
                 {% endif %}
             </section>
 
+            <section class="inquiry-section" aria-labelledby="inquiry-heading">
+                <p class="eyebrow">Ask About This Property</p>
+                <h2 id="inquiry-heading">Send an inquiry</h2>
+                {% if request.user.is_authenticated %}
+                    <form method="post" action="{% url 'site-inquiry-create' property.id %}" class="form-shell inquiry-form">
+                        {% csrf_token %}
+                        {% if inquiry_form.non_field_errors %}
+                            <div class="form-summary-errors">
+                                {% for error in inquiry_form.non_field_errors %}
+                                    <p>{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        {% include "partials/_form_field.html" with field=inquiry_form.message %}
+                        <button type="submit" class="button button-primary">Send inquiry</button>
+                    </form>
+                {% else %}
+                    <div class="inquiry-auth-panel">
+                        <p>Sign in to send an inquiry from your verified HomeFinder session.</p>
+                        <a class="button button-primary" href="{% url 'login-page' %}?next={{ request.get_full_path|urlencode }}">Sign in</a>
+                    </div>
+                {% endif %}
+            </section>
+
             <section class="viewing-request-panel" aria-labelledby="viewing-request-title">
                 <h2 id="viewing-request-title">Request a Viewing</h2>
                 {% if viewing_confirmation %}
