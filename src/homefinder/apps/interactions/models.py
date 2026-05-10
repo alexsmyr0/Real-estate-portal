@@ -8,6 +8,9 @@ from django.utils import timezone
 from homefinder.apps.properties.models import Property, PropertyCategory
 
 
+PROPERTY_INQUIRY_MESSAGE_MAX_LENGTH = 2000
+
+
 class ViewingRequestStatus(models.TextChoices):
     PENDING = "PENDING", "Pending"
     CONFIRMED = "CONFIRMED", "Confirmed"
