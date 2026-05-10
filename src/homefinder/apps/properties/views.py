@@ -16,14 +16,15 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_http_methods
 
 from homefinder.apps.interactions.forms import PropertyInquiryForm
-from homefinder.apps.interactions.models import UserFavorite, ViewingRequest
+from homefinder.apps.interactions.models import BookingRequest, UserFavorite, ViewingRequest
 from homefinder.apps.interactions.services import (
+    create_booking_request,
     create_property_inquiry,
     create_viewing_request,
     log_interaction_activity,
 )
 
-from .forms import ViewingRequestForm
+from .forms import BookingRequestForm, ViewingRequestForm
 from .models import Amenity, PropertyCategory
 from .services import (
     DEFAULT_CATALOG_PAGE,
@@ -42,6 +43,7 @@ logger = logging.getLogger(__name__)
 
 CATALOG_BEDROOM_FILTER_OPTIONS = (1, 2, 3, 4, 5)
 VERIFIED_VIEWING_REQUEST_SESSION_KEY = "verified_viewing_request_id"
+VERIFIED_BOOKING_REQUEST_SESSION_KEY = "verified_booking_request_id"
 
 
 @require_http_methods(["GET"])
@@ -117,7 +119,12 @@ def property_detail_page(request: HttpRequest, property_id: int) -> HttpResponse
         request=request,
         property_payload=property_payload,
         viewing_form=ViewingRequestForm(),
+        booking_form=BookingRequestForm() if _is_rental_property_payload(property_payload) else None,
         viewing_confirmation=_consume_verified_viewing_confirmation(
+            request=request,
+            property_id=property_id,
+        ),
+        booking_confirmation=_consume_verified_booking_confirmation(
             request=request,
             property_id=property_id,
         ),
@@ -373,6 +380,70 @@ def viewing_request_action(request: HttpRequest, property_id: int) -> HttpRespon
     return redirect(detail_url)
 
 
+@require_http_methods(["POST"])
+def booking_request_action(request: HttpRequest, property_id: int) -> HttpResponse:
+    detail_url = reverse("site-property-detail", args=[property_id])
+    guest_redirect = _require_authenticated_user(
+        request,
+        warning_message="Sign in to request a booking.",
+        next_url=detail_url,
+    )
+    if guest_redirect is not None:
+        return guest_redirect
+
+    property_obj = get_visible_property(property_id)
+    if property_obj is None:
+        raise Http404("Property not found.")
+
+    if property_obj.category != PropertyCategory.RENTAL:
+        messages.error(request, "Booking requests are only available for rental listings.")
+        return redirect(detail_url)
+
+    booking_form = BookingRequestForm(request.POST)
+    if not booking_form.is_valid():
+        property_payload = serialize_property_for_detail(property_obj)
+        _apply_detail_favorite_state(request=request, property_payload=property_payload)
+        return _render_property_detail(
+            request=request,
+            property_payload=property_payload,
+            viewing_form=ViewingRequestForm(),
+            booking_form=booking_form,
+        )
+
+    try:
+        booking_request = create_booking_request(
+            user=request.user,
+            property_obj=property_obj,
+            start_date=booking_form.cleaned_data["start_date"],
+            end_date=booking_form.cleaned_data["end_date"],
+            note=booking_form.cleaned_data.get("note", ""),
+        )
+    except ValidationError as error:
+        _add_validation_error_to_form(booking_form, error)
+        property_payload = serialize_property_for_detail(property_obj)
+        _apply_detail_favorite_state(request=request, property_payload=property_payload)
+        return _render_property_detail(
+            request=request,
+            property_payload=property_payload,
+            viewing_form=ViewingRequestForm(),
+            booking_form=booking_form,
+        )
+
+    request.session[VERIFIED_BOOKING_REQUEST_SESSION_KEY] = booking_request.pk
+    messages.success(request, "Your booking request was sent.")
+    _safe_log_booking_action(
+        request=request,
+        booking_request=booking_request,
+        details={
+            "surface": "detail",
+            "property_id": property_id,
+            "start_date": booking_request.start_date,
+            "end_date": booking_request.end_date,
+        },
+    )
+    return redirect(detail_url)
+
+
 def _apply_catalog_favorite_state(*, request: HttpRequest, properties: list[dict[str, object]]) -> None:
     if not properties:
         return
@@ -407,7 +478,9 @@ def _render_property_detail(
     request: HttpRequest,
     property_payload: dict[str, object],
     viewing_form: ViewingRequestForm,
+    booking_form: BookingRequestForm | None = None,
     viewing_confirmation: ViewingRequest | None = None,
+    booking_confirmation: BookingRequest | None = None,
     inquiry_form: PropertyInquiryForm | None = None,
 ) -> HttpResponse:
     return render(
@@ -417,7 +490,10 @@ def _render_property_detail(
             "property": property_payload,
             "category_label": _get_category_label(str(property_payload["category"])),
             "viewing_form": viewing_form,
+            "booking_form": booking_form,
+            "is_rental_listing": _is_rental_property_payload(property_payload),
             "viewing_confirmation": viewing_confirmation,
+            "booking_confirmation": booking_confirmation,
             "inquiry_form": inquiry_form if inquiry_form is not None else PropertyInquiryForm(),
         },
     )
@@ -446,6 +522,35 @@ def _consume_verified_viewing_confirmation(
         .select_related("property", "user")
         .first()
     )
+
+
+def _consume_verified_booking_confirmation(
+    *,
+    request: HttpRequest,
+    property_id: int,
+) -> BookingRequest | None:
+    marker = request.session.pop(VERIFIED_BOOKING_REQUEST_SESSION_KEY, None)
+    if not request.user.is_authenticated or marker is None:
+        return None
+
+    try:
+        marker_id = int(marker)
+    except (TypeError, ValueError):
+        return None
+
+    return (
+        BookingRequest.objects.filter(
+            pk=marker_id,
+            user=request.user,
+            property_id=property_id,
+        )
+        .select_related("property", "user")
+        .first()
+    )
+
+
+def _is_rental_property_payload(property_payload: dict[str, object]) -> bool:
+    return property_payload.get("category") == PropertyCategory.RENTAL
 
 
 def _preferred_surface(request: HttpRequest) -> str:
@@ -538,6 +643,26 @@ def _safe_log_viewing_action(
         logger.exception(
             "Failed to log viewing-request interaction.",
             extra={"viewing_request_id": viewing_request.pk},
+        )
+
+
+def _safe_log_booking_action(
+    *,
+    request: HttpRequest,
+    booking_request: BookingRequest,
+    details: dict[str, object],
+) -> None:
+    try:
+        log_interaction_activity(
+            action="booking_requested",
+            user=request.user,
+            entity=booking_request,
+            details=details,
+        )
+    except Exception:
+        logger.exception(
+            "Failed to log booking-request interaction.",
+            extra={"booking_request_id": booking_request.pk},
         )
 
 
