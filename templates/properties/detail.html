@@ -112,6 +112,47 @@
                     </div>
                 {% endif %}
             </section>
+
+            {% if is_rental_listing %}
+                <section class="booking-request-panel" aria-labelledby="booking-request-title">
+                    <h2 id="booking-request-title">Request a Rental Booking</h2>
+                    {% if booking_confirmation %}
+                        <div class="verified-confirmation" role="status">
+                            <h3>Booking request sent</h3>
+                            <p>
+                                We received your request for
+                                {{ booking_confirmation.start_date|date:"M j, Y" }}
+                                to
+                                {{ booking_confirmation.end_date|date:"M j, Y" }}.
+                            </p>
+                        </div>
+                    {% endif %}
+
+                    {% if request.user.is_authenticated %}
+                        <form method="post" action="{% url 'site-booking-request' property.id %}" class="form-shell booking-request-form" novalidate>
+                            {% csrf_token %}
+                            {% if booking_form.non_field_errors %}
+                                <div class="form-summary-errors">
+                                    {% for error in booking_form.non_field_errors %}
+                                        <p>{{ error }}</p>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            <div class="form-grid booking-form-grid">
+                                {% for field in booking_form %}
+                                    {% include "partials/_form_field.html" with field=field %}
+                                {% endfor %}
+                            </div>
+                            <button type="submit" class="button button-primary">Send booking request</button>
+                        </form>
+                    {% else %}
+                        <div class="booking-auth-gate">
+                            <p class="detail-muted">Sign in to request a rental booking.</p>
+                            <a href="{% url 'login-page' %}?next={{ request.get_full_path|urlencode }}" class="button button-primary">Sign in to request</a>
+                        </div>
+                    {% endif %}
+                </section>
+            {% endif %}
         </aside>
     </section>
 {% endblock %}

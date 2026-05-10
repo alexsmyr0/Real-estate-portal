@@ -546,7 +546,8 @@ textarea.form-control {
 .detail-description h2,
 .detail-facts h2,
 .detail-amenities h2,
-.viewing-request-panel h2 {
+.viewing-request-panel h2,
+.booking-request-panel h2 {
     margin-bottom: 0.75rem;
 }
 
@@ -648,12 +649,14 @@ textarea.form-control {
     font-weight: 600;
 }
 
-.viewing-request-panel {
+.viewing-request-panel,
+.booking-request-panel {
     border-top: 1px solid #e2e9f5;
     padding-top: 1rem;
 }
 
-.viewing-form-grid {
+.viewing-form-grid,
+.booking-form-grid {
     grid-template-columns: 1fr;
 }
 
@@ -670,7 +673,8 @@ textarea.form-control {
 
 .verified-confirmation h3,
 .verified-confirmation p,
-.viewing-auth-gate p {
+.viewing-auth-gate p,
+.booking-auth-gate p {
     margin: 0;
 }
 
@@ -678,7 +682,8 @@ textarea.form-control {
     font-size: 1rem;
 }
 
-.viewing-auth-gate {
+.viewing-auth-gate,
+.booking-auth-gate {
     display: grid;
     gap: 0.85rem;
 }
