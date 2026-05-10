@@ -49,9 +49,9 @@ Canonical planning inputs remain in:
 ## Summary Snapshot
 
 - Total tickets: `34`
-- Done: `26`
+- Done: `27`
 - Partially Implemented: `0`
-- Not Started: `8`
+- Not Started: `7`
 - Baseline audit status: `Complete`
 
 ## Low-Blocking Claim Queue (Global)
@@ -84,7 +84,7 @@ Use this as the default claim order for the next wave of work:
 - [ ] **A-08** P2 - Inquiry Flow End-To-End | Inquiry backend actions, forms, confirmation states, and email integration. (Depends on: A-02; A-06; N-02) | Blocks: A-10; A-15
 - [x] **A-09** P2 - Viewing Request Flow End-To-End | Viewing backend actions, datetime validation, confirmation states, and email integration. (Depends on: A-02; A-06; N-02) | Blocks: A-10; A-15
 - [ ] **A-10** P3 - User Activity History And Personal Dashboard | User-facing history for searches, favorites, inquiries, and viewings. (Depends on: A-07; A-08; A-09; N-03) | Blocks: A-15
-- [ ] **A-11** P3 - Rental Booking Request UI | Rental-only booking initiation, validation feedback, and confirmation UX. (Depends on: A-02; A-06; N-05) | Blocks: A-14; A-15
+- [x] **A-11** P3 - Rental Booking Request UI | Rental-only booking initiation, validation feedback, and confirmation UX. (Depends on: A-02; A-06; N-05) | Blocks: A-14; A-15
 - [x] **A-12** P3 - Similar Listing Alert Subscription UI | Alert-subscription UX for unavailable property pages. (Depends on: A-02; A-06; N-04) | Blocks: A-15
 - [ ] **A-13** P3 - Recommendation Surfaces And Personalization UI | User-facing recommendation display on agreed site surfaces. (Depends on: A-05; A-06; K-11) | Blocks: A-15
 - [ ] **A-14** P4 - Simulated Payment UX | Fake payment-step UI and payment-status messaging after booking. (Depends on: A-11; N-06) | Blocks: A-15
@@ -101,7 +101,7 @@ Use this as the default claim order for the next wave of work:
 - [x] **K-07** P2 - Interaction Management Admin | Django admin usability for inquiry and viewing-request management. (Depends on: K-05) | Blocks: None
 - [x] **K-08** P3 - Supervisor Inquiry And Saved-Property Reporting Aggregations | Monthly aggregate metrics for inquiries and favorites. (Depends on: N-03; K-05) | Blocks: K-10
 - [x] **K-09** P3 - Search Trends Aggregation Service | Top-10 monthly search trends for cities, categories, and price bands. (Depends on: K-03; N-03; K-05) | Blocks: K-10
-- [ ] **K-10** P3 - Supervisor Reporting Read-Only Pages | Read-only reporting pages for supervisor and admin roles. (Depends on: K-08; K-09) | Blocks: None
+- [x] **K-10** P3 - Supervisor Reporting Read-Only Pages | Read-only reporting pages for supervisor and admin roles. (Depends on: K-08; K-09) | Blocks: None
 - [ ] **K-11** P3 - Personalized Recommendations Backend | Rule-based recommendations using catalog similarity and user-behavior signals. (Depends on: K-03; K-04; N-03; K-05) | Blocks: A-13
 
 ### Track N

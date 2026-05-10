@@ -2,6 +2,9 @@
     {% if form_method|default:"post" != "get" %}
         {% csrf_token %}
     {% endif %}
+    {% if next_url %}
+        <input type="hidden" name="next" value="{{ next_url }}">
+    {% endif %}
     {% if form.non_field_errors %}
         <div class="form-summary-errors">
             {% for error in form.non_field_errors %}

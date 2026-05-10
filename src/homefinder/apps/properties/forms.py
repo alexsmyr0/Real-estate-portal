@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 from django import forms
 from django.utils import timezone
@@ -55,3 +55,73 @@ class ViewingRequestForm(StyledPropertyFormMixin, forms.Form):
             raise forms.ValidationError("Choose a date and time in the future.")
 
         return requested_datetime
+
+
+class BookingRequestForm(StyledPropertyFormMixin, forms.Form):
+    start_date = forms.DateField(
+        label="Start date",
+        required=True,
+        help_text="Choose today or a future date.",
+        input_formats=("%Y-%m-%d",),
+        error_messages={
+            "required": "Choose a booking start date.",
+            "invalid": "Enter a valid booking start date.",
+        },
+        widget=forms.DateInput(
+            attrs={
+                "type": "date",
+                "autocomplete": "off",
+            },
+            format="%Y-%m-%d",
+        ),
+    )
+    end_date = forms.DateField(
+        label="End date",
+        required=True,
+        help_text="Choose a date after the start date.",
+        input_formats=("%Y-%m-%d",),
+        error_messages={
+            "required": "Choose a booking end date.",
+            "invalid": "Enter a valid booking end date.",
+        },
+        widget=forms.DateInput(
+            attrs={
+                "type": "date",
+                "autocomplete": "off",
+            },
+            format="%Y-%m-%d",
+        ),
+    )
+    note = forms.CharField(
+        label="Note",
+        required=False,
+        max_length=500,
+        help_text="Optional: share check-in preferences or questions for the host.",
+        widget=forms.Textarea(attrs={"rows": 4, "maxlength": "500"}),
+    )
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        super().__init__(*args, **kwargs)
+        self._apply_control_classes()
+        today_iso = timezone.localdate().isoformat()
+        self.fields["start_date"].widget.attrs["min"] = today_iso
+        self.fields["end_date"].widget.attrs["min"] = today_iso
+        self.fields["note"].widget.attrs.update(
+            {"placeholder": "Arriving late evening; need parking for one car."}
+        )
+
+    def clean_start_date(self) -> date:
+        start_date = self.cleaned_data["start_date"]
+        if start_date < timezone.localdate():
+            raise forms.ValidationError("Booking start date must be today or in the future.")
+        return start_date
+
+    def clean(self) -> dict[str, object]:
+        cleaned_data = super().clean()
+        start_date = cleaned_data.get("start_date")
+        end_date = cleaned_data.get("end_date")
+
+        if start_date is not None and end_date is not None and end_date <= start_date:
+            self.add_error("end_date", "Booking end date must be after the start date.")
+
+        return cleaned_data

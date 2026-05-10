@@ -13,7 +13,7 @@
 {% block content %}
     <section class="panel auth-panel">
         <h2>Login</h2>
-        {% include "partials/_form_layout.html" with form=form submit_label=submit_label submit_loading_label=submit_loading_label %}
+        {% include "partials/_form_layout.html" with form=form next_url=next_url submit_label=submit_label submit_loading_label=submit_loading_label %}
         <p class="auth-footnote">Need an account? <a href="{% url 'register-page' %}">Create one</a>.</p>
     </section>
 {% endblock %}
