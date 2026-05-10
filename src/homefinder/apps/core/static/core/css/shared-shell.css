@@ -558,6 +558,7 @@ textarea.form-control {
 .detail-description h2,
 .detail-facts h2,
 .detail-amenities h2,
+.alert-subscription-panel h2,
 .viewing-request-panel h2,
 .booking-request-panel h2 {
     margin-bottom: 0.75rem;
@@ -685,6 +686,7 @@ textarea.form-control {
     line-height: 1.5;
 }
 
+.alert-subscription-panel,
 .viewing-request-panel,
 .booking-request-panel {
     border-top: 1px solid #e2e9f5;
@@ -709,15 +711,30 @@ textarea.form-control {
 
 .verified-confirmation h3,
 .verified-confirmation p,
+.subscribed-state h3,
+.subscribed-state p,
+.alert-auth-gate p,
 .viewing-auth-gate p,
 .booking-auth-gate p {
     margin: 0;
 }
 
-.verified-confirmation h3 {
+.verified-confirmation h3,
+.subscribed-state h3 {
     font-size: 1rem;
 }
 
+.subscribed-state {
+    display: grid;
+    gap: 0.25rem;
+    border: 1px solid #c8d7f2;
+    border-radius: 12px;
+    padding: 0.8rem 0.9rem;
+    background: #f3f7fd;
+    color: #24426c;
+}
+
+.alert-auth-gate,
 .viewing-auth-gate,
 .booking-auth-gate {
     display: grid;

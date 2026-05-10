@@ -8,7 +8,7 @@
     <section class="page-hero dashboard-hero">
         <p class="eyebrow">Personal Dashboard</p>
         <h1>Your HomeFinder activity</h1>
-        <p>Review your recent searches, saved listings, inquiries, and viewing requests in one private account view.</p>
+        <p>Review your recent searches, saved listings, inquiries, viewing requests, and alert subscriptions in one private account view.</p>
         <div class="hero-actions">
             <a href="{{ site_catalog_url }}" class="button button-primary">Browse listings</a>
             <a href="{{ site_favorites_url }}" class="button button-ghost">Manage saved listings</a>
@@ -91,6 +91,25 @@
                 {% endif %}
             {% else %}
                 {% include "partials/_empty_state.html" with title=viewings.empty_title message=viewings.empty_message action_href=site_catalog_url action_label="Browse listings" %}
+            {% endif %}
+        </section>
+
+        <section class="panel dashboard-section" aria-labelledby="dashboard-alerts-heading">
+            <div class="results-header">
+                <div>
+                    <p class="eyebrow">Alerts</p>
+                    <h2 id="dashboard-alerts-heading">Alert subscriptions</h2>
+                </div>
+                <p class="results-context">Latest {{ dashboard_current_limit }} current, {{ dashboard_older_limit }} older</p>
+            </div>
+
+            {% if alerts.shown_count %}
+                {% include "interactions/partials/_dashboard_bucket.html" with bucket_title="Current" items=alerts.current item_template="alert" %}
+                {% if alerts.older %}
+                    {% include "interactions/partials/_dashboard_bucket.html" with bucket_title="Older" items=alerts.older item_template="alert" %}
+                {% endif %}
+            {% else %}
+                {% include "partials/_empty_state.html" with title=alerts.empty_title message=alerts.empty_message action_href=site_catalog_url action_label="Browse listings" %}
             {% endif %}
         </section>
     </div>
