@@ -70,6 +70,10 @@ class User(AbstractBaseUser, PermissionsMixin):
         db_table = "users"
         ordering = ["email"]
 
+    @property
+    def can_view_reports(self) -> bool:
+        return self.is_active and self.role in {UserRole.SUPERVISOR, UserRole.ADMIN}
+
     def __str__(self) -> str:
         return self.email
 

@@ -18,6 +18,7 @@ from homefinder.apps.properties.services import (
     get_monthly_inquiry_and_saved_property_metrics,
     get_monthly_search_trend_metrics,
 )
+from homefinder.apps.properties.views import _is_reporting_authorized_user
 from homefinder.apps.users.models import User, UserRole
 
 
@@ -111,6 +112,22 @@ class SupervisorReportingPageTests(TestCase):
                     },
                 )
 
+    def test_inactive_supervisor_is_blocked_from_reporting_pages(self) -> None:
+        inactive_supervisor = User.objects.create_user(
+            email="inactive-supervisor@example.com",
+            password="StrongPassword123!",
+            role=UserRole.SUPERVISOR,
+            is_staff=True,
+            is_active=False,
+        )
+        self.assertFalse(_is_reporting_authorized_user(inactive_supervisor))
+        self.client.force_login(inactive_supervisor)
+
+        for path in ("/staff/reports/", "/staff/reports/search-trends/"):
+            with self.subTest(path=path):
+                response = self.client.get(path, follow=True)
+                self.assertRedirects(response, f"/login/?next={path.replace('/', '%2F')}")
+
     def test_supervisor_can_view_reporting_overview_without_edit_or_export_controls(self) -> None:
         self.client.force_login(self.supervisor_user)
 
@@ -166,3 +183,22 @@ class SupervisorReportingPageTests(TestCase):
         self.client.force_login(self.admin_user)
         admin_response = self.client.get("/")
         self.assertContains(admin_response, 'href="/staff/reports/"')
+
+    def test_reporting_pages_render_empty_states_when_no_metrics_exist(self) -> None:
+        PropertyInquiry.objects.all().delete()
+        UserFavorite.objects.all().delete()
+        SearchHistory.objects.all().delete()
+        self.client.force_login(self.supervisor_user)
+
+        overview_response = self.client.get("/staff/reports/")
+        trends_response = self.client.get("/staff/reports/search-trends/")
+
+        self.assertEqual(overview_response.status_code, 200)
+        self.assertEqual(overview_response.context["monthly_summary_metrics"], [])
+        self.assertEqual(overview_response.context["search_trend_metrics"], [])
+        self.assertContains(overview_response, "No summary metrics yet")
+        self.assertContains(overview_response, "No search trends yet")
+
+        self.assertEqual(trends_response.status_code, 200)
+        self.assertEqual(trends_response.context["search_trend_metrics"], [])
+        self.assertContains(trends_response, "No search trend records yet")

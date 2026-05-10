@@ -2,6 +2,7 @@
 {% url "site-catalog" as site_catalog_url %}
 {% url "site-favorites" as site_favorites_url %}
 {% url "staff-reporting-overview" as staff_reporting_overview_url %}
+{% url "staff-reporting-search-trends" as staff_reporting_search_trends_url %}
 <header class="site-header">
     <a class="brand" href="{{ home_url }}">
         <span class="brand-mark">HF</span>
@@ -11,10 +12,8 @@
         <a class="nav-link{% if request.path == home_url %} is-active{% endif %}" href="{{ home_url }}">Home</a>
         <a class="nav-link{% if request.path == site_catalog_url %} is-active{% endif %}" href="{{ site_catalog_url }}">Browse Listings</a>
         <a class="nav-link{% if request.path == site_favorites_url %} is-active{% endif %}" href="{{ site_favorites_url }}">Saved Listings</a>
-        {% if request.user.is_authenticated %}
-            {% if request.user.role == "SUPERVISOR" or request.user.role == "ADMIN" %}
-                <a class="nav-link{% if '/staff/reports/' in request.path %} is-active{% endif %}" href="{{ staff_reporting_overview_url }}">Reports</a>
-            {% endif %}
+        {% if request.user.is_authenticated and request.user.can_view_reports %}
+            <a class="nav-link{% if request.path == staff_reporting_overview_url or request.path == staff_reporting_search_trends_url %} is-active{% endif %}" href="{{ staff_reporting_overview_url }}">Reports</a>
         {% endif %}
     </nav>
     <div class="nav-auth">

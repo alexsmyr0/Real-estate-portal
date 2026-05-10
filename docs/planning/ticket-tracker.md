@@ -49,9 +49,9 @@ Canonical planning inputs remain in:
 ## Summary Snapshot
 
 - Total tickets: `34`
-- Done: `3`
-- Partially Implemented: `1`
-- Not Started: `30`
+- Done: `26`
+- Partially Implemented: `0`
+- Not Started: `8`
 - Baseline audit status: `Complete`
 
 ## Low-Blocking Claim Queue (Global)

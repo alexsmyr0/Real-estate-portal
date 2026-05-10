@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import logging
 from urllib.parse import urlencode
-from typing import Any
 
+from django.contrib.auth.base_user import AbstractBaseUser
+from django.contrib.auth.models import AnonymousUser
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError
@@ -15,12 +16,9 @@ from django.views.decorators.http import require_http_methods
 
 from homefinder.apps.interactions.models import UserFavorite, ViewingRequest
 from homefinder.apps.interactions.services import create_viewing_request, log_interaction_activity
-from homefinder.apps.users.models import UserRole
 
 from .forms import ViewingRequestForm
 from .models import Amenity, PropertyCategory
-
-logger = logging.getLogger(__name__)
 from .services import (
     DEFAULT_CATALOG_PAGE,
     PUBLICLY_VISIBLE_PROPERTY_STATUSES,
@@ -34,8 +32,9 @@ from .services import (
     serialize_property_for_detail,
 )
 
+logger = logging.getLogger(__name__)
+
 CATALOG_BEDROOM_FILTER_OPTIONS = (1, 2, 3, 4, 5)
-REPORTING_ALLOWED_ROLES = frozenset({UserRole.SUPERVISOR, UserRole.ADMIN})
 VERIFIED_VIEWING_REQUEST_SESSION_KEY = "verified_viewing_request_id"
 
 
@@ -439,12 +438,8 @@ def _require_reporting_user(*, request: HttpRequest, next_url: str) -> HttpRespo
     return None
 
 
-def _is_reporting_authorized_user(user: Any) -> bool:
-    if not getattr(user, "is_authenticated", False):
-        return False
-    if not getattr(user, "is_active", False):
-        return False
-    return getattr(user, "role", "") in REPORTING_ALLOWED_ROLES
+def _is_reporting_authorized_user(user: AbstractBaseUser | AnonymousUser) -> bool:
+    return bool(getattr(user, "can_view_reports", False))
 
 
 def _safe_log_favorite_action(
