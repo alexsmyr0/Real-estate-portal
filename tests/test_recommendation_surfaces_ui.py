@@ -161,6 +161,40 @@ class RecommendationSurfaceUITests(TestCase):
         self.assertNotIn(favorited.id, [item["id"] for item in response.context["recommended_properties"]])
         self.assertIn(fresh.id, [item["id"] for item in response.context["recommended_properties"]])
 
+    def test_anonymous_detail_empty_state_uses_neutral_similar_listing_copy(self) -> None:
+        source_property = self._create_property(
+            title="Unmatched Detail Source",
+            status=PropertyStatus.AVAILABLE,
+            city="Athens",
+            price=Decimal("300000.00"),
+            category=PropertyCategory.RESIDENTIAL,
+        )
+        self._create_property(
+            title="Different Category Candidate",
+            status=PropertyStatus.AVAILABLE,
+            city="Athens",
+            price=Decimal("300000.00"),
+            category=PropertyCategory.COMMERCIAL,
+        )
+        SearchHistory.objects.create(
+            user=self.other_user,
+            category=PropertyCategory.COMMERCIAL,
+            location_city="Athens",
+        )
+
+        response = self.client.get(f"/catalog/{source_property.id}/")
+        response_text = response.content.decode().lower()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.wsgi_request.user.is_authenticated)
+        self.assertEqual(response.context["recommended_properties"], [])
+        self.assertContains(response, "No similar listings are available yet")
+        self.assertIn("similar listings", response_text)
+        self.assertNotIn("personalized", response_text)
+        self.assertNotIn("personal", response_text)
+        self.assertNotIn("tailored", response_text)
+        self.assertNotIn("based on your activity", response_text)
+
     def test_anonymous_landing_and_catalog_recommendation_states_are_empty_and_neutral(self) -> None:
         for path in ["/", "/catalog/"]:
             with self.subTest(path=path):
