@@ -57,4 +57,6 @@
             {% include "partials/_empty_state.html" with title="Catalog coming soon" message="No visible listings are available yet. Please check back after demo catalog data is seeded." action_href=site_catalog_url action_label="Open catalog" %}
         {% endif %}
     </section>
+
+    {% include "partials/_recommendation_section.html" with recommendations=recommended_properties heading_id="landing-recommendations-heading" eyebrow="Recommended" title="Recommended Listings" action_href=site_catalog_url action_label="Browse Catalog" empty_title="No recommendations available yet" empty_message="Save or view more properties to improve recommendations." empty_action_href=site_catalog_url empty_action_label="Browse catalog" favorite_action_surface="recommendations-landing" %}
 {% endblock %}

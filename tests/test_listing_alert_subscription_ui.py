@@ -184,7 +184,7 @@ class ListingAlertSubscriptionUITests(TestCase):
         self.assertContains(refresh_response, "You are subscribed")
         self.assertEqual(ListingAlertSubscription.objects.count(), 1)
 
-    def test_ui_action_does_not_trigger_matching_dispatch_email_or_recommendation_ui(self) -> None:
+    def test_ui_action_does_not_trigger_matching_dispatch_email_or_other_side_effects(self) -> None:
         self.client.force_login(self.user)
 
         with patch("homefinder.apps.properties.services.dispatch_similar_listing_alerts") as dispatcher:
@@ -201,8 +201,7 @@ class ListingAlertSubscriptionUITests(TestCase):
         self.assertEqual(PropertyInquiry.objects.count(), 0)
         self.assertEqual(BookingRequest.objects.count(), 0)
         self.assertEqual(Payment.objects.count(), 0)
-        self.assertNotContains(response, "Recommended")
-        self.assertNotContains(response, "recommendation")
+        self.assertContains(response, "Recommended Similar Listings")
 
     def test_post_uses_request_user_and_ignores_forged_user_identity(self) -> None:
         self.client.force_login(self.user)
