@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from decimal import Decimal
 from urllib.parse import urlencode
 
@@ -13,7 +14,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
 from homefinder.apps.properties.models import ListingAlertSubscription, Property, PropertyCategory
-from homefinder.apps.properties.services import PUBLICLY_VISIBLE_PROPERTY_STATUSES
+from homefinder.apps.properties.services import PUBLICLY_VISIBLE_PROPERTY_STATUSES, get_personalized_recommendations
 
 from .models import (
     BookingRequest,
@@ -33,6 +34,8 @@ from .services import (
     create_booking_fee_payment,
     fail_simulated_payment,
 )
+
+logger = logging.getLogger(__name__)
 
 DASHBOARD_CURRENT_LIMIT = 5
 DASHBOARD_OLDER_LIMIT = 5
@@ -76,6 +79,7 @@ def dashboard_page(request: HttpRequest) -> HttpResponse:
         .prefetch_related("amenities")
         .order_by("-created_at", "-id")[:DASHBOARD_SECTION_LIMIT],
     )
+    recommended_properties = _safe_get_recommendations(user=request.user)
 
     return render(
         request,
@@ -106,6 +110,7 @@ def dashboard_page(request: HttpRequest) -> HttpResponse:
                 empty_title="No alert subscriptions yet",
                 empty_message="You have not subscribed to similar-listing alerts yet.",
             ),
+            "recommended_properties": recommended_properties,
             "dashboard_current_limit": DASHBOARD_CURRENT_LIMIT,
             "dashboard_older_limit": DASHBOARD_OLDER_LIMIT,
         },
@@ -331,6 +336,20 @@ def _require_authenticated_user(
     if query_string:
         login_url = f"{login_url}?{query_string}"
     return redirect(login_url)
+
+
+def _safe_get_recommendations(*, user: object) -> list[dict[str, object]]:
+    try:
+        return get_personalized_recommendations(
+            user=user,
+            request_surface="dashboard",
+        )
+    except Exception:
+        logger.exception(
+            "Failed to load personalized recommendations.",
+            extra={"request_surface": "dashboard"},
+        )
+        return []
 
 
 def _build_section(*, rows: list[object], empty_title: str, empty_message: str) -> dict[str, object]:

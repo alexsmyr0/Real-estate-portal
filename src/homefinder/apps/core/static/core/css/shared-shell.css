@@ -443,6 +443,11 @@ textarea.form-control {
     gap: 1rem;
 }
 
+.recommendation-section {
+    display: grid;
+    gap: 1rem;
+}
+
 .property-card {
     border: 1px solid var(--ink-200);
     border-radius: var(--radius);
@@ -839,6 +844,10 @@ textarea.form-control {
 .dashboard-section {
     display: grid;
     gap: 1rem;
+}
+
+.dashboard-recommendation-section {
+    grid-column: 1 / -1;
 }
 
 .dashboard-section .results-header {

@@ -1,0 +1,21 @@
+<section class="panel recommendation-section{% if extra_section_class %} {{ extra_section_class }}{% endif %}" aria-labelledby="{{ heading_id }}">
+    <div class="page-header-inline">
+        <div>
+            <p class="eyebrow">{{ eyebrow|default:"Recommended" }}</p>
+            <h2 id="{{ heading_id }}">{{ title }}</h2>
+        </div>
+        {% if action_href and action_label %}
+            <a href="{{ action_href }}" class="button button-ghost">{{ action_label }}</a>
+        {% endif %}
+    </div>
+
+    {% if recommendations %}
+        <div class="property-grid">
+            {% for property in recommendations %}
+                {% include "partials/_property_card.html" with property=property favorite_action_surface=favorite_action_surface %}
+            {% endfor %}
+        </div>
+    {% else %}
+        {% include "partials/_empty_state.html" with title=empty_title message=empty_message action_href=empty_action_href action_label=empty_action_label %}
+    {% endif %}
+</section>

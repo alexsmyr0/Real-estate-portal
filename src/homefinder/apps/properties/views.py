@@ -32,6 +32,7 @@ from .services import (
     create_listing_alert_subscription,
     get_monthly_inquiry_and_saved_property_metrics,
     get_monthly_search_trend_metrics,
+    get_personalized_recommendations,
     get_visible_property,
     get_visible_property_detail,
     parse_catalog_search_params,
@@ -54,6 +55,10 @@ def catalog_page(request: HttpRequest) -> HttpResponse:
     search_results = search_visible_properties(search_params=search_params)
     properties = search_results["properties"]
     _apply_catalog_favorite_state(request=request, properties=properties)
+    recommended_properties = _safe_get_recommendations(
+        request=request,
+        request_surface="catalog",
+    )
 
     pagination = search_results["pagination"]
     current_page = pagination["page"]
@@ -84,6 +89,7 @@ def catalog_page(request: HttpRequest) -> HttpResponse:
         "properties/catalog.html",
         {
             "properties": properties,
+            "recommended_properties": recommended_properties,
             "pagination": pagination,
             "active_filters": {
                 "location": _first_query_value(request.GET, "location", "location_city", "city"),
@@ -111,12 +117,18 @@ def catalog_page(request: HttpRequest) -> HttpResponse:
 
 @require_http_methods(["GET"])
 def property_detail_page(request: HttpRequest, property_id: int) -> HttpResponse:
-    property_payload = get_visible_property_detail(property_id)
-    if property_payload is None:
+    property_obj = get_visible_property(property_id)
+    if property_obj is None:
         raise Http404("Property not found.")
+    property_payload = serialize_property_for_detail(property_obj)
 
     _apply_detail_favorite_state(request=request, property_payload=property_payload)
     _apply_detail_alert_subscription_state(request=request, property_payload=property_payload)
+    recommended_properties = _safe_get_recommendations(
+        request=request,
+        request_surface="detail",
+        source_property=property_obj,
+    )
 
     return _render_property_detail(
         request=request,
@@ -135,6 +147,7 @@ def property_detail_page(request: HttpRequest, property_id: int) -> HttpResponse
             request=request,
             property_id=property_id,
         ),
+        recommended_properties=recommended_properties,
     )
 
 
@@ -544,7 +557,15 @@ def _render_property_detail(
     booking_confirmation: BookingRequest | None = None,
     alert_subscription_confirmation: ListingAlertSubscription | None = None,
     inquiry_form: PropertyInquiryForm | None = None,
+    recommended_properties: list[dict[str, object]] | None = None,
 ) -> HttpResponse:
+    if recommended_properties is None:
+        recommended_properties = _safe_get_recommendations(
+            request=request,
+            request_surface="detail",
+            source_property_id=int(property_payload["id"]),
+        )
+
     return render(
         request,
         "properties/detail.html",
@@ -558,8 +579,35 @@ def _render_property_detail(
             "booking_confirmation": booking_confirmation,
             "alert_subscription_confirmation": alert_subscription_confirmation,
             "inquiry_form": inquiry_form if inquiry_form is not None else PropertyInquiryForm(),
+            "recommended_properties": recommended_properties,
         },
     )
+
+
+def _safe_get_recommendations(
+    *,
+    request: HttpRequest,
+    request_surface: str,
+    source_property: Property | None = None,
+    source_property_id: int | None = None,
+) -> list[dict[str, object]]:
+    if source_property is None and source_property_id is not None:
+        source_property = get_visible_property(source_property_id)
+    try:
+        recommendations = get_personalized_recommendations(
+            user=request.user,
+            request_surface=request_surface,
+            source_property=source_property,
+        )
+    except Exception:
+        logger.exception(
+            "Failed to load personalized recommendations.",
+            extra={"request_surface": request_surface},
+        )
+        return []
+
+    _apply_catalog_favorite_state(request=request, properties=recommendations)
+    return recommendations
 
 
 def _consume_verified_viewing_confirmation(
