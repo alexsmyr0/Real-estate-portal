@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import logging
+from decimal import Decimal
 from urllib.parse import urlencode
 
 from django.contrib import messages
-from django.http import HttpRequest, HttpResponse
+from django.core.exceptions import ValidationError
+from django.db import transaction
+from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.cache import never_cache
@@ -13,13 +16,32 @@ from django.views.decorators.http import require_http_methods
 from homefinder.apps.properties.models import ListingAlertSubscription, Property, PropertyCategory
 from homefinder.apps.properties.services import PUBLICLY_VISIBLE_PROPERTY_STATUSES, get_personalized_recommendations
 
-from .models import PropertyInquiry, SearchHistory, UserFavorite, ViewingRequest
+from .models import (
+    BookingRequest,
+    BookingRequestStatus,
+    Payment,
+    PaymentMethod,
+    PaymentPurpose,
+    PaymentStatus,
+    PropertyInquiry,
+    SearchHistory,
+    UserFavorite,
+    ViewingRequest,
+)
+from .services import (
+    cancel_simulated_payment,
+    complete_simulated_payment,
+    create_booking_fee_payment,
+    fail_simulated_payment,
+)
 
 logger = logging.getLogger(__name__)
 
 DASHBOARD_CURRENT_LIMIT = 5
 DASHBOARD_OLDER_LIMIT = 5
 DASHBOARD_SECTION_LIMIT = DASHBOARD_CURRENT_LIMIT + DASHBOARD_OLDER_LIMIT
+SIMULATED_BOOKING_FEE_AMOUNT = Decimal("49.99")
+SIMULATED_PAYMENT_ACTIONS = {"complete", "fail", "cancel", "retry"}
 
 
 @never_cache
@@ -93,6 +115,227 @@ def dashboard_page(request: HttpRequest) -> HttpResponse:
             "dashboard_older_limit": DASHBOARD_OLDER_LIMIT,
         },
     )
+
+
+@never_cache
+@require_http_methods(["GET"])
+def booking_simulated_payment_page(request: HttpRequest, booking_request_id: int) -> HttpResponse:
+    access_redirect = _require_authenticated_user(
+        request=request,
+        warning_message="Sign in to continue the simulated payment step.",
+        next_url=request.get_full_path(),
+    )
+    if access_redirect is not None:
+        return access_redirect
+
+    booking_request = _get_owned_booking_request(request=request, booking_request_id=booking_request_id)
+    payment = _latest_booking_payment(booking_request)
+    if payment is None:
+        if not _is_booking_payable(booking_request):
+            raise Http404("Simulated payment is not available for this booking request.")
+        payment = _get_or_create_booking_payment(booking_request)
+
+    return _render_booking_payment_page(request=request, booking_request=booking_request, payment=payment)
+
+
+@never_cache
+@require_http_methods(["POST"])
+def booking_simulated_payment_action(
+    request: HttpRequest,
+    booking_request_id: int,
+    action: str,
+) -> HttpResponse:
+    payment_url = reverse("site-booking-simulated-payment", args=[booking_request_id])
+    access_redirect = _require_authenticated_user(
+        request=request,
+        warning_message="Sign in to continue the simulated payment step.",
+        next_url=payment_url,
+    )
+    if access_redirect is not None:
+        return access_redirect
+
+    if action not in SIMULATED_PAYMENT_ACTIONS:
+        raise Http404("Payment action not found.")
+
+    booking_request = _get_owned_booking_request(request=request, booking_request_id=booking_request_id)
+    payment = _latest_booking_payment(booking_request)
+    if payment is None:
+        if not _is_booking_payable(booking_request):
+            raise Http404("Simulated payment is not available for this booking request.")
+        payment = _get_or_create_booking_payment(booking_request)
+
+    try:
+        if not _is_booking_payable(booking_request):
+            raise ValidationError({"booking_request": "This booking is no longer eligible for simulated payment actions."})
+
+        if action == "complete":
+            payment = complete_simulated_payment(payment)
+            messages.success(request, "Simulated payment completed.")
+        elif action == "fail":
+            payment = fail_simulated_payment(payment)
+            messages.error(request, "Simulated payment failed.")
+        elif action == "cancel":
+            payment = cancel_simulated_payment(payment)
+            messages.warning(request, "Simulated payment was cancelled.")
+        elif action == "retry":
+            payment = _create_retry_booking_payment(booking_request=booking_request, previous_payment=payment)
+            messages.info(request, "A new simulated payment attempt is ready.")
+    except ValidationError as error:
+        _add_validation_message(request=request, error=error)
+
+    return redirect(payment_url)
+
+
+def _render_booking_payment_page(
+    *,
+    request: HttpRequest,
+    booking_request: BookingRequest,
+    payment: Payment,
+) -> HttpResponse:
+    return render(
+        request,
+        "interactions/simulated_payment.html",
+        {
+            "booking_request": booking_request,
+            "payment": payment,
+            "payment_status": _serialize_payment_status(payment),
+            "payment_is_actionable": _is_booking_payable(booking_request),
+            "can_complete_payment": _is_booking_payable(booking_request) and payment.status == PaymentStatus.PENDING,
+            "can_fail_payment": _is_booking_payable(booking_request) and payment.status == PaymentStatus.PENDING,
+            "can_cancel_payment": _is_booking_payable(booking_request) and payment.status == PaymentStatus.PENDING,
+            "can_retry_payment": _is_booking_payable(booking_request)
+            and payment.status in {PaymentStatus.FAILED, PaymentStatus.CANCELLED},
+        },
+    )
+
+
+def _get_owned_booking_request(*, request: HttpRequest, booking_request_id: int) -> BookingRequest:
+    booking_request = (
+        BookingRequest.objects.filter(pk=booking_request_id, user=request.user)
+        .select_related("property", "user")
+        .first()
+    )
+    if booking_request is None:
+        raise Http404("Booking request not found.")
+    return booking_request
+
+
+def _get_or_create_booking_payment(booking_request: BookingRequest) -> Payment:
+    with transaction.atomic():
+        locked_booking_request = (
+            BookingRequest.objects.select_for_update()
+            .select_related("property", "user")
+            .get(pk=booking_request.pk)
+        )
+        if not _is_booking_payable(locked_booking_request):
+            raise ValidationError({"booking_request": "This booking is not eligible for a simulated payment."})
+        existing_payment = _latest_booking_payment(locked_booking_request)
+        if existing_payment is not None:
+            return existing_payment
+
+        return create_booking_fee_payment(
+            booking_request=locked_booking_request,
+            amount=SIMULATED_BOOKING_FEE_AMOUNT,
+            method=PaymentMethod.CREDIT_CARD,
+        )
+
+
+def _latest_booking_payment(booking_request: BookingRequest) -> Payment | None:
+    return (
+        Payment.objects.filter(
+            booking_request=booking_request,
+            user=booking_request.user,
+            payment_purpose=PaymentPurpose.BOOKING_FEE,
+        )
+        .select_related("booking_request", "booking_request__property", "user")
+        .order_by("-created_at", "-pk")
+        .first()
+    )
+
+
+def _is_booking_payable(booking_request: BookingRequest) -> bool:
+    return (
+        booking_request.status in {BookingRequestStatus.PENDING, BookingRequestStatus.APPROVED}
+        and booking_request.property.category == PropertyCategory.RENTAL
+        and booking_request.property.status in PUBLICLY_VISIBLE_PROPERTY_STATUSES
+    )
+
+
+def _create_retry_booking_payment(*, booking_request: BookingRequest, previous_payment: Payment) -> Payment:
+    if previous_payment.status not in {PaymentStatus.FAILED, PaymentStatus.CANCELLED}:
+        raise ValidationError({"status": "Only failed or cancelled simulated payments can be retried."})
+
+    return create_booking_fee_payment(
+        booking_request=booking_request,
+        amount=previous_payment.amount,
+        method=previous_payment.payment_method,
+    )
+
+
+def _serialize_payment_status(payment: Payment) -> dict[str, str]:
+    status_copy = {
+        PaymentStatus.PENDING: {
+            "label": "Pending",
+            "tone": "pending",
+            "heading": "Simulated payment pending",
+            "message": "Your simulated payment is waiting to be completed.",
+        },
+        PaymentStatus.COMPLETED: {
+            "label": "Completed",
+            "tone": "success",
+            "heading": "Simulated payment completed",
+            "message": "Simulated payment completed. No real payment was processed.",
+        },
+        PaymentStatus.FAILED: {
+            "label": "Failed",
+            "tone": "failed",
+            "heading": "Simulated payment failed",
+            "message": "Simulated payment failed. You may start a new simulated attempt.",
+        },
+        PaymentStatus.CANCELLED: {
+            "label": "Cancelled",
+            "tone": "cancelled",
+            "heading": "Simulated payment cancelled",
+            "message": "Simulated payment was cancelled. You may start a new simulated attempt.",
+        },
+    }
+    return status_copy.get(
+        payment.status,
+        {
+            "label": str(payment.status),
+            "tone": "pending",
+            "heading": "Simulated payment status",
+            "message": "Review the persisted simulated payment status.",
+        },
+    )
+
+
+def _add_validation_message(*, request: HttpRequest, error: ValidationError) -> None:
+    if hasattr(error, "message_dict"):
+        first_messages = next(iter(error.message_dict.values()), [])
+        message = first_messages[0] if first_messages else "That simulated payment action is not available."
+    else:
+        messages_list = getattr(error, "messages", [])
+        message = messages_list[0] if messages_list else "That simulated payment action is not available."
+
+    messages.error(request, message)
+
+
+def _require_authenticated_user(
+    request: HttpRequest,
+    *,
+    warning_message: str,
+    next_url: str,
+) -> HttpResponse | None:
+    if request.user.is_authenticated:
+        return None
+
+    messages.warning(request, warning_message)
+    login_url = reverse("login-page")
+    query_string = urlencode({"next": next_url}) if next_url else ""
+    if query_string:
+        login_url = f"{login_url}?{query_string}"
+    return redirect(login_url)
 
 
 def _safe_get_recommendations(*, user: object) -> list[dict[str, object]]:
