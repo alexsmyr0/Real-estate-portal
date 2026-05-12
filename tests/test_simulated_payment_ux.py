@@ -48,6 +48,11 @@ class SimulatedPaymentUxTests(TestCase):
             title="Payment UX Rental",
             status=PropertyStatus.AVAILABLE,
         )
+        self.residential_property = self._create_property(
+            title="Payment UX Residential",
+            status=PropertyStatus.AVAILABLE,
+            category=PropertyCategory.RESIDENTIAL,
+        )
         self.start_date = timezone.localdate() + timedelta(days=5)
         self.end_date = timezone.localdate() + timedelta(days=9)
 
@@ -149,6 +154,24 @@ class SimulatedPaymentUxTests(TestCase):
         self.assertEqual(completed_payment.updated_at, first_updated_at)
         self.assertEqual(Payment.objects.count(), 1)
 
+    def test_approved_booking_can_create_and_complete_simulated_payment(self) -> None:
+        booking_request = self._create_booking_request(status=BookingRequestStatus.APPROVED)
+        self.client.force_login(self.user)
+
+        page_response = self.client.get(f"/bookings/{booking_request.id}/simulated-payment/")
+        action_response = self.client.post(
+            f"/bookings/{booking_request.id}/simulated-payment/complete/",
+            follow=True,
+        )
+
+        payment = Payment.objects.get()
+        self.assertEqual(page_response.status_code, 200)
+        self.assertContains(page_response, "Simulated payment pending")
+        self.assertContains(page_response, "Complete simulated payment")
+        self.assertContains(action_response, "Simulated payment completed.")
+        self.assertEqual(payment.booking_request, booking_request)
+        self.assertEqual(payment.status, PaymentStatus.COMPLETED)
+
     def test_failed_and_cancelled_statuses_render_and_failed_payment_can_start_new_attempt(self) -> None:
         booking_request = self._create_booking_request()
         self.client.force_login(self.user)
@@ -175,6 +198,31 @@ class SimulatedPaymentUxTests(TestCase):
         self.assertEqual(Payment.objects.filter(status=PaymentStatus.FAILED).count(), 1)
         self.assertEqual(Payment.objects.filter(status=PaymentStatus.CANCELLED).count(), 1)
         self.assertEqual(Payment.objects.count(), 2)
+
+    def test_unsupported_action_slug_does_not_create_payment(self) -> None:
+        booking_request = self._create_booking_request()
+        self.client.force_login(self.user)
+
+        response = self.client.post(f"/bookings/{booking_request.id}/simulated-payment/not-real/")
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(Payment.objects.count(), 0)
+
+    def test_unsupported_action_slug_does_not_mutate_existing_payment(self) -> None:
+        booking_request = self._create_booking_request()
+        payment = create_booking_fee_payment(
+            booking_request=booking_request,
+            amount="49.99",
+            method=PaymentMethod.CREDIT_CARD,
+        )
+        self.client.force_login(self.user)
+
+        response = self.client.post(f"/bookings/{booking_request.id}/simulated-payment/not-real/")
+
+        payment.refresh_from_db()
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(Payment.objects.count(), 1)
+        self.assertEqual(payment.status, PaymentStatus.PENDING)
 
     def test_invalid_transition_shows_clear_error_and_preserves_persisted_status(self) -> None:
         booking_request = self._create_booking_request()
@@ -264,6 +312,42 @@ class SimulatedPaymentUxTests(TestCase):
         self.assertEqual(response.status_code, 404)
         self.assertEqual(Payment.objects.count(), 0)
 
+    def test_abnormal_non_rental_booking_cannot_create_new_simulated_payment(self) -> None:
+        booking_request = self._create_abnormal_non_rental_booking_request()
+        self.client.force_login(self.user)
+
+        page_response = self.client.get(f"/bookings/{booking_request.id}/simulated-payment/")
+        action_response = self.client.post(f"/bookings/{booking_request.id}/simulated-payment/complete/")
+
+        self.assertEqual(page_response.status_code, 404)
+        self.assertEqual(action_response.status_code, 404)
+        self.assertEqual(Payment.objects.count(), 0)
+
+    def test_abnormal_non_rental_booking_existing_payment_actions_are_blocked(self) -> None:
+        booking_request = self._create_abnormal_non_rental_booking_request()
+        payment = Payment.objects.create(
+            user=self.user,
+            booking_request=booking_request,
+            payment_purpose=PaymentPurpose.BOOKING_FEE,
+            payment_method=PaymentMethod.CREDIT_CARD,
+            amount=Decimal("49.99"),
+            status=PaymentStatus.PENDING,
+        )
+        self.client.force_login(self.user)
+
+        page_response = self.client.get(f"/bookings/{booking_request.id}/simulated-payment/")
+        action_response = self.client.post(
+            f"/bookings/{booking_request.id}/simulated-payment/complete/",
+            follow=True,
+        )
+
+        payment.refresh_from_db()
+        self.assertEqual(page_response.status_code, 200)
+        self.assertContains(page_response, "no longer eligible for simulated payment actions")
+        self.assertContains(action_response, "This booking is no longer eligible for simulated payment actions.")
+        self.assertEqual(payment.status, PaymentStatus.PENDING)
+        self.assertEqual(Payment.objects.count(), 1)
+
     def test_existing_payment_status_can_render_after_booking_later_becomes_non_payable(self) -> None:
         booking_request = self._create_booking_request()
         payment = create_booking_fee_payment(
@@ -320,11 +404,31 @@ class SimulatedPaymentUxTests(TestCase):
             booking_request.save()
         return booking_request
 
-    def _create_property(self, *, title: str, status: str) -> Property:
+    def _create_abnormal_non_rental_booking_request(self) -> BookingRequest:
+        BookingRequest.objects.bulk_create(
+            [
+                BookingRequest(
+                    user=self.user,
+                    property=self.residential_property,
+                    start_date=self.start_date,
+                    end_date=self.end_date,
+                    status=BookingRequestStatus.PENDING,
+                )
+            ]
+        )
+        return BookingRequest.objects.get(property=self.residential_property)
+
+    def _create_property(
+        self,
+        *,
+        title: str,
+        status: str,
+        category: str = PropertyCategory.RENTAL,
+    ) -> Property:
         return Property.objects.create(
             title=title,
             description=f"{title} description",
-            category=PropertyCategory.RENTAL,
+            category=category,
             status=status,
             city="Athens",
             area="Center",

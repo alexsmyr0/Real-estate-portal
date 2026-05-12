@@ -38,6 +38,7 @@ DASHBOARD_CURRENT_LIMIT = 5
 DASHBOARD_OLDER_LIMIT = 5
 DASHBOARD_SECTION_LIMIT = DASHBOARD_CURRENT_LIMIT + DASHBOARD_OLDER_LIMIT
 SIMULATED_BOOKING_FEE_AMOUNT = Decimal("49.99")
+SIMULATED_PAYMENT_ACTIONS = {"complete", "fail", "cancel", "retry"}
 
 
 @never_cache
@@ -148,6 +149,9 @@ def booking_simulated_payment_action(
     if access_redirect is not None:
         return access_redirect
 
+    if action not in SIMULATED_PAYMENT_ACTIONS:
+        raise Http404("Payment action not found.")
+
     booking_request = _get_owned_booking_request(request=request, booking_request_id=booking_request_id)
     payment = _latest_booking_payment(booking_request)
     if payment is None:
@@ -171,8 +175,6 @@ def booking_simulated_payment_action(
         elif action == "retry":
             payment = _create_retry_booking_payment(booking_request=booking_request, previous_payment=payment)
             messages.info(request, "A new simulated payment attempt is ready.")
-        else:
-            raise Http404("Payment action not found.")
     except ValidationError as error:
         _add_validation_message(request=request, error=error)
 
