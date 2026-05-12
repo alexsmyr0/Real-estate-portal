@@ -8,11 +8,11 @@ register = template.Library()
 
 @register.filter
 def accessible_widget(field: BoundField) -> str:
-    described_by = []
+    described_by = _unique_tokens(field.field.widget.attrs.get("aria-describedby", ""))
     if field.help_text:
-        described_by.append(f"{field.id_for_label}_helptext")
+        _append_unique(described_by, f"{field.id_for_label}_helptext")
     if field.errors:
-        described_by.append(f"{field.id_for_label}_error")
+        _append_unique(described_by, f"{field.id_for_label}_errors")
 
     attrs = {}
     if described_by:
@@ -21,3 +21,15 @@ def accessible_widget(field: BoundField) -> str:
         attrs["aria-invalid"] = "true"
 
     return field.as_widget(attrs=attrs)
+
+
+def _unique_tokens(value: object) -> list[str]:
+    tokens: list[str] = []
+    for token in str(value or "").split():
+        _append_unique(tokens, token)
+    return tokens
+
+
+def _append_unique(tokens: list[str], token: str) -> None:
+    if token and token not in tokens:
+        tokens.append(token)
