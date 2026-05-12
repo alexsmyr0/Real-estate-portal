@@ -559,6 +559,11 @@ def _render_property_detail(
     inquiry_form: PropertyInquiryForm | None = None,
     recommended_properties: list[dict[str, object]] | None = None,
 ) -> HttpResponse:
+    _apply_detail_favorite_state(request=request, property_payload=property_payload)
+    _apply_detail_alert_subscription_state(request=request, property_payload=property_payload)
+    if booking_form is None and _is_rental_property_payload(property_payload):
+        booking_form = BookingRequestForm()
+
     if recommended_properties is None:
         recommended_properties = _safe_get_recommendations(
             request=request,
