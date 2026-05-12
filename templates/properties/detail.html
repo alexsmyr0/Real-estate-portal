@@ -183,6 +183,9 @@
                                 to
                                 {{ booking_confirmation.end_date|date:"M j, Y" }}.
                             </p>
+                            <a class="button button-primary" href="{% url 'site-booking-simulated-payment' booking_confirmation.id %}">
+                                Continue to simulated payment
+                            </a>
                         </div>
                     {% endif %}
 

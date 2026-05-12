@@ -565,3 +565,11 @@ def create_booking_fee_payment(
 
 def complete_simulated_payment(payment: Payment) -> Payment:
     return simulated_payment_service.complete_payment(payment)
+
+
+def fail_simulated_payment(payment: Payment) -> Payment:
+    return simulated_payment_service.fail_payment(payment)
+
+
+def cancel_simulated_payment(payment: Payment) -> Payment:
+    return simulated_payment_service.cancel_payment(payment)
