@@ -112,5 +112,7 @@
                 {% include "partials/_empty_state.html" with title=alerts.empty_title message=alerts.empty_message action_href=site_catalog_url action_label="Browse listings" %}
             {% endif %}
         </section>
+
+        {% include "partials/_recommendation_section.html" with recommendations=recommended_properties heading_id="dashboard-recommendations-heading" extra_section_class="dashboard-recommendation-section" eyebrow="Personalized" title="Recommended For You" action_href=site_catalog_url action_label="Browse catalog" empty_title="No recommendations available yet" empty_message="Save or view more properties to improve recommendations." empty_action_href=site_catalog_url empty_action_label="Explore catalog" favorite_action_surface="recommendations-dashboard" %}
     </div>
 {% endblock %}

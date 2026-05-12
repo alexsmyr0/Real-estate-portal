@@ -11,6 +11,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY manage.py pyproject.toml ./
 COPY src ./src
 COPY templates ./templates
+COPY tests ./tests
 
 RUN pip install --no-cache-dir --no-deps .
 

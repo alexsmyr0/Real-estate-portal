@@ -123,12 +123,15 @@ class UserDashboardTests(TestCase):
         self.assertContains(response, "Could you share building-fee details?")
         self.assertContains(response, "Morning visit preferred")
         self.assertNotContains(response, "Location: Patra")
-        self.assertNotContains(response, "Other User Listing")
         self.assertNotContains(response, "Other user private inquiry")
         self.assertNotContains(response, "Other user private viewing")
 
         self.assertEqual(response.context["searches"]["current"][0]["criteria"][0], "Location: Athens")
         self.assertEqual(response.context["favorites"]["current"][0].user_id, self.user.id)
+        self.assertNotIn(
+            self.other_property.id,
+            [favorite.property_id for favorite in response.context["favorites"]["current"]],
+        )
         self.assertEqual(response.context["inquiries"]["shown_count"], 1)
         self.assertEqual(response.context["viewings"]["shown_count"], 1)
         self.assertEqual(response.context["inquiries"]["current"][0]["property_title"], "User Dashboard Listing")
@@ -224,7 +227,6 @@ class UserDashboardTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "User Dashboard Listing")
         self.assertNotContains(response, "Removed Saved Listing")
-        self.assertNotContains(response, "Other User Listing")
         self.assertEqual(
             [favorite.property_id for favorite in response.context["favorites"]["current"]],
             [self.property.id],
@@ -375,7 +377,7 @@ class UserDashboardTests(TestCase):
             True,
         )
 
-    def test_dashboard_does_not_add_reporting_recommendations_or_logging_side_effects(self) -> None:
+    def test_dashboard_recommendations_do_not_add_reporting_or_logging_side_effects(self) -> None:
         self.client.force_login(self.user)
         SearchHistory.objects.create(user=self.user, location_city="Athens")
 
@@ -384,7 +386,7 @@ class UserDashboardTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(ActivityLog.objects.count(), 0)
         self.assertNotContains(response, "Supervisor")
-        self.assertNotContains(response, "recommendation")
+        self.assertContains(response, "Recommended For You")
         with self.assertRaises(NoReverseMatch):
             reverse("site-supervisor-dashboard")
 
