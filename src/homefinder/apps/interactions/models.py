@@ -45,6 +45,21 @@ ALLOWED_BOOKING_STATUS_TRANSITIONS: dict[str, set[str]] = {
 }
 
 
+INQUIRY_STATUS_ADVANCE_SEQUENCE: dict[str, str | None] = {
+    PropertyInquiryStatus.OPEN: PropertyInquiryStatus.IN_PROGRESS,
+    PropertyInquiryStatus.IN_PROGRESS: PropertyInquiryStatus.CLOSED,
+    PropertyInquiryStatus.CLOSED: None,
+}
+
+
+VIEWING_STATUS_ADVANCE_SEQUENCE: dict[str, str | None] = {
+    ViewingRequestStatus.PENDING: ViewingRequestStatus.CONFIRMED,
+    ViewingRequestStatus.CONFIRMED: ViewingRequestStatus.COMPLETED,
+    ViewingRequestStatus.CANCELLED: None,
+    ViewingRequestStatus.COMPLETED: None,
+}
+
+
 class PaymentPurpose(models.TextChoices):
     BOOKING_FEE = "BOOKING_FEE", "Booking fee"
     PREMIUM_SERVICE = "PREMIUM_SERVICE", "Premium service"
