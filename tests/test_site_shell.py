@@ -49,7 +49,6 @@ class SharedSiteShellTests(TestCase):
         self.assertNotContains(response, "Sign out")
         self.assertContains(response, "Home")
         self.assertContains(response, "Browse Listings")
-        self.assertContains(response, "Browse Catalog")
         self.assertContains(response, "/catalog/")
         self.assertContains(response, "/static/core/css/shared-shell.css")
 

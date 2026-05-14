@@ -6,7 +6,9 @@ from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.core.exceptions import ValidationError
+from django.core.paginator import Paginator
 from django.db import transaction
+from django.db.models import QuerySet
 from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -38,83 +40,206 @@ from .services import (
 
 logger = logging.getLogger(__name__)
 
-DASHBOARD_CURRENT_LIMIT = 5
-DASHBOARD_OLDER_LIMIT = 5
-DASHBOARD_SECTION_LIMIT = DASHBOARD_CURRENT_LIMIT + DASHBOARD_OLDER_LIMIT
+DASHBOARD_PREVIEW_LIMIT = 3
+DASHBOARD_DETAIL_PAGE_SIZE = 20
 SIMULATED_BOOKING_FEE_AMOUNT = Decimal("49.99")
 SIMULATED_PAYMENT_ACTIONS = {"complete", "fail", "cancel", "retry"}
+
+
+def _require_dashboard_user(request: HttpRequest) -> HttpResponse | None:
+    if request.user.is_authenticated:
+        return None
+    messages.warning(request, "Sign in to view your dashboard.")
+    login_url = f"{reverse('login-page')}?{urlencode({'next': request.get_full_path()})}"
+    return redirect(login_url)
+
+
+def _searches_queryset(user: object) -> QuerySet[SearchHistory]:
+    return SearchHistory.objects.filter(user=user).order_by("-created_at", "-id")
+
+
+def _favorites_queryset(user: object) -> QuerySet[UserFavorite]:
+    return (
+        UserFavorite.objects.filter(
+            user=user,
+            property__status__in=PUBLICLY_VISIBLE_PROPERTY_STATUSES,
+        )
+        .select_related("property")
+        .order_by("-created_at", "-id")
+    )
+
+
+def _inquiries_queryset(user: object) -> QuerySet[PropertyInquiry]:
+    return (
+        PropertyInquiry.objects.filter(user=user)
+        .select_related("property")
+        .order_by("-created_at", "-id")
+    )
+
+
+def _viewings_queryset(user: object) -> QuerySet[ViewingRequest]:
+    return (
+        ViewingRequest.objects.filter(user=user)
+        .select_related("property")
+        .order_by("-created_at", "-id")
+    )
+
+
+def _alerts_queryset(user: object) -> QuerySet[ListingAlertSubscription]:
+    return (
+        ListingAlertSubscription.objects.filter(user=user, is_active=True)
+        .select_related("source_property")
+        .prefetch_related("amenities")
+        .order_by("-created_at", "-id")
+    )
 
 
 @never_cache
 @require_http_methods(["GET"])
 def dashboard_page(request: HttpRequest) -> HttpResponse:
-    if not request.user.is_authenticated:
-        messages.warning(request, "Sign in to view your dashboard.")
-        login_url = f"{reverse('login-page')}?{urlencode({'next': request.get_full_path()})}"
-        return redirect(login_url)
+    auth_redirect = _require_dashboard_user(request)
+    if auth_redirect is not None:
+        return auth_redirect
 
-    search_rows = list(
-        SearchHistory.objects.filter(user=request.user).order_by("-created_at", "-id")[:DASHBOARD_SECTION_LIMIT],
-    )
-    favorite_rows = list(
-        UserFavorite.objects.filter(
-            user=request.user,
-            property__status__in=PUBLICLY_VISIBLE_PROPERTY_STATUSES,
-        )
-        .select_related("property")
-        .order_by("-created_at", "-id")[:DASHBOARD_SECTION_LIMIT],
-    )
-    inquiry_rows = list(
-        PropertyInquiry.objects.filter(user=request.user)
-        .select_related("property")
-        .order_by("-created_at", "-id")[:DASHBOARD_SECTION_LIMIT],
-    )
-    viewing_rows = list(
-        ViewingRequest.objects.filter(user=request.user)
-        .select_related("property")
-        .order_by("-created_at", "-id")[:DASHBOARD_SECTION_LIMIT],
-    )
-    alert_rows = list(
-        ListingAlertSubscription.objects.filter(user=request.user, is_active=True)
-        .select_related("source_property")
-        .prefetch_related("amenities")
-        .order_by("-created_at", "-id")[:DASHBOARD_SECTION_LIMIT],
-    )
     recommended_properties = _safe_get_recommendations(user=request.user)
 
     return render(
         request,
         "interactions/dashboard.html",
         {
-            "searches": _build_section(
-                rows=[_serialize_search_history(row) for row in search_rows],
+            "searches": _preview_section(
+                queryset=_searches_queryset(request.user),
+                serializer=_serialize_search_history,
+                detail_url=reverse("site-dashboard-searches"),
                 empty_title="No recent searches yet",
                 empty_message="You have not searched yet.",
             ),
-            "favorites": _build_section(
-                rows=favorite_rows,
+            "favorites": _preview_section(
+                queryset=_favorites_queryset(request.user),
+                serializer=None,
+                detail_url=reverse("site-favorites"),
                 empty_title="No saved properties yet",
                 empty_message="You have not saved any properties yet.",
             ),
-            "inquiries": _build_section(
-                rows=[_serialize_property_activity(row) for row in inquiry_rows],
+            "inquiries": _preview_section(
+                queryset=_inquiries_queryset(request.user),
+                serializer=_serialize_property_activity,
+                detail_url=reverse("site-dashboard-inquiries"),
                 empty_title="No inquiries yet",
                 empty_message="You have not submitted inquiries yet.",
             ),
-            "viewings": _build_section(
-                rows=[_serialize_property_activity(row) for row in viewing_rows],
+            "viewings": _preview_section(
+                queryset=_viewings_queryset(request.user),
+                serializer=_serialize_property_activity,
+                detail_url=reverse("site-dashboard-viewings"),
                 empty_title="No viewing requests yet",
                 empty_message="You have not requested any viewings yet.",
             ),
-            "alerts": _build_section(
-                rows=[_serialize_alert_subscription(row) for row in alert_rows],
+            "alerts": _preview_section(
+                queryset=_alerts_queryset(request.user),
+                serializer=_serialize_alert_subscription,
+                detail_url=reverse("site-dashboard-alerts"),
                 empty_title="No alert subscriptions yet",
                 empty_message="You have not subscribed to similar-listing alerts yet.",
             ),
             "recommended_properties": recommended_properties,
-            "dashboard_current_limit": DASHBOARD_CURRENT_LIMIT,
-            "dashboard_older_limit": DASHBOARD_OLDER_LIMIT,
         },
+    )
+
+
+def _render_dashboard_detail(
+    request: HttpRequest,
+    *,
+    queryset: QuerySet[object],
+    serializer: object,
+    page_title: str,
+    item_template: str,
+    empty_title: str,
+    empty_message: str,
+    empty_action_label: str,
+) -> HttpResponse:
+    auth_redirect = _require_dashboard_user(request)
+    if auth_redirect is not None:
+        return auth_redirect
+
+    paginator = Paginator(queryset, DASHBOARD_DETAIL_PAGE_SIZE)
+    page_obj = paginator.get_page(request.GET.get("page"))
+    items = [serializer(row) for row in page_obj.object_list]
+
+    return render(
+        request,
+        "interactions/dashboard_detail.html",
+        {
+            "page_title": page_title,
+            "item_template": item_template,
+            "items": items,
+            "page_obj": page_obj,
+            "total_count": paginator.count,
+            "empty_title": empty_title,
+            "empty_message": empty_message,
+            "empty_action_href": reverse("site-catalog"),
+            "empty_action_label": empty_action_label,
+        },
+    )
+
+
+@never_cache
+@require_http_methods(["GET"])
+def dashboard_searches_list(request: HttpRequest) -> HttpResponse:
+    return _render_dashboard_detail(
+        request,
+        queryset=_searches_queryset(request.user) if request.user.is_authenticated else SearchHistory.objects.none(),
+        serializer=_serialize_search_history,
+        page_title="Recent searches",
+        item_template="search",
+        empty_title="No recent searches yet",
+        empty_message="You have not searched yet.",
+        empty_action_label="Start browsing",
+    )
+
+
+@never_cache
+@require_http_methods(["GET"])
+def dashboard_inquiries_list(request: HttpRequest) -> HttpResponse:
+    return _render_dashboard_detail(
+        request,
+        queryset=_inquiries_queryset(request.user) if request.user.is_authenticated else PropertyInquiry.objects.none(),
+        serializer=_serialize_property_activity,
+        page_title="Inquiries",
+        item_template="inquiry",
+        empty_title="No inquiries yet",
+        empty_message="You have not submitted inquiries yet.",
+        empty_action_label="Find a property",
+    )
+
+
+@never_cache
+@require_http_methods(["GET"])
+def dashboard_viewings_list(request: HttpRequest) -> HttpResponse:
+    return _render_dashboard_detail(
+        request,
+        queryset=_viewings_queryset(request.user) if request.user.is_authenticated else ViewingRequest.objects.none(),
+        serializer=_serialize_property_activity,
+        page_title="Viewing requests",
+        item_template="viewing",
+        empty_title="No viewing requests yet",
+        empty_message="You have not requested any viewings yet.",
+        empty_action_label="Browse listings",
+    )
+
+
+@never_cache
+@require_http_methods(["GET"])
+def dashboard_alerts_list(request: HttpRequest) -> HttpResponse:
+    return _render_dashboard_detail(
+        request,
+        queryset=_alerts_queryset(request.user) if request.user.is_authenticated else ListingAlertSubscription.objects.none(),
+        serializer=_serialize_alert_subscription,
+        page_title="Alert subscriptions",
+        item_template="alert",
+        empty_title="No alert subscriptions yet",
+        empty_message="You have not subscribed to similar-listing alerts yet.",
+        empty_action_label="Browse listings",
     )
 
 
@@ -336,13 +461,23 @@ def _add_validation_message(*, request: HttpRequest, error: ValidationError) -> 
     messages.error(request, message)
 
 
-def _build_section(*, rows: list[object], empty_title: str, empty_message: str) -> dict[str, object]:
+def _preview_section(
+    *,
+    queryset: QuerySet[object],
+    serializer: object,
+    detail_url: str,
+    empty_title: str,
+    empty_message: str,
+) -> dict[str, object]:
+    total_count = queryset.count()
+    preview_rows = list(queryset[:DASHBOARD_PREVIEW_LIMIT])
+    items = [serializer(row) for row in preview_rows] if serializer else preview_rows
     return {
-        "current": rows[:DASHBOARD_CURRENT_LIMIT],
-        "older": rows[DASHBOARD_CURRENT_LIMIT:DASHBOARD_SECTION_LIMIT],
+        "items": items,
+        "total_count": total_count,
+        "detail_url": detail_url,
         "empty_title": empty_title,
         "empty_message": empty_message,
-        "shown_count": len(rows),
     }
 
 

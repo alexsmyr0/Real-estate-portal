@@ -5,12 +5,6 @@ import logging
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import render
 
-from homefinder.apps.properties.services import (
-    get_featured_visible_properties,
-    get_personalized_recommendations,
-    visible_properties_queryset,
-)
-
 logger = logging.getLogger(__name__)
 
 
@@ -32,47 +26,7 @@ def health(_request: HttpRequest) -> JsonResponse:
 
 
 def site_home(request: HttpRequest) -> HttpResponse:
-    featured_properties = get_featured_visible_properties(limit=3)
-    total_visible_listings = visible_properties_queryset().count()
-    recommended_properties = _safe_get_recommendations(
-        user=request.user,
-        request_surface="landing",
-    )
-
-    return render(
-        request,
-        "core/site_home.html",
-        {
-            "featured_properties": featured_properties,
-            "total_visible_listings": total_visible_listings,
-            "recommended_properties": recommended_properties,
-            "recommendation_empty_message": _recommendation_empty_message(request),
-        },
-    )
-
-
-def _recommendation_empty_message(request: HttpRequest) -> str:
-    if request.user.is_authenticated:
-        return "Save or view more properties to improve recommendations."
-    return "Browse listings to discover recommendations."
-
-
-def _safe_get_recommendations(
-    *,
-    user: object,
-    request_surface: str,
-) -> list[dict[str, object]]:
-    try:
-        return get_personalized_recommendations(
-            user=user,
-            request_surface=request_surface,
-        )
-    except Exception:
-        logger.exception(
-            "Failed to load personalized recommendations.",
-            extra={"request_surface": request_surface},
-        )
-        return []
+    return render(request, "core/site_home.html")
 
 
 def unauthorized_response(message: str = "Unauthorized") -> JsonResponse:
