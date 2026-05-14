@@ -1,25 +1,22 @@
 {% extends "base.html" %}
-{% url "site-catalog" as site_catalog_url %}
 
 {% block title %}HomeFinder | Discover Properties{% endblock %}
 
 {% block page_header %}
     <section class="page-hero landing-hero">
         <p class="eyebrow">Property Discovery</p>
-        <h1>Find the right property for your next move</h1>
+        <h1>Your next address starts here</h1>
         <p>
-            Explore public residential, commercial, and rental listings across Greece with fast filters and live availability context.
+            Explore public residential, commercial, and rental listings all across Greece.
         </p>
     </section>
 {% endblock %}
 
 {% block content %}
+    {% url "site-catalog" as site_catalog_url %}
     <section id="featured-listings" class="panel">
         <div class="page-header-inline">
-            <div>
-                <p class="eyebrow">Featured</p>
-                <h2>Current Listings</h2>
-            </div>
+            <h2>Current Listings</h2>
             <a href="{{ site_catalog_url }}" class="button button-ghost">View Full Catalog</a>
         </div>
         {% if featured_properties %}
@@ -33,5 +30,5 @@
         {% endif %}
     </section>
 
-    {% include "partials/_recommendation_section.html" with recommendations=recommended_properties heading_id="landing-recommendations-heading" eyebrow="Recommended" title="Recommended Listings" action_href=site_catalog_url action_label="Browse Catalog" empty_title="No recommendations available yet" empty_message=recommendation_empty_message empty_action_href=site_catalog_url empty_action_label="Browse catalog" favorite_action_surface="recommendations-landing" %}
+    {% include "partials/_recommendation_section.html" with recommendations=recommended_properties heading_id="landing-recommendations-heading" title="Recommended Listings" action_href=site_catalog_url action_label="Browse Catalog" empty_title="No recommendations available yet" empty_message=recommendation_empty_message empty_action_href=site_catalog_url empty_action_label="Browse catalog" favorite_action_surface="recommendations-landing" %}
 {% endblock %}
