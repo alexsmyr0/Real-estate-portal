@@ -856,9 +856,9 @@ textarea.form-control {
 }
 
 .dashboard-section {
-    display: grid;
+    display: flex;
+    flex-direction: column;
     gap: 1rem;
-    align-content: start;
 }
 
 .dashboard-recommendation-section {
@@ -869,15 +869,50 @@ textarea.form-control {
     margin-bottom: 0;
 }
 
-.dashboard-bucket {
-    display: grid;
-    gap: 0.65rem;
+.dashboard-section-heading-link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
 }
 
-.dashboard-bucket h3 {
-    margin: 0;
+.dashboard-section-heading-link:hover h2,
+.dashboard-section-heading-link:focus-visible h2 {
+    color: var(--accent);
+}
+
+.dashboard-back-link {
+    text-decoration: none;
+    color: inherit;
+}
+
+.dashboard-back-link:hover,
+.dashboard-back-link:focus-visible {
+    color: var(--accent);
+}
+
+.dashboard-section-footer {
+    margin-top: auto;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.pagination-status {
     color: var(--ink-700);
-    font-size: 1rem;
+    font-weight: 600;
+}
+
+.button.is-disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
 }
 
 .dashboard-list {
