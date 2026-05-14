@@ -7,6 +7,7 @@ Detailed ticket definitions live in:
 - `docs/planning/track-a.md`
 - `docs/planning/track-k.md`
 - `docs/planning/track-n.md`
+- `docs/planning/track-Admin.md`
 
 Canonical planning inputs remain in:
 
@@ -41,17 +42,18 @@ Canonical planning inputs remain in:
 1. Respect the canonical phase order: `P0 -> P1 -> P2 -> P3 -> P4`.
 2. Inside each phase, prioritize tickets that unblock the most other tracks.
 3. Track `A` owns browser UI/UX plus auth and user-flow backend.
-4. Track `K` owns catalog, search, admin, seed data, reporting, and recommendation backend.
+4. Track `K` owns catalog, search, Django admin baseline, seed data, reporting, and recommendation backend.
 5. Track `N` owns notifications, logging, alerts, booking, payments, and messaging or retention operations.
-6. Track `A` intentionally carries the heaviest user-facing and critical-path load.
-7. When two tickets are both available, prefer the one that reduces cross-track waiting first and personal preference second.
+6. Track `Admin` owns the custom in-app admin section for the Admin actor and its design-to-code documentation mapping.
+7. Track `A` intentionally carries the heaviest user-facing and critical-path load.
+8. When two tickets are both available, prefer the one that reduces cross-track waiting first and personal preference second.
 
 ## Summary Snapshot
 
-- Total tickets: `34`
+- Total tickets: `38`
 - Done: `34`
 - Partially Implemented: `0`
-- Not Started: `0`
+- Not Started: `4`
 - Baseline audit status: `Complete`
 
 ## Low-Blocking Claim Queue (Global)
@@ -62,13 +64,14 @@ Use this as the default claim order for the next wave of work:
 2. **Q1 P1 MVP Unblockers**: `N-02`, `N-03`, `A-02`, `A-03`, `K-02`, `K-04`, `K-03`, `K-05`
 3. **Q2 P2 MVP Feature Completion**: `A-04`, `A-05`, `A-06`, `A-07`, `A-08`, `A-09`, `K-06`, `K-07`
 4. **Q3 P3 Post-MVP Growth**: `A-10`, `A-11`, `A-12`, `A-13`, `K-08`, `K-09`, `K-10`, `K-11`, `N-04`, `N-05`
-5. **Q4 P4 Final Expansion And Hardening**: `A-14`, `A-15`, `N-06`, `N-07`, `N-08`
+5. **Q4 P4 Final Expansion And Hardening**: `A-14`, `A-15`, `N-06`, `N-07`, `N-08`, `AD-01`, `AD-02`, `AD-03`, `AD-04`
 
 ## Ticket ID Index
 
 - Track A: `A-01` through `A-15`
 - Track K: `K-01` through `K-11`
 - Track N: `N-01` through `N-08`
+- Track Admin: `AD-01` through `AD-04`
 
 ## Ordered Tickets By Track
 
@@ -114,3 +117,10 @@ Use this as the default claim order for the next wave of work:
 - [x] **N-06** P4 - Simulated Payment Flow | Fake payment processing and explicit payment-status transitions without a real gateway. (Depends on: N-05; N-02) | Blocks: A-14
 - [x] **N-07** P4 - Production Email Provider Integration | Real email-provider support while preserving the shared notification abstraction. (Depends on: N-02) | Blocks: None
 - [x] **N-08** P4 - Retention Automation For Log-Style Records | 90-day cleanup for activity logs, search history, and email notification records. (Depends on: N-03) | Blocks: None
+
+### Track Admin
+
+- [ ] **AD-01** P4 - Admin Role Access Control Decorator | Reusable `admin_required` decorator that gates views on `UserRole.ADMIN` and returns 403 for everyone else. (Depends on: A-01) | Blocks: AD-02; AD-03
+- [ ] **AD-02** P4 - Admin Listing CRUD End-To-End | In-app admin pages for listing list, create, edit, and delete with `PropertyImage` and `PropertyAmenity` inline formsets and a staff-nav entry point. (Depends on: AD-01; A-03; K-01; K-04; K-06) | Blocks: AD-04
+- [ ] **AD-03** P4 - Admin User Interaction Management Pages | In-app admin pages for inquiries, viewing requests, and rental bookings with status update affordances. (Depends on: AD-01; A-03; A-08; A-09; N-05; K-07) | Blocks: AD-04
+- [ ] **AD-04** P4 - Admin Surface Documentation And Design Mapping | Use case diagram, SDS class and sequence updates, and SRS/SDS textual alignment for the admin actor flows. (Depends on: AD-02; AD-03) | Blocks: None
