@@ -289,6 +289,10 @@ h1 {
     gap: 1.1rem;
 }
 
+.catalog-filter-form .form-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
 .form-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));

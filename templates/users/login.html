@@ -6,7 +6,7 @@
     {% url 'register-page' as register_url %}
     <section class="auth-layout">
         <section class="panel auth-panel">
-            <h2>Sign in to continue</h2>
+            <h2>Sign in</h2>
             {% include "partials/_form_layout.html" with form=form next_url=next_url submit_label=submit_label submit_loading_label=submit_loading_label helper_text="Don't have an account?" helper_link_url=register_url helper_link_label="Create one" %}
         </section>
     </section>
