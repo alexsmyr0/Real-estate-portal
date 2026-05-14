@@ -123,8 +123,15 @@ body {
 }
 
 .flash-stack {
-    display: grid;
+    position: fixed;
+    right: 1.25rem;
+    bottom: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
     gap: 0.6rem;
+    z-index: 1000;
+    pointer-events: none;
 }
 
 .flash-message {
@@ -132,6 +139,10 @@ body {
     border-radius: 10px;
     border: 1px solid;
     font-weight: 600;
+    width: fit-content;
+    max-width: min(90vw, 28rem);
+    box-shadow: 0 6px 18px rgba(16, 23, 36, 0.12);
+    pointer-events: auto;
 }
 
 .flash-info {
