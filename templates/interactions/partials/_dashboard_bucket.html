@@ -1,5 +1,9 @@
 <div class="dashboard-bucket">
-    <h3>{{ bucket_title }}</h3>
+    {% if bucket_kind == "current" %}
+        <h3>Latest {{ items|length }}</h3>
+    {% else %}
+        <h3>Older</h3>
+    {% endif %}
     <ol class="dashboard-list">
         {% for item in items %}
             <li class="dashboard-list-item">

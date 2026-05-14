@@ -858,14 +858,11 @@ textarea.form-control {
 .dashboard-section {
     display: grid;
     gap: 1rem;
+    align-content: start;
 }
 
 .dashboard-recommendation-section {
     grid-column: 1 / -1;
-}
-
-.dashboard-section .results-header {
-    align-items: flex-start;
 }
 
 .dashboard-section h2 {

@@ -112,8 +112,6 @@ def dashboard_page(request: HttpRequest) -> HttpResponse:
                 empty_message="You have not subscribed to similar-listing alerts yet.",
             ),
             "recommended_properties": recommended_properties,
-            "dashboard_current_limit": DASHBOARD_CURRENT_LIMIT,
-            "dashboard_older_limit": DASHBOARD_OLDER_LIMIT,
         },
     )
 
