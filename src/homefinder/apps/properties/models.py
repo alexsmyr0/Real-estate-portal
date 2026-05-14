@@ -23,6 +23,8 @@ class Amenity(models.Model):
     class Meta:
         db_table = "amenities"
         ordering = ["name"]
+        verbose_name = "amenity"
+        verbose_name_plural = "amenities"
 
     def __str__(self) -> str:
         return self.name
@@ -53,6 +55,8 @@ class Property(models.Model):
     class Meta:
         db_table = "properties"
         ordering = ["-created_at"]
+        verbose_name = "property"
+        verbose_name_plural = "properties"
 
     def __str__(self) -> str:
         return self.title
@@ -64,6 +68,8 @@ class PropertyAmenity(models.Model):
 
     class Meta:
         db_table = "property_amenities"
+        verbose_name = "property amenity"
+        verbose_name_plural = "property amenities"
         constraints = [
             models.UniqueConstraint(fields=["property", "amenity"], name="uq_property_amenities_property_amenity"),
         ]
@@ -170,6 +176,8 @@ class ListingAlertSubscriptionAmenity(models.Model):
 
     class Meta:
         db_table = "listing_alert_subscription_amenities"
+        verbose_name = "listing alert subscription amenity"
+        verbose_name_plural = "listing alert subscription amenities"
         constraints = [
             models.UniqueConstraint(
                 fields=["subscription", "amenity"],

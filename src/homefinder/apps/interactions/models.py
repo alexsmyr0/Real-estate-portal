@@ -146,6 +146,8 @@ class PropertyInquiry(models.Model):
     class Meta:
         db_table = "property_inquiries"
         ordering = ["-created_at"]
+        verbose_name = "property inquiry"
+        verbose_name_plural = "property inquiries"
 
     def __str__(self) -> str:
         return f"Inquiry<{self.pk}>"
@@ -400,6 +402,8 @@ class SimilarListingAlertDispatch(models.Model):
     class Meta:
         db_table = "similar_listing_alert_dispatches"
         ordering = ["-created_at"]
+        verbose_name = "similar listing alert dispatch"
+        verbose_name_plural = "similar listing alert dispatches"
         indexes = [
             models.Index(fields=["subscription", "property", "status"], name="idx_similar_alert_pair_status"),
             models.Index(fields=["status", "updated_at"], name="idx_sim_alert_status_updated"),
@@ -433,6 +437,8 @@ class SearchHistory(models.Model):
     class Meta:
         db_table = "search_history"
         ordering = ["-created_at"]
+        verbose_name = "search history"
+        verbose_name_plural = "search histories"
 
     def __str__(self) -> str:
         return f"SearchHistory<{self.pk}>"
