@@ -7,14 +7,14 @@ from django.contrib.auth.base_user import AbstractBaseUser
 from django.contrib.auth.models import AnonymousUser
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.http import Http404, HttpRequest, HttpResponse, QueryDict
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_http_methods
 
-from homefinder.apps.users.permissions import require_authenticated_user
+from homefinder.apps.users.permissions import admin_required, require_authenticated_user
 
 from homefinder.apps.interactions.forms import PropertyInquiryForm
 from homefinder.apps.interactions.models import BookingRequest, UserFavorite, ViewingRequest
@@ -25,11 +25,18 @@ from homefinder.apps.interactions.services import (
     log_interaction_activity,
 )
 
-from .forms import BookingRequestForm, ViewingRequestForm
+from .forms import (
+    BookingRequestForm,
+    PropertyAmenityInlineFormSet,
+    PropertyForm,
+    PropertyImageInlineFormSet,
+    ViewingRequestForm,
+)
 from .models import Amenity, ListingAlertSubscription, Property, PropertyCategory, PropertyStatus
 from .services import (
     DEFAULT_CATALOG_PAGE,
     PUBLICLY_VISIBLE_PROPERTY_STATUSES,
+    build_property_availability_context,
     create_listing_alert_subscription,
     get_monthly_inquiry_and_saved_property_metrics,
     get_monthly_search_trend_metrics,
@@ -51,6 +58,12 @@ VERIFIED_BOOKING_REQUEST_SESSION_KEY = "verified_booking_request_id"
 INQUIRY_FORM_AUTO_ID = "inquiry_%s"
 VIEWING_FORM_AUTO_ID = "viewing_%s"
 BOOKING_FORM_AUTO_ID = "booking_%s"
+VALID_STAFF_LISTING_STATUS_FILTERS = {choice for choice, _label in PropertyStatus.choices}
+STAFF_LISTING_VISIBILITY_FILTER_CHOICES = (
+    ("", "All visibility states"),
+    ("visible", "Visible in public catalog"),
+    ("hidden", "Hidden from public catalog"),
+)
 
 
 @require_http_methods(["GET"])
@@ -341,6 +354,129 @@ def reporting_search_trends_page(request: HttpRequest) -> HttpResponse:
         "properties/reporting_search_trends.html",
         {
             "search_trend_metrics": search_trend_metrics,
+        },
+    )
+
+
+@admin_required
+@require_http_methods(["GET"])
+def listing_list_page(request: HttpRequest) -> HttpResponse:
+    status_filter = _first_query_value(request.GET, "status").upper()
+    visibility_filter = _first_query_value(request.GET, "catalog_visibility").lower()
+
+    listings_queryset = _filter_staff_listings_queryset(
+        status_filter=status_filter,
+        visibility_filter=visibility_filter,
+    )
+    listing_rows = [
+        {
+            "listing": listing,
+            "availability": build_property_availability_context(listing.status),
+        }
+        for listing in listings_queryset
+    ]
+
+    return render(
+        request,
+        "properties/listing_list.html",
+        {
+            "listing_rows": listing_rows,
+            "status_choices": PropertyStatus.choices,
+            "visibility_choices": STAFF_LISTING_VISIBILITY_FILTER_CHOICES,
+            "active_filters": {
+                "status": status_filter if status_filter in VALID_STAFF_LISTING_STATUS_FILTERS else "",
+                "catalog_visibility": visibility_filter if visibility_filter in {"visible", "hidden"} else "",
+            },
+        },
+    )
+
+
+@admin_required
+@require_http_methods(["GET", "POST"])
+def listing_create_page(request: HttpRequest) -> HttpResponse:
+    listing = Property()
+    form, image_formset, amenity_formset = _build_staff_listing_form_components(
+        request=request,
+        listing=listing,
+    )
+
+    if request.method == "POST":
+        if form.is_valid() and image_formset.is_valid() and amenity_formset.is_valid():
+            _save_staff_listing(
+                form=form,
+                image_formset=image_formset,
+                amenity_formset=amenity_formset,
+                fallback_listed_by=request.user,
+            )
+            messages.success(request, "Listing created successfully.")
+            return redirect("staff-listing-list")
+
+        messages.error(request, "Please correct the highlighted fields and try again.")
+
+    return render(
+        request,
+        "properties/listing_form.html",
+        {
+            "form": form,
+            "image_formset": image_formset,
+            "amenity_formset": amenity_formset,
+            "is_create": True,
+        },
+    )
+
+
+@admin_required
+@require_http_methods(["GET", "POST"])
+def listing_edit_page(request: HttpRequest, listing_id: int) -> HttpResponse:
+    listing = _get_staff_listing_or_404(listing_id)
+    form, image_formset, amenity_formset = _build_staff_listing_form_components(
+        request=request,
+        listing=listing,
+    )
+
+    if request.method == "POST":
+        if form.is_valid() and image_formset.is_valid() and amenity_formset.is_valid():
+            _save_staff_listing(
+                form=form,
+                image_formset=image_formset,
+                amenity_formset=amenity_formset,
+                fallback_listed_by=request.user,
+            )
+            messages.success(request, "Listing updated successfully.")
+            return redirect("staff-listing-list")
+
+        messages.error(request, "Please correct the highlighted fields and try again.")
+
+    return render(
+        request,
+        "properties/listing_form.html",
+        {
+            "form": form,
+            "image_formset": image_formset,
+            "amenity_formset": amenity_formset,
+            "listing": listing,
+            "is_create": False,
+        },
+    )
+
+
+@admin_required
+@require_http_methods(["GET", "POST"])
+def listing_delete_page(request: HttpRequest, listing_id: int) -> HttpResponse:
+    listing = _get_staff_listing_or_404(listing_id)
+
+    if request.method == "POST":
+        listing_title = listing.title
+        listing.delete()
+        messages.success(request, f'Listing "{listing_title}" was deleted.')
+        return redirect("staff-listing-list")
+
+    return render(
+        request,
+        "properties/listing_confirm_delete.html",
+        {
+            "listing": listing,
+            "availability": build_property_availability_context(listing.status),
         },
     )
 
@@ -775,6 +911,70 @@ def _require_reporting_user(*, request: HttpRequest, next_url: str) -> HttpRespo
 
 def _is_reporting_authorized_user(user: AbstractBaseUser | AnonymousUser) -> bool:
     return bool(getattr(user, "can_view_reports", False))
+
+
+def _filter_staff_listings_queryset(*, status_filter: str, visibility_filter: str):
+    queryset = (
+        Property.objects.select_related("listed_by")
+        .prefetch_related("images", "amenities")
+        .order_by("-created_at")
+    )
+
+    if status_filter in VALID_STAFF_LISTING_STATUS_FILTERS:
+        queryset = queryset.filter(status=status_filter)
+
+    if visibility_filter == "visible":
+        queryset = queryset.filter(status__in=PUBLICLY_VISIBLE_PROPERTY_STATUSES)
+    elif visibility_filter == "hidden":
+        queryset = queryset.exclude(status__in=PUBLICLY_VISIBLE_PROPERTY_STATUSES)
+
+    return queryset
+
+
+def _build_staff_listing_form_components(
+    *,
+    request: HttpRequest,
+    listing: Property,
+) -> tuple[PropertyForm, PropertyImageInlineFormSet, PropertyAmenityInlineFormSet]:
+    form_data = request.POST if request.method == "POST" else None
+    form = PropertyForm(form_data, instance=listing)
+    image_formset = PropertyImageInlineFormSet(form_data, instance=listing, prefix="images")
+    amenity_formset = PropertyAmenityInlineFormSet(form_data, instance=listing, prefix="amenities")
+    return form, image_formset, amenity_formset
+
+
+def _save_staff_listing(
+    *,
+    form: PropertyForm,
+    image_formset: PropertyImageInlineFormSet,
+    amenity_formset: PropertyAmenityInlineFormSet,
+    fallback_listed_by: object,
+) -> Property:
+    with transaction.atomic():
+        listing = form.save(commit=False)
+        if listing.listed_by_id is None:
+            listing.listed_by = fallback_listed_by
+        listing.save()
+        form.save_m2m()
+
+        image_formset.instance = listing
+        amenity_formset.instance = listing
+        image_formset.save()
+        amenity_formset.save()
+
+    return listing
+
+
+def _get_staff_listing_or_404(listing_id: int) -> Property:
+    listing = (
+        Property.objects.select_related("listed_by")
+        .prefetch_related("images", "amenities")
+        .filter(pk=listing_id)
+        .first()
+    )
+    if listing is None:
+        raise Http404("Listing not found.")
+    return listing
 
 
 def _safe_log_favorite_action(
