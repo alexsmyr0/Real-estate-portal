@@ -896,6 +896,13 @@ textarea.form-control {
     justify-content: flex-end;
 }
 
+.dashboard-section-footer .button:hover,
+.dashboard-section-footer .button:focus-visible {
+    background: var(--accent);
+    color: var(--white);
+    border-color: var(--accent);
+}
+
 .pagination {
     display: flex;
     align-items: center;
