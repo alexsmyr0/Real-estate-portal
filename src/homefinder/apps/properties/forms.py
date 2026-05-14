@@ -33,7 +33,6 @@ class PropertyForm(StyledPropertyFormMixin, forms.ModelForm):
             "price",
             "bedrooms",
             "bathrooms",
-            "listed_by",
         )
         widgets = {
             "description": forms.Textarea(attrs={"rows": 5}),
@@ -42,8 +41,7 @@ class PropertyForm(StyledPropertyFormMixin, forms.ModelForm):
             "bathrooms": forms.NumberInput(attrs={"min": "0", "step": "0.5"}),
         }
         help_texts = {
-            "status": "Available and unavailable listings stay visible in catalog. Removed listings are hidden.",
-            "listed_by": "Optional. Defaults to the current admin if left empty.",
+            "status": "Available and unavailable listings stay visible in the public catalog. Removed listings are hidden.",
         }
 
     def __init__(self, *args: object, **kwargs: object) -> None:

@@ -204,11 +204,6 @@ class AdminStaffListingCrudPageTests(TestCase):
         self.assertContains(response, "Visible (Unavailable)")
         self.assertContains(response, "Hidden (Removed)")
 
-        visible_only_response = self.client.get("/staff/listings/", {"catalog_visibility": "visible"})
-        self.assertContains(visible_only_response, available_listing.title)
-        self.assertContains(visible_only_response, unavailable_listing.title)
-        self.assertNotContains(visible_only_response, removed_listing.title)
-
         removed_only_response = self.client.get("/staff/listings/", {"status": PropertyStatus.REMOVED})
         self.assertContains(removed_only_response, removed_listing.title)
         self.assertNotContains(removed_only_response, available_listing.title)
@@ -241,7 +236,6 @@ class AdminStaffListingCrudPageTests(TestCase):
             "price": "310000.00",
             "bedrooms": "3",
             "bathrooms": "2.0",
-            "listed_by": str(self.admin_user.id),
             "images-TOTAL_FORMS": "1",
             "images-INITIAL_FORMS": "0",
             "images-MIN_NUM_FORMS": "1",
@@ -276,7 +270,6 @@ class AdminStaffListingCrudPageTests(TestCase):
             "price": "345000.00",
             "bedrooms": "4",
             "bathrooms": "2.5",
-            "listed_by": str(self.admin_user.id),
             "images-TOTAL_FORMS": "2",
             "images-INITIAL_FORMS": "1",
             "images-MIN_NUM_FORMS": "1",

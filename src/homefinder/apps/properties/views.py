@@ -9,7 +9,7 @@ from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, transaction
 from django.http import Http404, HttpRequest, HttpResponse, QueryDict
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_http_methods
@@ -59,11 +59,6 @@ INQUIRY_FORM_AUTO_ID = "inquiry_%s"
 VIEWING_FORM_AUTO_ID = "viewing_%s"
 BOOKING_FORM_AUTO_ID = "booking_%s"
 VALID_STAFF_LISTING_STATUS_FILTERS = {choice for choice, _label in PropertyStatus.choices}
-STAFF_LISTING_VISIBILITY_FILTER_CHOICES = (
-    ("", "All visibility states"),
-    ("visible", "Visible in public catalog"),
-    ("hidden", "Hidden from public catalog"),
-)
 
 
 @require_http_methods(["GET"])
@@ -356,12 +351,8 @@ def reporting_search_trends_page(request: HttpRequest) -> HttpResponse:
 @require_http_methods(["GET"])
 def listing_list_page(request: HttpRequest) -> HttpResponse:
     status_filter = _first_query_value(request.GET, "status").upper()
-    visibility_filter = _first_query_value(request.GET, "catalog_visibility").lower()
 
-    listings_queryset = _filter_staff_listings_queryset(
-        status_filter=status_filter,
-        visibility_filter=visibility_filter,
-    )
+    listings_queryset = _filter_staff_listings_queryset(status_filter=status_filter)
     listing_rows = [
         {
             "listing": listing,
@@ -376,10 +367,8 @@ def listing_list_page(request: HttpRequest) -> HttpResponse:
         {
             "listing_rows": listing_rows,
             "status_choices": PropertyStatus.choices,
-            "visibility_choices": STAFF_LISTING_VISIBILITY_FILTER_CHOICES,
             "active_filters": {
                 "status": status_filter if status_filter in VALID_STAFF_LISTING_STATUS_FILTERS else "",
-                "catalog_visibility": visibility_filter if visibility_filter in {"visible", "hidden"} else "",
             },
         },
     )
@@ -422,7 +411,7 @@ def listing_create_page(request: HttpRequest) -> HttpResponse:
 @admin_required
 @require_http_methods(["GET", "POST"])
 def listing_edit_page(request: HttpRequest, listing_id: int) -> HttpResponse:
-    listing = _get_staff_listing_or_404(listing_id)
+    listing = get_object_or_404(_staff_listing_queryset(), pk=listing_id)
     form, image_formset, amenity_formset = _build_staff_listing_form_components(
         request=request,
         listing=listing,
@@ -457,7 +446,7 @@ def listing_edit_page(request: HttpRequest, listing_id: int) -> HttpResponse:
 @admin_required
 @require_http_methods(["GET", "POST"])
 def listing_delete_page(request: HttpRequest, listing_id: int) -> HttpResponse:
-    listing = _get_staff_listing_or_404(listing_id)
+    listing = get_object_or_404(_staff_listing_queryset(), pk=listing_id)
 
     if request.method == "POST":
         listing_title = listing.title
@@ -901,20 +890,11 @@ def _is_reporting_authorized_user(user: AbstractBaseUser | AnonymousUser) -> boo
     return bool(getattr(user, "can_view_reports", False))
 
 
-def _filter_staff_listings_queryset(*, status_filter: str, visibility_filter: str):
-    queryset = (
-        Property.objects.select_related("listed_by")
-        .prefetch_related("images", "amenities")
-        .order_by("-created_at")
-    )
+def _filter_staff_listings_queryset(*, status_filter: str):
+    queryset = _staff_listing_queryset().order_by("-created_at")
 
     if status_filter in VALID_STAFF_LISTING_STATUS_FILTERS:
         queryset = queryset.filter(status=status_filter)
-
-    if visibility_filter == "visible":
-        queryset = queryset.filter(status__in=PUBLICLY_VISIBLE_PROPERTY_STATUSES)
-    elif visibility_filter == "hidden":
-        queryset = queryset.exclude(status__in=PUBLICLY_VISIBLE_PROPERTY_STATUSES)
 
     return queryset
 
@@ -943,7 +923,6 @@ def _save_staff_listing(
         if listing.listed_by_id is None:
             listing.listed_by = fallback_listed_by
         listing.save()
-        form.save_m2m()
 
         image_formset.instance = listing
         amenity_formset.instance = listing
@@ -953,16 +932,11 @@ def _save_staff_listing(
     return listing
 
 
-def _get_staff_listing_or_404(listing_id: int) -> Property:
-    listing = (
+def _staff_listing_queryset():
+    return (
         Property.objects.select_related("listed_by")
         .prefetch_related("images", "amenities")
-        .filter(pk=listing_id)
-        .first()
     )
-    if listing is None:
-        raise Http404("Listing not found.")
-    return listing
 
 
 def _safe_log_favorite_action(

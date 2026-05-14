@@ -32,14 +32,6 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div class="form-field">
-                    <label for="id_catalog_visibility" class="form-label">Catalog Visibility</label>
-                    <select id="id_catalog_visibility" name="catalog_visibility" class="form-control">
-                        {% for value, label in visibility_choices %}
-                            <option value="{{ value }}"{% if active_filters.catalog_visibility == value %} selected{% endif %}>{{ label }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
             </div>
             <div class="hero-actions">
                 <button type="submit" class="button button-primary">Apply filters</button>
