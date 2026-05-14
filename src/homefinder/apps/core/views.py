@@ -46,8 +46,15 @@ def site_home(request: HttpRequest) -> HttpResponse:
             "featured_properties": featured_properties,
             "total_visible_listings": total_visible_listings,
             "recommended_properties": recommended_properties,
+            "recommendation_empty_message": _recommendation_empty_message(request),
         },
     )
+
+
+def _recommendation_empty_message(request: HttpRequest) -> str:
+    if request.user.is_authenticated:
+        return "Save or view more properties to improve recommendations."
+    return "Browse listings to discover recommendations."
 
 
 def _safe_get_recommendations(

@@ -93,6 +93,7 @@ def catalog_page(request: HttpRequest) -> HttpResponse:
         {
             "properties": properties,
             "recommended_properties": recommended_properties,
+            "recommendation_empty_message": _recommendation_empty_message(request),
             "pagination": pagination,
             "active_filters": {
                 "location": _first_query_value(request.GET, "location", "location_city", "city"),
@@ -125,8 +126,6 @@ def property_detail_page(request: HttpRequest, property_id: int) -> HttpResponse
         raise Http404("Property not found.")
     property_payload = serialize_property_for_detail(property_obj)
 
-    _apply_detail_favorite_state(request=request, property_payload=property_payload)
-    _apply_detail_alert_subscription_state(request=request, property_payload=property_payload)
     recommended_properties = _safe_get_recommendations(
         request=request,
         request_surface="detail",
@@ -173,7 +172,6 @@ def submit_inquiry_action(request: HttpRequest, property_id: int) -> HttpRespons
     if not inquiry_form.is_valid():
         messages.error(request, "Please correct the highlighted fields and send your inquiry again.")
         property_payload = serialize_property_for_detail(property_obj)
-        _apply_detail_favorite_state(request=request, property_payload=property_payload)
         return _render_property_detail(
             request=request,
             property_payload=property_payload,
@@ -191,7 +189,6 @@ def submit_inquiry_action(request: HttpRequest, property_id: int) -> HttpRespons
         _add_validation_error_to_form(inquiry_form, error)
         messages.error(request, "Please correct the highlighted fields and send your inquiry again.")
         property_payload = serialize_property_for_detail(property_obj)
-        _apply_detail_favorite_state(request=request, property_payload=property_payload)
         return _render_property_detail(
             request=request,
             property_payload=property_payload,
@@ -365,7 +362,6 @@ def viewing_request_action(request: HttpRequest, property_id: int) -> HttpRespon
     viewing_form = _new_viewing_form(data=request.POST)
     if not viewing_form.is_valid():
         property_payload = serialize_property_for_detail(property_obj)
-        _apply_detail_favorite_state(request=request, property_payload=property_payload)
         return _render_property_detail(
             request=request,
             property_payload=property_payload,
@@ -382,7 +378,6 @@ def viewing_request_action(request: HttpRequest, property_id: int) -> HttpRespon
     except ValidationError as error:
         _add_validation_error_to_form(viewing_form, error)
         property_payload = serialize_property_for_detail(property_obj)
-        _apply_detail_favorite_state(request=request, property_payload=property_payload)
         return _render_property_detail(
             request=request,
             property_payload=property_payload,
@@ -462,7 +457,6 @@ def booking_request_action(request: HttpRequest, property_id: int) -> HttpRespon
     booking_form = _new_booking_form(data=request.POST)
     if not booking_form.is_valid():
         property_payload = serialize_property_for_detail(property_obj)
-        _apply_detail_favorite_state(request=request, property_payload=property_payload)
         return _render_property_detail(
             request=request,
             property_payload=property_payload,
@@ -481,7 +475,6 @@ def booking_request_action(request: HttpRequest, property_id: int) -> HttpRespon
     except ValidationError as error:
         _add_validation_error_to_form(booking_form, error)
         property_payload = serialize_property_for_detail(property_obj)
-        _apply_detail_favorite_state(request=request, property_payload=property_payload)
         return _render_property_detail(
             request=request,
             property_payload=property_payload,
@@ -741,6 +734,12 @@ def _active_alert_subscription_for_user(
 
 def _is_rental_property_payload(property_payload: dict[str, object]) -> bool:
     return property_payload.get("category") == PropertyCategory.RENTAL
+
+
+def _recommendation_empty_message(request: HttpRequest) -> str:
+    if request.user.is_authenticated:
+        return "Save or view more properties to improve recommendations."
+    return "Browse listings to discover recommendations."
 
 
 def _preferred_surface(request: HttpRequest) -> str:
