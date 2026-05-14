@@ -2,29 +2,12 @@
 
 {% block title %}Create Account | HomeFinder{% endblock %}
 
-{% block page_header %}
-    <section class="page-hero auth-hero auth-hero-register">
-        <p class="eyebrow">Account Access</p>
-        <h1>Welcome</h1>
-        <p>Create your HomeFinder account to save listings, submit inquiries, and complete secure login with email-based 2FA.</p>
-    </section>
-{% endblock %}
-
 {% block content %}
+    {% url 'login-page' as login_url %}
     <section class="auth-layout">
-        <aside class="panel auth-support-card">
-            <h2>Why join HomeFinder?</h2>
-            <ul class="auth-support-list">
-                <li>Keep your favorite properties in one place.</li>
-                <li>Track inquiries and booking requests from your dashboard.</li>
-                <li>Protect your account with every sign-in using 2FA.</li>
-            </ul>
-            <p class="auth-support-note">Already registered? <a href="{% url 'login-page' %}">Sign in here</a>.</p>
-        </aside>
         <section class="panel auth-panel">
             <h2>Create your profile</h2>
-            {% include "partials/_form_layout.html" with form=form submit_label=submit_label submit_loading_label=submit_loading_label %}
-            <p class="auth-footnote">Use a strong password to keep your account secure.</p>
+            {% include "partials/_form_layout.html" with form=form submit_label=submit_label submit_loading_label=submit_loading_label helper_text="Already registered?" helper_link_url=login_url helper_link_label="Sign in here" %}
         </section>
     </section>
 {% endblock %}

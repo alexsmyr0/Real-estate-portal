@@ -2,29 +2,12 @@
 
 {% block title %}Sign In | HomeFinder{% endblock %}
 
-{% block page_header %}
-    <section class="page-hero auth-hero auth-hero-login">
-        <p class="eyebrow">Secure Login</p>
-        <h1>Welcome Back</h1>
-        <p>Step 1 of 2: enter your email and password. We will send a 2FA code to complete login.</p>
-    </section>
-{% endblock %}
-
 {% block content %}
+    {% url 'register-page' as register_url %}
     <section class="auth-layout">
-        <aside class="panel auth-support-card">
-            <h2>Quick sign-in checklist</h2>
-            <ul class="auth-support-list">
-                <li>Use the email you registered with.</li>
-                <li>Enter your password to unlock step 2.</li>
-                <li>Check your email for the one-time 2FA code.</li>
-            </ul>
-            <p class="auth-support-note">Need an account? <a href="{% url 'register-page' %}">Create one</a>.</p>
-        </aside>
         <section class="panel auth-panel">
             <h2>Sign in to continue</h2>
-            {% include "partials/_form_layout.html" with form=form next_url=next_url submit_label=submit_label submit_loading_label=submit_loading_label %}
-            <p class="auth-footnote">We only use this step to verify your credentials before code verification.</p>
+            {% include "partials/_form_layout.html" with form=form next_url=next_url submit_label=submit_label submit_loading_label=submit_loading_label helper_text="Don't have an account?" helper_link_url=register_url helper_link_label="Create one" %}
         </section>
     </section>
 {% endblock %}
