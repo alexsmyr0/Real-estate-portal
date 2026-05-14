@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -10,8 +12,11 @@ from django.views.decorators.http import require_http_methods
 from homefinder.apps.properties.models import PropertyCategory
 from homefinder.apps.users.permissions import admin_required
 
+from .activity_logging import log_interaction_activity
 from .models import (
     ALLOWED_BOOKING_STATUS_TRANSITIONS,
+    INQUIRY_STATUS_ADVANCE_SEQUENCE,
+    VIEWING_STATUS_ADVANCE_SEQUENCE,
     BookingRequest,
     BookingRequestStatus,
     PropertyInquiry,
@@ -21,18 +26,7 @@ from .models import (
 )
 from .services import update_booking_request_status
 
-INQUIRY_STATUS_ADVANCE_SEQUENCE: dict[str, str | None] = {
-    PropertyInquiryStatus.OPEN: PropertyInquiryStatus.IN_PROGRESS,
-    PropertyInquiryStatus.IN_PROGRESS: PropertyInquiryStatus.CLOSED,
-    PropertyInquiryStatus.CLOSED: None,
-}
-
-VIEWING_STATUS_ADVANCE_SEQUENCE: dict[str, str | None] = {
-    ViewingRequestStatus.PENDING: ViewingRequestStatus.CONFIRMED,
-    ViewingRequestStatus.CONFIRMED: ViewingRequestStatus.COMPLETED,
-    ViewingRequestStatus.CANCELLED: None,
-    ViewingRequestStatus.COMPLETED: None,
-}
+logger = logging.getLogger(__name__)
 
 BOOKING_STATUS_ADVANCE_PRIORITY = (
     BookingRequestStatus.APPROVED,
@@ -111,7 +105,8 @@ def _advance_inquiry_status(request: HttpRequest) -> HttpResponse:
                 messages.error(request, "The selected inquiry no longer exists.")
                 return redirect("staff-interactions-inquiries")
 
-            next_status = INQUIRY_STATUS_ADVANCE_SEQUENCE.get(inquiry.status)
+            previous_status = inquiry.status
+            next_status = INQUIRY_STATUS_ADVANCE_SEQUENCE.get(previous_status)
             if next_status is None:
                 messages.info(request, "This inquiry is already in its final status.")
                 return redirect("staff-interactions-inquiries")
@@ -123,6 +118,13 @@ def _advance_inquiry_status(request: HttpRequest) -> HttpResponse:
         messages.error(request, _validation_error_message(error))
         return redirect("staff-interactions-inquiries")
 
+    _safe_log_admin_status_transition(
+        action="admin_inquiry_status_advanced",
+        user=request.user,
+        entity=inquiry,
+        previous_status=previous_status,
+        next_status=next_status,
+    )
     messages.success(
         request,
         f"Inquiry #{inquiry.pk} moved to {_status_label(PropertyInquiryStatus.choices, next_status)}.",
@@ -148,7 +150,8 @@ def _advance_viewing_status(request: HttpRequest) -> HttpResponse:
                 messages.error(request, "The selected viewing request no longer exists.")
                 return redirect("staff-interactions-viewings")
 
-            next_status = VIEWING_STATUS_ADVANCE_SEQUENCE.get(viewing_request.status)
+            previous_status = viewing_request.status
+            next_status = VIEWING_STATUS_ADVANCE_SEQUENCE.get(previous_status)
             if next_status is None:
                 messages.info(request, "This viewing request is already in its final status.")
                 return redirect("staff-interactions-viewings")
@@ -160,6 +163,13 @@ def _advance_viewing_status(request: HttpRequest) -> HttpResponse:
         messages.error(request, _validation_error_message(error))
         return redirect("staff-interactions-viewings")
 
+    _safe_log_admin_status_transition(
+        action="admin_viewing_status_advanced",
+        user=request.user,
+        entity=viewing_request,
+        previous_status=previous_status,
+        next_status=next_status,
+    )
     messages.success(
         request,
         f"Viewing request #{viewing_request.pk} moved to {_status_label(ViewingRequestStatus.choices, next_status)}.",
@@ -173,29 +183,36 @@ def _advance_booking_status(request: HttpRequest) -> HttpResponse:
         messages.error(request, "Choose a valid booking request to update.")
         return redirect("staff-interactions-bookings")
 
-    booking_request = (
-        BookingRequest.objects.filter(
-            pk=booking_request_id,
-            property__category=PropertyCategory.RENTAL,
-        )
-        .select_related("user", "property")
-        .first()
-    )
-    if booking_request is None:
-        messages.error(request, "The selected booking request no longer exists.")
-        return redirect("staff-interactions-bookings")
-
-    next_status = _next_booking_status(booking_request.status)
-    if next_status is None:
-        messages.info(request, "This booking request is already in its final status.")
-        return redirect("staff-interactions-bookings")
-
     try:
-        update_booking_request_status(booking_request, status=next_status)
+        with transaction.atomic():
+            booking_request = (
+                BookingRequest.objects.select_for_update()
+                .filter(pk=booking_request_id, property__category=PropertyCategory.RENTAL)
+                .select_related("user", "property")
+                .first()
+            )
+            if booking_request is None:
+                messages.error(request, "The selected booking request no longer exists.")
+                return redirect("staff-interactions-bookings")
+
+            previous_status = booking_request.status
+            next_status = _next_booking_status(previous_status)
+            if next_status is None:
+                messages.info(request, "This booking request is already in its final status.")
+                return redirect("staff-interactions-bookings")
+
+            booking_request = update_booking_request_status(booking_request, status=next_status)
     except ValidationError as error:
         messages.error(request, _validation_error_message(error))
         return redirect("staff-interactions-bookings")
 
+    _safe_log_admin_status_transition(
+        action="admin_booking_status_advanced",
+        user=request.user,
+        entity=booking_request,
+        previous_status=previous_status,
+        next_status=next_status,
+    )
     messages.success(
         request,
         f"Booking request #{booking_request.pk} moved to {_status_label(BookingRequestStatus.choices, next_status)}.",
@@ -253,6 +270,33 @@ def _parse_positive_int(raw_value: str | None) -> int | None:
     except (TypeError, ValueError):
         return None
     return parsed_value if parsed_value > 0 else None
+
+
+def _safe_log_admin_status_transition(
+    *,
+    action: str,
+    user: object,
+    entity: object,
+    previous_status: str,
+    next_status: str,
+) -> None:
+    try:
+        log_interaction_activity(
+            action=action,
+            user=user,
+            entity=entity,
+            details={"previous_status": previous_status, "next_status": next_status},
+        )
+    except Exception:
+        logger.exception(
+            "Failed to log admin status transition.",
+            extra={
+                "action": action,
+                "entity_pk": getattr(entity, "pk", None),
+                "previous_status": previous_status,
+                "next_status": next_status,
+            },
+        )
 
 
 def _validation_error_message(error: ValidationError) -> str:
