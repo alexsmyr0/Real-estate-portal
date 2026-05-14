@@ -199,11 +199,13 @@ class RecommendationSurfaceUITests(TestCase):
         for path in ["/", "/catalog/"]:
             with self.subTest(path=path):
                 response = self.client.get(path)
+                response_text = response.content.decode().lower()
 
                 self.assertEqual(response.status_code, 200)
                 self.assertContains(response, "No recommendations available yet")
-                self.assertContains(response, "Save or view more properties to improve recommendations.")
+                self.assertContains(response, "Browse listings to discover recommendations.")
                 self.assertNotContains(response, "Personalized")
+                self.assertNotIn("based on your activity", response_text)
                 self.assertEqual(response.context["recommended_properties"], [])
 
     def test_empty_recommendation_states_render_for_authenticated_users(self) -> None:

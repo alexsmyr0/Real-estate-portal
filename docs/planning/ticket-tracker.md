@@ -49,9 +49,9 @@ Canonical planning inputs remain in:
 ## Summary Snapshot
 
 - Total tickets: `34`
-- Done: `30`
+- Done: `34`
 - Partially Implemented: `0`
-- Not Started: `4`
+- Not Started: `0`
 - Baseline audit status: `Complete`
 
 ## Low-Blocking Claim Queue (Global)
@@ -81,14 +81,14 @@ Use this as the default claim order for the next wave of work:
 - [x] **A-05** P2 - Property Discovery Landing And Catalog Frontend | Landing page, public catalog, filters, pagination, and result-state UX. (Depends on: A-03; K-02; K-03) | Blocks: A-07; A-13; A-15
 - [x] **A-06** P2 - Property Detail Frontend And Listing Presentation | Detail-page UI, image presentation, amenity display, and availability messaging. (Depends on: A-03; K-02; K-04) | Blocks: A-07; A-08; A-09; A-11; A-12; A-13; A-15
 - [x] **A-07** P2 - Favorites Flow End-To-End | Favorite and unfavorite backend actions plus saved-listings UX. (Depends on: A-02; A-05; A-06) | Blocks: A-10; A-15
-- [ ] **A-08** P2 - Inquiry Flow End-To-End | Inquiry backend actions, forms, confirmation states, and email integration. (Depends on: A-02; A-06; N-02) | Blocks: A-10; A-15
+- [x] **A-08** P2 - Inquiry Flow End-To-End | Inquiry backend actions, forms, confirmation states, and email integration. (Depends on: A-02; A-06; N-02) | Blocks: A-10; A-15
 - [x] **A-09** P2 - Viewing Request Flow End-To-End | Viewing backend actions, datetime validation, confirmation states, and email integration. (Depends on: A-02; A-06; N-02) | Blocks: A-10; A-15
-- [ ] **A-10** P3 - User Activity History And Personal Dashboard | User-facing history for searches, favorites, inquiries, and viewings. (Depends on: A-07; A-08; A-09; N-03) | Blocks: A-15
+- [x] **A-10** P3 - User Activity History And Personal Dashboard | User-facing history for searches, favorites, inquiries, and viewings. (Depends on: A-07; A-08; A-09; N-03) | Blocks: A-15
 - [x] **A-11** P3 - Rental Booking Request UI | Rental-only booking initiation, validation feedback, and confirmation UX. (Depends on: A-02; A-06; N-05) | Blocks: A-14; A-15
 - [x] **A-12** P3 - Similar Listing Alert Subscription UI | Alert-subscription UX for unavailable property pages. (Depends on: A-02; A-06; N-04) | Blocks: A-15
 - [x] **A-13** P3 - Recommendation Surfaces And Personalization UI | User-facing recommendation display on agreed site surfaces. (Depends on: A-05; A-06; K-11) | Blocks: A-15
 - [x] **A-14** P4 - Simulated Payment UX | Fake payment-step UI and payment-status messaging after booking. (Depends on: A-11; N-06) | Blocks: A-15
-- [ ] **A-15** P4 - Frontend Hardening, Accessibility, And Cross-Flow Consistency | Final UI consistency, accessibility, responsive QA, and cross-flow cleanup. (Depends on: A-04; A-05; A-06; A-07; A-08; A-09; A-10; A-11; A-12; A-13; A-14) | Blocks: None
+- [x] **A-15** P4 - Frontend Hardening, Accessibility, And Cross-Flow Consistency | Final UI consistency, accessibility, responsive QA, and cross-flow cleanup. (Depends on: A-04; A-05; A-06; A-07; A-08; A-09; A-10; A-11; A-12; A-13; A-14) | Blocks: None
 
 ### Track K
 

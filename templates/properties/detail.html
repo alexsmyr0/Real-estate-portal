@@ -117,7 +117,7 @@
                     <form method="post" action="{% url 'site-inquiry-create' property.id %}" class="form-shell inquiry-form">
                         {% csrf_token %}
                         {% if inquiry_form.non_field_errors %}
-                            <div class="form-summary-errors">
+                            <div class="form-summary-errors" role="alert">
                                 {% for error in inquiry_form.non_field_errors %}
                                     <p>{{ error }}</p>
                                 {% endfor %}
@@ -150,7 +150,7 @@
                     <form method="post" action="{% url 'site-viewing-request' property.id %}" class="form-shell viewing-request-form" novalidate>
                         {% csrf_token %}
                         {% if viewing_form.non_field_errors %}
-                            <div class="form-summary-errors">
+                            <div class="form-summary-errors" role="alert">
                                 {% for error in viewing_form.non_field_errors %}
                                     <p>{{ error }}</p>
                                 {% endfor %}
@@ -193,7 +193,7 @@
                         <form method="post" action="{% url 'site-booking-request' property.id %}" class="form-shell booking-request-form" novalidate>
                             {% csrf_token %}
                             {% if booking_form.non_field_errors %}
-                                <div class="form-summary-errors">
+                                <div class="form-summary-errors" role="alert">
                                     {% for error in booking_form.non_field_errors %}
                                         <p>{{ error }}</p>
                                     {% endfor %}

@@ -47,6 +47,9 @@ CATALOG_BEDROOM_FILTER_OPTIONS = (1, 2, 3, 4, 5)
 VERIFIED_VIEWING_REQUEST_SESSION_KEY = "verified_viewing_request_id"
 VERIFIED_ALERT_SUBSCRIPTION_SESSION_KEY = "verified_listing_alert_subscription_id"
 VERIFIED_BOOKING_REQUEST_SESSION_KEY = "verified_booking_request_id"
+INQUIRY_FORM_AUTO_ID = "inquiry_%s"
+VIEWING_FORM_AUTO_ID = "viewing_%s"
+BOOKING_FORM_AUTO_ID = "booking_%s"
 
 
 @require_http_methods(["GET"])
@@ -90,6 +93,7 @@ def catalog_page(request: HttpRequest) -> HttpResponse:
         {
             "properties": properties,
             "recommended_properties": recommended_properties,
+            "recommendation_empty_message": _recommendation_empty_message(request),
             "pagination": pagination,
             "active_filters": {
                 "location": _first_query_value(request.GET, "location", "location_city", "city"),
@@ -122,8 +126,6 @@ def property_detail_page(request: HttpRequest, property_id: int) -> HttpResponse
         raise Http404("Property not found.")
     property_payload = serialize_property_for_detail(property_obj)
 
-    _apply_detail_favorite_state(request=request, property_payload=property_payload)
-    _apply_detail_alert_subscription_state(request=request, property_payload=property_payload)
     recommended_properties = _safe_get_recommendations(
         request=request,
         request_surface="detail",
@@ -133,8 +135,8 @@ def property_detail_page(request: HttpRequest, property_id: int) -> HttpResponse
     return _render_property_detail(
         request=request,
         property_payload=property_payload,
-        viewing_form=ViewingRequestForm(),
-        booking_form=BookingRequestForm() if _is_rental_property_payload(property_payload) else None,
+        viewing_form=_new_viewing_form(),
+        booking_form=_new_booking_form() if _is_rental_property_payload(property_payload) else None,
         viewing_confirmation=_consume_verified_viewing_confirmation(
             request=request,
             property_id=property_id,
@@ -166,15 +168,14 @@ def submit_inquiry_action(request: HttpRequest, property_id: int) -> HttpRespons
     if property_obj is None:
         raise Http404("Property not found.")
 
-    inquiry_form = PropertyInquiryForm(request.POST)
+    inquiry_form = _new_inquiry_form(data=request.POST)
     if not inquiry_form.is_valid():
         messages.error(request, "Please correct the highlighted fields and send your inquiry again.")
         property_payload = serialize_property_for_detail(property_obj)
-        _apply_detail_favorite_state(request=request, property_payload=property_payload)
         return _render_property_detail(
             request=request,
             property_payload=property_payload,
-            viewing_form=ViewingRequestForm(),
+            viewing_form=_new_viewing_form(),
             inquiry_form=inquiry_form,
         )
 
@@ -188,11 +189,10 @@ def submit_inquiry_action(request: HttpRequest, property_id: int) -> HttpRespons
         _add_validation_error_to_form(inquiry_form, error)
         messages.error(request, "Please correct the highlighted fields and send your inquiry again.")
         property_payload = serialize_property_for_detail(property_obj)
-        _apply_detail_favorite_state(request=request, property_payload=property_payload)
         return _render_property_detail(
             request=request,
             property_payload=property_payload,
-            viewing_form=ViewingRequestForm(),
+            viewing_form=_new_viewing_form(),
             inquiry_form=inquiry_form,
         )
 
@@ -359,10 +359,9 @@ def viewing_request_action(request: HttpRequest, property_id: int) -> HttpRespon
     if property_obj is None:
         raise Http404("Property not found.")
 
-    viewing_form = ViewingRequestForm(request.POST)
+    viewing_form = _new_viewing_form(data=request.POST)
     if not viewing_form.is_valid():
         property_payload = serialize_property_for_detail(property_obj)
-        _apply_detail_favorite_state(request=request, property_payload=property_payload)
         return _render_property_detail(
             request=request,
             property_payload=property_payload,
@@ -379,7 +378,6 @@ def viewing_request_action(request: HttpRequest, property_id: int) -> HttpRespon
     except ValidationError as error:
         _add_validation_error_to_form(viewing_form, error)
         property_payload = serialize_property_for_detail(property_obj)
-        _apply_detail_favorite_state(request=request, property_payload=property_payload)
         return _render_property_detail(
             request=request,
             property_payload=property_payload,
@@ -456,14 +454,13 @@ def booking_request_action(request: HttpRequest, property_id: int) -> HttpRespon
         messages.error(request, "Booking requests are only available for rental listings.")
         return redirect(detail_url)
 
-    booking_form = BookingRequestForm(request.POST)
+    booking_form = _new_booking_form(data=request.POST)
     if not booking_form.is_valid():
         property_payload = serialize_property_for_detail(property_obj)
-        _apply_detail_favorite_state(request=request, property_payload=property_payload)
         return _render_property_detail(
             request=request,
             property_payload=property_payload,
-            viewing_form=ViewingRequestForm(),
+            viewing_form=_new_viewing_form(),
             booking_form=booking_form,
         )
 
@@ -478,11 +475,10 @@ def booking_request_action(request: HttpRequest, property_id: int) -> HttpRespon
     except ValidationError as error:
         _add_validation_error_to_form(booking_form, error)
         property_payload = serialize_property_for_detail(property_obj)
-        _apply_detail_favorite_state(request=request, property_payload=property_payload)
         return _render_property_detail(
             request=request,
             property_payload=property_payload,
-            viewing_form=ViewingRequestForm(),
+            viewing_form=_new_viewing_form(),
             booking_form=booking_form,
         )
 
@@ -559,6 +555,11 @@ def _render_property_detail(
     inquiry_form: PropertyInquiryForm | None = None,
     recommended_properties: list[dict[str, object]] | None = None,
 ) -> HttpResponse:
+    _apply_detail_favorite_state(request=request, property_payload=property_payload)
+    _apply_detail_alert_subscription_state(request=request, property_payload=property_payload)
+    if booking_form is None and _is_rental_property_payload(property_payload):
+        booking_form = _new_booking_form()
+
     if recommended_properties is None:
         recommended_properties = _safe_get_recommendations(
             request=request,
@@ -578,10 +579,22 @@ def _render_property_detail(
             "viewing_confirmation": viewing_confirmation,
             "booking_confirmation": booking_confirmation,
             "alert_subscription_confirmation": alert_subscription_confirmation,
-            "inquiry_form": inquiry_form if inquiry_form is not None else PropertyInquiryForm(),
+            "inquiry_form": inquiry_form if inquiry_form is not None else _new_inquiry_form(),
             "recommended_properties": recommended_properties,
         },
     )
+
+
+def _new_inquiry_form(*, data: QueryDict | None = None) -> PropertyInquiryForm:
+    return PropertyInquiryForm(data=data, auto_id=INQUIRY_FORM_AUTO_ID)
+
+
+def _new_viewing_form(*, data: QueryDict | None = None) -> ViewingRequestForm:
+    return ViewingRequestForm(data=data, auto_id=VIEWING_FORM_AUTO_ID)
+
+
+def _new_booking_form(*, data: QueryDict | None = None) -> BookingRequestForm:
+    return BookingRequestForm(data=data, auto_id=BOOKING_FORM_AUTO_ID)
 
 
 def _safe_get_recommendations(
@@ -721,6 +734,12 @@ def _active_alert_subscription_for_user(
 
 def _is_rental_property_payload(property_payload: dict[str, object]) -> bool:
     return property_payload.get("category") == PropertyCategory.RENTAL
+
+
+def _recommendation_empty_message(request: HttpRequest) -> str:
+    if request.user.is_authenticated:
+        return "Save or view more properties to improve recommendations."
+    return "Browse listings to discover recommendations."
 
 
 def _preferred_surface(request: HttpRequest) -> str:

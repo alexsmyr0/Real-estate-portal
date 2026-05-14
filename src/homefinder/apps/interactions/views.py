@@ -117,6 +117,20 @@ def dashboard_page(request: HttpRequest) -> HttpResponse:
     )
 
 
+def _safe_get_recommendations(*, user: object) -> list[dict[str, object]]:
+    try:
+        return get_personalized_recommendations(
+            user=user,
+            request_surface="dashboard",
+        )
+    except Exception:
+        logger.exception(
+            "Failed to load personalized recommendations.",
+            extra={"request_surface": "dashboard"},
+        )
+        return []
+
+
 @never_cache
 @require_http_methods(["GET"])
 def booking_simulated_payment_page(request: HttpRequest, booking_request_id: int) -> HttpResponse:
@@ -336,20 +350,6 @@ def _require_authenticated_user(
     if query_string:
         login_url = f"{login_url}?{query_string}"
     return redirect(login_url)
-
-
-def _safe_get_recommendations(*, user: object) -> list[dict[str, object]]:
-    try:
-        return get_personalized_recommendations(
-            user=user,
-            request_surface="dashboard",
-        )
-    except Exception:
-        logger.exception(
-            "Failed to load personalized recommendations.",
-            extra={"request_surface": "dashboard"},
-        )
-        return []
 
 
 def _build_section(*, rows: list[object], empty_title: str, empty_message: str) -> dict[str, object]:

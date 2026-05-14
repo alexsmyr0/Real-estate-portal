@@ -54,6 +54,7 @@ body {
     text-decoration: none;
     color: var(--ink-950);
     font-weight: 700;
+    min-width: 0;
 }
 
 .brand-mark {
@@ -80,6 +81,7 @@ body {
     text-decoration: none;
     color: var(--ink-700);
     font-weight: 600;
+    overflow-wrap: anywhere;
 }
 
 .nav-link:hover,
@@ -107,6 +109,7 @@ body {
     background: #dff4f0;
     color: #105048;
     font-size: 0.9rem;
+    overflow-wrap: anywhere;
 }
 
 .auth-chip-guest {
@@ -356,11 +359,14 @@ textarea.form-control {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    min-width: 0;
     border-radius: 999px;
     border: 1px solid transparent;
     padding: 0.48rem 0.95rem;
     text-decoration: none;
     font-weight: 700;
+    text-align: center;
+    overflow-wrap: anywhere;
     cursor: pointer;
     transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease;
 }
@@ -540,6 +546,10 @@ textarea.form-control {
 }
 
 .property-action-form {
+    margin: 0;
+}
+
+.inline-action-form {
     margin: 0;
 }
 
@@ -841,6 +851,10 @@ textarea.form-control {
     width: 100%;
 }
 
+.payment-actions-panel .inline-action-form {
+    display: inline-flex;
+}
+
 .dashboard-section {
     display: grid;
     gap: 1rem;
@@ -1134,6 +1148,13 @@ textarea.form-control {
     }
 
     .nav-auth > * {
+        width: 100%;
+    }
+
+    .site-nav .nav-link,
+    .inline-action-form,
+    .property-action-form,
+    .payment-actions-panel .inline-action-form {
         width: 100%;
     }
 
