@@ -84,6 +84,14 @@
             border: 1px solid var(--accent);
             box-shadow: 0 4px 14px rgba(15, 123, 108, 0.25);
             white-space: nowrap;
+            transform: scale(1);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .landing-v2-button:hover,
+        .landing-v2-button:focus-visible {
+            transform: scale(1.06);
+            box-shadow: 0 6px 18px rgba(15, 123, 108, 0.32);
         }
 
         .landing-v2-button:focus-visible {
