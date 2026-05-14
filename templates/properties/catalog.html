@@ -7,11 +7,8 @@
     <section class="panel">
         <div class="page-header-inline">
             <h2>Filter Listings</h2>
-            {% if request.GET %}
-                <a class="button button-ghost" href="{{ site_catalog_url }}">Clear filters</a>
-            {% endif %}
         </div>
-        <form method="get" action="{{ site_catalog_url }}" class="form-shell catalog-filter-form">
+        <form method="get" action="{{ site_catalog_url }}" class="form-shell catalog-filter-form" id="catalog-filter-form" autocomplete="off">
             <div class="form-grid">
                 <div class="form-field">
                     <label for="id_location" class="form-label">Location</label>
@@ -90,9 +87,27 @@
 
             <div class="hero-actions">
                 <button type="submit" class="button button-primary">Apply filters</button>
-                <a class="button button-ghost" href="{{ site_catalog_url }}">Reset</a>
+                <button type="button" class="button button-ghost" data-catalog-clear>Clear filters</button>
             </div>
         </form>
+        <script>
+            (function () {
+                const form = document.getElementById("catalog-filter-form");
+                if (!form) return;
+                form.querySelectorAll("[data-catalog-clear]").forEach(function (button) {
+                    button.addEventListener("click", function () {
+                        form.querySelectorAll("input, select").forEach(function (field) {
+                            if (field.type === "checkbox" || field.type === "radio") {
+                                field.checked = false;
+                            } else {
+                                field.value = "";
+                            }
+                        });
+                        form.submit();
+                    });
+                });
+            })();
+        </script>
     </section>
 
     <section class="panel">
