@@ -17,10 +17,15 @@
             {% include "partials/_form_field.html" with field=field %}
         {% endfor %}
     </div>
+    {% if helper_link_url and helper_link_label %}
+        <p class="form-helper-link">
+            {% if helper_text %}{{ helper_text }} {% endif %}<a href="{{ helper_link_url }}">{{ helper_link_label }}</a>
+        </p>
+    {% endif %}
     {% if submit_label %}
         <button
             type="submit"
-            class="button button-primary"
+            class="button button-primary button-cta"
             data-submit-button="1"
             {% if submit_loading_label %}data-loading-label="{{ submit_loading_label }}"{% endif %}
         >

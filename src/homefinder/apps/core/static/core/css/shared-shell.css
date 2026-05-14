@@ -71,8 +71,10 @@ body {
 
 .site-nav {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 0.65rem;
+    min-width: 0;
 }
 
 .nav-link {
@@ -81,7 +83,7 @@ body {
     text-decoration: none;
     color: var(--ink-700);
     font-weight: 600;
-    overflow-wrap: anywhere;
+    white-space: nowrap;
 }
 
 .nav-link:hover,
@@ -347,22 +349,67 @@ textarea.form-control {
     color: var(--danger);
 }
 
+.auth-layout {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - 8rem);
+    padding: 1rem 0;
+}
+
 .auth-panel {
-    max-width: 620px;
+    width: 100%;
+    max-width: 42rem;
+    padding: 4rem 2.75rem;
+    display: grid;
+    gap: 2.25rem;
 }
 
-.auth-footnote {
+.auth-panel h2 {
+    margin-bottom: 0;
+    font-size: 1.7rem;
+}
+
+.auth-panel .form-grid {
+    grid-template-columns: 1fr;
+    gap: 1.75rem;
+}
+
+.auth-panel .form-label {
+    font-size: 1rem;
+    margin-bottom: 0.35rem;
+    display: block;
+}
+
+.auth-panel .form-control {
+    padding: 1.1rem 1rem;
+    font-size: 1.02rem;
+    border-radius: 12px;
+}
+
+.auth-panel .button-cta {
+    padding: 1.1rem 1.4rem;
+    font-size: 1.05rem;
+}
+
+.form-helper-link {
     margin: 0;
+    text-align: right;
     color: var(--ink-500);
+    font-size: 0.98rem;
 }
 
-.auth-footnote a {
+.auth-panel .form-helper-link {
+    margin-top: 2rem;
+}
+
+.form-helper-link a {
     color: var(--accent-deep);
     font-weight: 700;
 }
 
-.auth-footnote a:hover,
-.auth-footnote a:focus-visible {
+.form-helper-link a:hover,
+.form-helper-link a:focus-visible {
     color: var(--accent);
 }
 
@@ -379,28 +426,47 @@ textarea.form-control {
     text-align: center;
     overflow-wrap: anywhere;
     cursor: pointer;
-    transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease;
-}
-
-.button:hover,
-.button:focus-visible {
-    transform: translateY(-1px);
+    transition:
+        transform 0.2s ease,
+        background-color 0.2s ease,
+        color 0.2s ease,
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
 }
 
 .button[disabled] {
     opacity: 0.85;
     cursor: wait;
     transform: none;
+    box-shadow: none;
 }
 
 .button-primary {
     background: var(--accent);
     color: var(--white);
+    border-color: var(--accent);
 }
 
 .button-primary:hover,
 .button-primary:focus-visible {
     background: var(--accent-deep);
+    border-color: var(--accent-deep);
+}
+
+.button-cta {
+    box-shadow: 0 4px 14px rgba(15, 123, 108, 0.25);
+    transform: scale(1);
+}
+
+.button-cta:hover,
+.button-cta:focus-visible {
+    transform: scale(1.06);
+    box-shadow: 0 6px 18px rgba(15, 123, 108, 0.32);
+}
+
+.button-cta:focus-visible {
+    outline: 3px solid var(--accent-deep);
+    outline-offset: 3px;
 }
 
 .button-ghost {
@@ -1115,6 +1181,18 @@ textarea.form-control {
 
     .payment-layout {
         grid-template-columns: 1fr;
+    }
+
+    .auth-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .auth-panel {
+        order: 1;
+    }
+
+    .auth-support-card {
+        order: 2;
     }
 
     .amenity-checklist {

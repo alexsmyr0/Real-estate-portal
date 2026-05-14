@@ -320,7 +320,7 @@ def _render_register_page(*, request: HttpRequest, form: RegistrationForm) -> Ht
         "users/register.html",
         {
             "form": form,
-            "submit_label": "Create account",
+            "submit_label": "Register",
             "submit_loading_label": "Creating account...",
         },
     )
@@ -333,7 +333,7 @@ def _render_login_page(*, request: HttpRequest, form: LoginForm, next_url: str =
         {
             "form": form,
             "next_url": next_url,
-            "submit_label": "Continue to 2FA",
+            "submit_label": "Login",
             "submit_loading_label": "Checking credentials...",
         },
     )
@@ -351,7 +351,7 @@ def _render_verify_2fa_page(
         {
             "form": form,
             "next_url": next_url,
-            "submit_label": "Verify code",
+            "submit_label": "Verify Code",
             "submit_loading_label": "Verifying code...",
         },
     )

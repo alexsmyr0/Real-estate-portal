@@ -70,33 +70,11 @@
         }
 
         .landing-v2-button {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
             padding: 0.95rem 1.9rem;
-            border-radius: 999px;
-            background: var(--accent);
-            color: var(--white);
             font-family: "Playfair Display", Georgia, serif;
             font-size: 1.35rem;
             font-weight: 700;
-            text-decoration: none;
-            border: 1px solid var(--accent);
-            box-shadow: 0 4px 14px rgba(15, 123, 108, 0.25);
             white-space: nowrap;
-            transform: scale(1);
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-
-        .landing-v2-button:hover,
-        .landing-v2-button:focus-visible {
-            transform: scale(1.06);
-            box-shadow: 0 6px 18px rgba(15, 123, 108, 0.32);
-        }
-
-        .landing-v2-button:focus-visible {
-            outline: 3px solid var(--accent-deep);
-            outline-offset: 3px;
         }
     </style>
 {% endblock %}
@@ -110,7 +88,7 @@
         <div class="landing-v2-title-group">
             <h1 class="landing-v2-title">Your Dream Starts Here</h1>
             <div class="landing-v2-action">
-                <a href="{% url 'site-catalog' %}" class="landing-v2-button">Browse Listings</a>
+                <a href="{% url 'site-catalog' %}" class="button button-primary button-cta landing-v2-button">Browse Listings</a>
             </div>
         </div>
     </section>

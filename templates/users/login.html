@@ -2,18 +2,12 @@
 
 {% block title %}Sign In | HomeFinder{% endblock %}
 
-{% block page_header %}
-    <section class="page-hero">
-        <p class="eyebrow">Secure Login</p>
-        <h1>Sign in to HomeFinder</h1>
-        <p>Step 1 of 2: enter your email and password. We will send a 2FA code to complete login.</p>
-    </section>
-{% endblock %}
-
 {% block content %}
-    <section class="panel auth-panel">
-        <h2>Login</h2>
-        {% include "partials/_form_layout.html" with form=form next_url=next_url submit_label=submit_label submit_loading_label=submit_loading_label %}
-        <p class="auth-footnote">Need an account? <a href="{% url 'register-page' %}">Create one</a>.</p>
+    {% url 'register-page' as register_url %}
+    <section class="auth-layout">
+        <section class="panel auth-panel">
+            <h2>Sign in to continue</h2>
+            {% include "partials/_form_layout.html" with form=form next_url=next_url submit_label=submit_label submit_loading_label=submit_loading_label helper_text="Don't have an account?" helper_link_url=register_url helper_link_label="Create one" %}
+        </section>
     </section>
 {% endblock %}
