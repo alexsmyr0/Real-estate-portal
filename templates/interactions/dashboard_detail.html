@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% url "site-dashboard" as site_dashboard_url %}
 
 {% block title %}HomeFinder | {{ page_title }}{% endblock %}
 
 {% block page_header %}
+    {% url "site-dashboard" as site_dashboard_url %}
     <section class="page-hero dashboard-hero">
         <p class="eyebrow"><a class="dashboard-back-link" href="{{ site_dashboard_url }}">&larr; Back to dashboard</a></p>
         <h1>{{ page_title }}</h1>
