@@ -8,7 +8,6 @@ from django.shortcuts import render
 from homefinder.apps.properties.services import (
     get_featured_visible_properties,
     get_personalized_recommendations,
-    visible_properties_queryset,
 )
 
 logger = logging.getLogger(__name__)
@@ -33,7 +32,6 @@ def health(_request: HttpRequest) -> JsonResponse:
 
 def site_home(request: HttpRequest) -> HttpResponse:
     featured_properties = get_featured_visible_properties(limit=3)
-    total_visible_listings = visible_properties_queryset().count()
     recommended_properties = _safe_get_recommendations(
         user=request.user,
         request_surface="landing",
@@ -44,7 +42,6 @@ def site_home(request: HttpRequest) -> HttpResponse:
         "core/site_home.html",
         {
             "featured_properties": featured_properties,
-            "total_visible_listings": total_visible_listings,
             "recommended_properties": recommended_properties,
             "recommendation_empty_message": _recommendation_empty_message(request),
         },

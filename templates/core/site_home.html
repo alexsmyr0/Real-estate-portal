@@ -10,35 +10,10 @@
         <p>
             Explore public residential, commercial, and rental listings across Greece with fast filters and live availability context.
         </p>
-        <div class="hero-actions">
-            <a href="{{ site_catalog_url }}" class="button button-primary">Browse Catalog</a>
-            <a href="#featured-listings" class="button button-ghost">See Featured Listings</a>
-        </div>
     </section>
 {% endblock %}
 
 {% block content %}
-    <section class="panel-grid landing-highlights">
-        <article class="panel">
-            <h2>Search By Real Criteria</h2>
-            <p>
-                Filter listings by location, category, price range, bedrooms, and amenities with stable backend semantics.
-            </p>
-        </article>
-        <article class="panel">
-            <h2>Public Catalog Visibility</h2>
-            <p>
-                Availability messaging is consistent: available and unavailable listings stay visible, while removed listings stay hidden.
-            </p>
-        </article>
-        <article class="panel">
-            <h2>Catalog Snapshot</h2>
-            <p>
-                {{ total_visible_listings }} visible listing{{ total_visible_listings|pluralize }} in the current public catalog.
-            </p>
-        </article>
-    </section>
-
     <section id="featured-listings" class="panel">
         <div class="page-header-inline">
             <div>
