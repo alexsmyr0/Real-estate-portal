@@ -69,11 +69,11 @@ class UserDashboardTests(TestCase):
         self.assertContains(response, "You have not submitted inquiries yet.")
         self.assertContains(response, "You have not requested any viewings yet.")
         self.assertContains(response, "You have not subscribed to similar-listing alerts yet.")
-        self.assertEqual(response.context["searches"]["shown_count"], 0)
-        self.assertEqual(response.context["favorites"]["shown_count"], 0)
-        self.assertEqual(response.context["inquiries"]["shown_count"], 0)
-        self.assertEqual(response.context["viewings"]["shown_count"], 0)
-        self.assertEqual(response.context["alerts"]["shown_count"], 0)
+        self.assertEqual(response.context["searches"]["total_count"], 0)
+        self.assertEqual(response.context["favorites"]["total_count"], 0)
+        self.assertEqual(response.context["inquiries"]["total_count"], 0)
+        self.assertEqual(response.context["viewings"]["total_count"], 0)
+        self.assertEqual(response.context["alerts"]["total_count"], 0)
 
     def test_populated_dashboard_shows_only_current_users_activity(self) -> None:
         self.client.force_login(self.user)
@@ -126,16 +126,16 @@ class UserDashboardTests(TestCase):
         self.assertNotContains(response, "Other user private inquiry")
         self.assertNotContains(response, "Other user private viewing")
 
-        self.assertEqual(response.context["searches"]["current"][0]["criteria"][0], "Location: Athens")
-        self.assertEqual(response.context["favorites"]["current"][0].user_id, self.user.id)
+        self.assertEqual(response.context["searches"]["items"][0]["criteria"][0], "Location: Athens")
+        self.assertEqual(response.context["favorites"]["items"][0].user_id, self.user.id)
         self.assertNotIn(
             self.other_property.id,
-            [favorite.property_id for favorite in response.context["favorites"]["current"]],
+            [favorite.property_id for favorite in response.context["favorites"]["items"]],
         )
-        self.assertEqual(response.context["inquiries"]["shown_count"], 1)
-        self.assertEqual(response.context["viewings"]["shown_count"], 1)
-        self.assertEqual(response.context["inquiries"]["current"][0]["property_title"], "User Dashboard Listing")
-        self.assertEqual(response.context["viewings"]["current"][0]["property_title"], "User Dashboard Listing")
+        self.assertEqual(response.context["inquiries"]["total_count"], 1)
+        self.assertEqual(response.context["viewings"]["total_count"], 1)
+        self.assertEqual(response.context["inquiries"]["items"][0]["property_title"], "User Dashboard Listing")
+        self.assertEqual(response.context["viewings"]["items"][0]["property_title"], "User Dashboard Listing")
 
     def test_dashboard_orders_limits_and_groups_activity_predictably(self) -> None:
         self.client.force_login(self.user)
@@ -148,18 +148,14 @@ class UserDashboardTests(TestCase):
         response = self.client.get("/dashboard/")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.context["searches"]["current"]), 5)
-        self.assertEqual(len(response.context["searches"]["older"]), 5)
-        self.assertEqual(response.context["searches"]["shown_count"], 10)
-        self.assertEqual(response.context["searches"]["current"][0]["criteria"], ["Location: Limit City 11"])
-        self.assertEqual(response.context["searches"]["current"][-1]["criteria"], ["Location: Limit City 07"])
-        self.assertEqual(response.context["searches"]["older"][0]["criteria"], ["Location: Limit City 06"])
-        self.assertEqual(response.context["searches"]["older"][-1]["criteria"], ["Location: Limit City 02"])
-        self.assertContains(response, "Current")
-        self.assertContains(response, "Older")
+        self.assertEqual(len(response.context["searches"]["items"]), 3)
+        self.assertEqual(response.context["searches"]["total_count"], 12)
+        self.assertEqual(response.context["searches"]["items"][0]["criteria"], ["Location: Limit City 11"])
+        self.assertEqual(response.context["searches"]["items"][-1]["criteria"], ["Location: Limit City 09"])
+        self.assertContains(response, "View all")
         self.assertContains(response, "Limit City 11")
         self.assertNotContains(response, "Limit City 00")
-        self.assertNotContains(response, "Limit City 01")
+        self.assertNotContains(response, "Limit City 08")
 
     def test_dashboard_orders_limits_and_groups_favorites_inquiries_and_viewings(self) -> None:
         self.client.force_login(self.user)
@@ -190,26 +186,26 @@ class UserDashboardTests(TestCase):
         response = self.client.get("/dashboard/")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.context["favorites"]["current"]), 5)
-        self.assertEqual(len(response.context["favorites"]["older"]), 5)
-        self.assertEqual(response.context["favorites"]["current"][0].property.title, "Favorite Listing 11")
-        self.assertEqual(response.context["favorites"]["older"][-1].property.title, "Favorite Listing 02")
+        self.assertEqual(len(response.context["favorites"]["items"]), 3)
+        self.assertEqual(response.context["favorites"]["total_count"], 12)
+        self.assertEqual(response.context["favorites"]["items"][0].property.title, "Favorite Listing 11")
+        self.assertEqual(response.context["favorites"]["items"][-1].property.title, "Favorite Listing 09")
         self.assertNotContains(response, "Favorite Listing 00")
-        self.assertNotContains(response, "Favorite Listing 01")
+        self.assertNotContains(response, "Favorite Listing 08")
 
-        self.assertEqual(len(response.context["inquiries"]["current"]), 5)
-        self.assertEqual(len(response.context["inquiries"]["older"]), 5)
-        self.assertEqual(response.context["inquiries"]["current"][0]["property_title"], "Inquiry Listing 11")
-        self.assertEqual(response.context["inquiries"]["older"][-1]["property_title"], "Inquiry Listing 02")
+        self.assertEqual(len(response.context["inquiries"]["items"]), 3)
+        self.assertEqual(response.context["inquiries"]["total_count"], 12)
+        self.assertEqual(response.context["inquiries"]["items"][0]["property_title"], "Inquiry Listing 11")
+        self.assertEqual(response.context["inquiries"]["items"][-1]["property_title"], "Inquiry Listing 09")
         self.assertNotContains(response, "Inquiry Listing 00")
-        self.assertNotContains(response, "Inquiry Listing 01")
+        self.assertNotContains(response, "Inquiry Listing 08")
 
-        self.assertEqual(len(response.context["viewings"]["current"]), 5)
-        self.assertEqual(len(response.context["viewings"]["older"]), 5)
-        self.assertEqual(response.context["viewings"]["current"][0]["property_title"], "Viewing Listing 11")
-        self.assertEqual(response.context["viewings"]["older"][-1]["property_title"], "Viewing Listing 02")
+        self.assertEqual(len(response.context["viewings"]["items"]), 3)
+        self.assertEqual(response.context["viewings"]["total_count"], 12)
+        self.assertEqual(response.context["viewings"]["items"][0]["property_title"], "Viewing Listing 11")
+        self.assertEqual(response.context["viewings"]["items"][-1]["property_title"], "Viewing Listing 09")
         self.assertNotContains(response, "Viewing Listing 00")
-        self.assertNotContains(response, "Viewing Listing 01")
+        self.assertNotContains(response, "Viewing Listing 08")
 
     def test_dashboard_filters_removed_favorites_without_leaking_other_favorites(self) -> None:
         self.client.force_login(self.user)
@@ -228,7 +224,7 @@ class UserDashboardTests(TestCase):
         self.assertContains(response, "User Dashboard Listing")
         self.assertNotContains(response, "Removed Saved Listing")
         self.assertEqual(
-            [favorite.property_id for favorite in response.context["favorites"]["current"]],
+            [favorite.property_id for favorite in response.context["favorites"]["items"]],
             [self.property.id],
         )
 
@@ -308,15 +304,15 @@ class UserDashboardTests(TestCase):
         response = self.client.get("/dashboard/")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context["alerts"]["shown_count"], 1)
-        self.assertEqual(response.context["alerts"]["current"][0]["source_property_title"], "Unavailable Source Listing")
-        self.assertIn("Location: Athens", response.context["alerts"]["current"][0]["criteria"])
-        self.assertIn("Category: Residential", response.context["alerts"]["current"][0]["criteria"])
-        self.assertIn("Amenities: Pool", response.context["alerts"]["current"][0]["criteria"])
+        self.assertEqual(response.context["alerts"]["total_count"], 1)
+        self.assertEqual(response.context["alerts"]["items"][0]["source_property_title"], "Unavailable Source Listing")
+        self.assertIn("Location: Athens", response.context["alerts"]["items"][0]["criteria"])
+        self.assertIn("Category: Residential", response.context["alerts"]["items"][0]["criteria"])
+        self.assertIn("Amenities: Pool", response.context["alerts"]["items"][0]["criteria"])
         self.assertContains(response, "Unavailable Source Listing")
         self.assertContains(response, f'href="/catalog/{unavailable_property.id}/"')
         self.assertNotContains(response, "Other User Source Listing")
-        self.assertNotIn(other_subscription.pk, [item.get("id") for item in response.context["alerts"]["current"]])
+        self.assertNotIn(other_subscription.pk, [item.get("id") for item in response.context["alerts"]["items"]])
         self.assertEqual(
             ListingAlertSubscription.objects.filter(user=self.user).count(),
             2,
@@ -341,13 +337,12 @@ class UserDashboardTests(TestCase):
         response = self.client.get("/dashboard/")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.context["alerts"]["current"]), 5)
-        self.assertEqual(len(response.context["alerts"]["older"]), 5)
-        self.assertEqual(response.context["alerts"]["shown_count"], 10)
-        self.assertEqual(response.context["alerts"]["current"][0]["source_property_title"], "Alert Source Listing 11")
-        self.assertEqual(response.context["alerts"]["older"][-1]["source_property_title"], "Alert Source Listing 02")
+        self.assertEqual(len(response.context["alerts"]["items"]), 3)
+        self.assertEqual(response.context["alerts"]["total_count"], 12)
+        self.assertEqual(response.context["alerts"]["items"][0]["source_property_title"], "Alert Source Listing 11")
+        self.assertEqual(response.context["alerts"]["items"][-1]["source_property_title"], "Alert Source Listing 09")
         self.assertNotContains(response, "Alert Source Listing 00")
-        self.assertNotContains(response, "Alert Source Listing 01")
+        self.assertNotContains(response, "Alert Source Listing 08")
 
     def test_dashboard_alert_subscription_with_removed_source_renders_without_dead_link(self) -> None:
         self.client.force_login(self.user)
@@ -370,8 +365,8 @@ class UserDashboardTests(TestCase):
         self.assertContains(response, "The source listing is no longer available.")
         self.assertNotContains(response, "Will Be Removed Source")
         self.assertNotContains(response, f'href="/catalog/{unavailable_property.id}/"')
-        self.assertEqual(response.context["alerts"]["shown_count"], 1)
-        self.assertEqual(response.context["alerts"]["current"][0]["source_property_detail_url"], "")
+        self.assertEqual(response.context["alerts"]["total_count"], 1)
+        self.assertEqual(response.context["alerts"]["items"][0]["source_property_detail_url"], "")
         self.assertEqual(
             ListingAlertSubscription.objects.filter(pk=subscription.pk).get().is_active,
             True,

@@ -19,96 +19,96 @@
 {% block content %}
     <div class="dashboard-grid">
         <section class="panel dashboard-section" aria-labelledby="dashboard-searches-heading">
-            <div class="results-header">
-                <div>
-                    <p class="eyebrow">Searches</p>
+            {% if searches.items %}
+                <a class="dashboard-section-heading-link" href="{{ searches.detail_url }}">
                     <h2 id="dashboard-searches-heading">Recent searches</h2>
+                </a>
+                <ol class="dashboard-list">
+                    {% for item in searches.items %}
+                        {% include "interactions/partials/_dashboard_row.html" with item=item item_template="search" %}
+                    {% endfor %}
+                </ol>
+                <div class="dashboard-section-footer">
+                    <a href="{{ searches.detail_url }}" class="button button-ghost">View all</a>
                 </div>
-                <p class="results-context">Latest {{ dashboard_current_limit }} current, {{ dashboard_older_limit }} older</p>
-            </div>
-
-            {% if searches.shown_count %}
-                {% include "interactions/partials/_dashboard_bucket.html" with bucket_title="Current" items=searches.current item_template="search" %}
-                {% if searches.older %}
-                    {% include "interactions/partials/_dashboard_bucket.html" with bucket_title="Older" items=searches.older item_template="search" %}
-                {% endif %}
             {% else %}
+                <h2 id="dashboard-searches-heading">Recent searches</h2>
                 {% include "partials/_empty_state.html" with title=searches.empty_title message=searches.empty_message action_href=site_catalog_url action_label="Start browsing" %}
             {% endif %}
         </section>
 
         <section class="panel dashboard-section" aria-labelledby="dashboard-favorites-heading">
-            <div class="results-header">
-                <div>
-                    <p class="eyebrow">Saved</p>
+            {% if favorites.items %}
+                <a class="dashboard-section-heading-link" href="{{ favorites.detail_url }}">
                     <h2 id="dashboard-favorites-heading">Saved properties</h2>
+                </a>
+                <ol class="dashboard-list">
+                    {% for item in favorites.items %}
+                        {% include "interactions/partials/_dashboard_row.html" with item=item item_template="favorite" %}
+                    {% endfor %}
+                </ol>
+                <div class="dashboard-section-footer">
+                    <a href="{{ favorites.detail_url }}" class="button button-ghost">View all</a>
                 </div>
-                <p class="results-context">Latest {{ dashboard_current_limit }} current, {{ dashboard_older_limit }} older</p>
-            </div>
-
-            {% if favorites.shown_count %}
-                {% include "interactions/partials/_dashboard_bucket.html" with bucket_title="Current" items=favorites.current item_template="favorite" %}
-                {% if favorites.older %}
-                    {% include "interactions/partials/_dashboard_bucket.html" with bucket_title="Older" items=favorites.older item_template="favorite" %}
-                {% endif %}
             {% else %}
+                <h2 id="dashboard-favorites-heading">Saved properties</h2>
                 {% include "partials/_empty_state.html" with title=favorites.empty_title message=favorites.empty_message action_href=site_catalog_url action_label="Explore catalog" %}
             {% endif %}
         </section>
 
         <section class="panel dashboard-section" aria-labelledby="dashboard-inquiries-heading">
-            <div class="results-header">
-                <div>
-                    <p class="eyebrow">Messages</p>
+            {% if inquiries.items %}
+                <a class="dashboard-section-heading-link" href="{{ inquiries.detail_url }}">
                     <h2 id="dashboard-inquiries-heading">Inquiries</h2>
+                </a>
+                <ol class="dashboard-list">
+                    {% for item in inquiries.items %}
+                        {% include "interactions/partials/_dashboard_row.html" with item=item item_template="inquiry" %}
+                    {% endfor %}
+                </ol>
+                <div class="dashboard-section-footer">
+                    <a href="{{ inquiries.detail_url }}" class="button button-ghost">View all</a>
                 </div>
-                <p class="results-context">Latest {{ dashboard_current_limit }} current, {{ dashboard_older_limit }} older</p>
-            </div>
-
-            {% if inquiries.shown_count %}
-                {% include "interactions/partials/_dashboard_bucket.html" with bucket_title="Current" items=inquiries.current item_template="inquiry" %}
-                {% if inquiries.older %}
-                    {% include "interactions/partials/_dashboard_bucket.html" with bucket_title="Older" items=inquiries.older item_template="inquiry" %}
-                {% endif %}
             {% else %}
+                <h2 id="dashboard-inquiries-heading">Inquiries</h2>
                 {% include "partials/_empty_state.html" with title=inquiries.empty_title message=inquiries.empty_message action_href=site_catalog_url action_label="Find a property" %}
             {% endif %}
         </section>
 
         <section class="panel dashboard-section" aria-labelledby="dashboard-viewings-heading">
-            <div class="results-header">
-                <div>
-                    <p class="eyebrow">Appointments</p>
+            {% if viewings.items %}
+                <a class="dashboard-section-heading-link" href="{{ viewings.detail_url }}">
                     <h2 id="dashboard-viewings-heading">Viewing requests</h2>
+                </a>
+                <ol class="dashboard-list">
+                    {% for item in viewings.items %}
+                        {% include "interactions/partials/_dashboard_row.html" with item=item item_template="viewing" %}
+                    {% endfor %}
+                </ol>
+                <div class="dashboard-section-footer">
+                    <a href="{{ viewings.detail_url }}" class="button button-ghost">View all</a>
                 </div>
-                <p class="results-context">Latest {{ dashboard_current_limit }} current, {{ dashboard_older_limit }} older</p>
-            </div>
-
-            {% if viewings.shown_count %}
-                {% include "interactions/partials/_dashboard_bucket.html" with bucket_title="Current" items=viewings.current item_template="viewing" %}
-                {% if viewings.older %}
-                    {% include "interactions/partials/_dashboard_bucket.html" with bucket_title="Older" items=viewings.older item_template="viewing" %}
-                {% endif %}
             {% else %}
+                <h2 id="dashboard-viewings-heading">Viewing requests</h2>
                 {% include "partials/_empty_state.html" with title=viewings.empty_title message=viewings.empty_message action_href=site_catalog_url action_label="Browse listings" %}
             {% endif %}
         </section>
 
         <section class="panel dashboard-section" aria-labelledby="dashboard-alerts-heading">
-            <div class="results-header">
-                <div>
-                    <p class="eyebrow">Alerts</p>
+            {% if alerts.items %}
+                <a class="dashboard-section-heading-link" href="{{ alerts.detail_url }}">
                     <h2 id="dashboard-alerts-heading">Alert subscriptions</h2>
+                </a>
+                <ol class="dashboard-list">
+                    {% for item in alerts.items %}
+                        {% include "interactions/partials/_dashboard_row.html" with item=item item_template="alert" %}
+                    {% endfor %}
+                </ol>
+                <div class="dashboard-section-footer">
+                    <a href="{{ alerts.detail_url }}" class="button button-ghost">View all</a>
                 </div>
-                <p class="results-context">Latest {{ dashboard_current_limit }} current, {{ dashboard_older_limit }} older</p>
-            </div>
-
-            {% if alerts.shown_count %}
-                {% include "interactions/partials/_dashboard_bucket.html" with bucket_title="Current" items=alerts.current item_template="alert" %}
-                {% if alerts.older %}
-                    {% include "interactions/partials/_dashboard_bucket.html" with bucket_title="Older" items=alerts.older item_template="alert" %}
-                {% endif %}
             {% else %}
+                <h2 id="dashboard-alerts-heading">Alert subscriptions</h2>
                 {% include "partials/_empty_state.html" with title=alerts.empty_title message=alerts.empty_message action_href=site_catalog_url action_label="Browse listings" %}
             {% endif %}
         </section>

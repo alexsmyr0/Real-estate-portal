@@ -32,7 +32,7 @@ class RecommendationSurfaceUITests(TestCase):
             password="StrongPassword123!",
         )
 
-    def test_landing_catalog_and_dashboard_render_recommendation_cards_with_catalog_card_markup(self) -> None:
+    def test_landing_and_dashboard_render_recommendation_cards_with_catalog_card_markup(self) -> None:
         recommended = self._create_property(
             title="Athens Recommended Home",
             status=PropertyStatus.AVAILABLE,
@@ -62,7 +62,6 @@ class RecommendationSurfaceUITests(TestCase):
 
         for path, heading in [
             ("/", "Recommended Listings"),
-            ("/catalog/", "Recommended Listings"),
             ("/dashboard/", "Recommended For You"),
         ]:
             with self.subTest(path=path):
@@ -195,18 +194,16 @@ class RecommendationSurfaceUITests(TestCase):
         self.assertNotIn("tailored", response_text)
         self.assertNotIn("based on your activity", response_text)
 
-    def test_anonymous_landing_and_catalog_recommendation_states_are_empty_and_neutral(self) -> None:
-        for path in ["/", "/catalog/"]:
-            with self.subTest(path=path):
-                response = self.client.get(path)
-                response_text = response.content.decode().lower()
+    def test_anonymous_landing_recommendation_state_is_empty_and_neutral(self) -> None:
+        response = self.client.get("/")
+        response_text = response.content.decode().lower()
 
-                self.assertEqual(response.status_code, 200)
-                self.assertContains(response, "No recommendations available yet")
-                self.assertContains(response, "Browse listings to discover recommendations.")
-                self.assertNotContains(response, "Personalized")
-                self.assertNotIn("based on your activity", response_text)
-                self.assertEqual(response.context["recommended_properties"], [])
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "No recommendations available yet")
+        self.assertContains(response, "Browse listings to discover recommendations.")
+        self.assertNotContains(response, "Personalized")
+        self.assertNotIn("based on your activity", response_text)
+        self.assertEqual(response.context["recommended_properties"], [])
 
     def test_empty_recommendation_states_render_for_authenticated_users(self) -> None:
         self.client.force_login(self.user)
@@ -239,12 +236,6 @@ class RecommendationSurfaceUITests(TestCase):
         self.assertEqual(landing_kwargs["user"], self.user)
         self.assertEqual(landing_kwargs["request_surface"], "landing")
 
-        with patch("homefinder.apps.properties.views.get_personalized_recommendations", return_value=[card]) as catalog_service:
-            self.client.get("/catalog/")
-        catalog_kwargs = catalog_service.call_args.kwargs
-        self.assertEqual(catalog_kwargs["user"], self.user)
-        self.assertEqual(catalog_kwargs["request_surface"], "catalog")
-
         with patch("homefinder.apps.properties.views.get_personalized_recommendations", return_value=[card]) as detail_service:
             self.client.get(f"/catalog/{source_property.id}/")
         detail_kwargs = detail_service.call_args.kwargs
@@ -257,60 +248,6 @@ class RecommendationSurfaceUITests(TestCase):
         dashboard_kwargs = dashboard_service.call_args.kwargs
         self.assertEqual(dashboard_kwargs["user"], self.user)
         self.assertEqual(dashboard_kwargs["request_surface"], "dashboard")
-
-    def test_catalog_recommendation_service_failure_falls_back_to_empty_state(self) -> None:
-        with patch(
-            "homefinder.apps.properties.views.get_personalized_recommendations",
-            side_effect=RuntimeError("ranking backend exploded"),
-        ), patch("homefinder.apps.properties.views.logger.exception") as logger_exception:
-            response = self.client.get("/catalog/")
-
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Recommended Listings")
-        self.assertContains(response, "No recommendations available yet")
-        self.assertNotContains(response, "ranking backend exploded")
-        logger_exception.assert_called_once()
-
-    def test_already_favorited_and_other_user_recommendation_data_do_not_leak(self) -> None:
-        favorited = self._create_property(
-            title="Already Saved Recommendation",
-            status=PropertyStatus.AVAILABLE,
-            city="Athens",
-            price=Decimal("245000.00"),
-        )
-        fresh = self._create_property(
-            title="Fresh Private Recommendation",
-            status=PropertyStatus.AVAILABLE,
-            city="Athens",
-            price=Decimal("250000.00"),
-        )
-        other_only = self._create_property(
-            title="Other User Recommendation Signal",
-            status=PropertyStatus.AVAILABLE,
-            city="Patra",
-            price=Decimal("900.00"),
-            category=PropertyCategory.RENTAL,
-        )
-        UserFavorite.objects.create(user=self.user, property=favorited)
-        SearchHistory.objects.create(
-            user=self.user,
-            category=PropertyCategory.RESIDENTIAL,
-            location_city="Athens",
-        )
-        SearchHistory.objects.create(
-            user=self.other_user,
-            category=PropertyCategory.RENTAL,
-            location_city="Patra",
-        )
-        self.client.force_login(self.user)
-
-        response = self.client.get("/catalog/")
-
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Fresh Private Recommendation")
-        self.assertIn(fresh.id, [item["id"] for item in response.context["recommended_properties"]])
-        self.assertNotIn(favorited.id, [item["id"] for item in response.context["recommended_properties"]])
-        self.assertNotIn(other_only.id, [item["id"] for item in response.context["recommended_properties"]])
 
     def _create_property(
         self,

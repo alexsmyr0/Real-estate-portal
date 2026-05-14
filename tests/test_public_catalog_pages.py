@@ -61,7 +61,7 @@ class PublicCatalogPageTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "core/site_home.html")
-        self.assertContains(response, "Browse Catalog")
+        self.assertContains(response, "View Full Catalog")
         self.assertContains(response, "/catalog/")
         self.assertContains(response, "Landing Snapshot Listing")
 

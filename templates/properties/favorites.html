@@ -1,11 +1,12 @@
 {% extends "base.html" %}
-{% url "site-catalog" as site_catalog_url %}
 
 {% block title %}HomeFinder | Saved Listings{% endblock %}
 
 {% block page_header %}
+    {% url "site-catalog" as site_catalog_url %}
+    {% url "site-dashboard" as site_dashboard_url %}
     <section class="page-hero detail-hero">
-        <p class="eyebrow">Saved Listings</p>
+        <p class="eyebrow"><a class="dashboard-back-link" href="{{ site_dashboard_url }}">&larr; Back to dashboard</a></p>
         <h1>Your favorites</h1>
         <p>Review and manage listings you saved from catalog and detail pages.</p>
         <div class="hero-actions">
@@ -15,6 +16,7 @@
 {% endblock %}
 
 {% block content %}
+    {% url "site-catalog" as site_catalog_url %}
     <section class="panel">
         <div class="results-header">
             <h2>Saved Properties</h2>
