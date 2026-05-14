@@ -1,10 +1,12 @@
 <article class="property-card">
     <div class="property-media">
-        {% if property.primary_image_url %}
-            <img src="{{ property.primary_image_url }}" alt="{{ property.title }}">
-        {% else %}
-            <div class="property-media-empty">No image available</div>
-        {% endif %}
+        <a class="property-media-link" href="{% url 'site-property-detail' property.id %}" aria-label="View details for {{ property.title }}">
+            {% if property.primary_image_url %}
+                <img src="{{ property.primary_image_url }}" alt="{{ property.title }}">
+            {% else %}
+                <div class="property-media-empty">No image available</div>
+            {% endif %}
+        </a>
     </div>
     <div class="property-content">
         <div class="property-meta">
