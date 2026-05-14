@@ -71,8 +71,10 @@ body {
 
 .site-nav {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 0.65rem;
+    min-width: 0;
 }
 
 .nav-link {
@@ -81,7 +83,7 @@ body {
     text-decoration: none;
     color: var(--ink-700);
     font-weight: 600;
-    overflow-wrap: anywhere;
+    white-space: nowrap;
 }
 
 .nav-link:hover,

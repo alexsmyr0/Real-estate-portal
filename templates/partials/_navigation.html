@@ -5,9 +5,6 @@
 {% url "staff-listing-list" as staff_listing_list_url %}
 {% url "staff-reporting-overview" as staff_reporting_overview_url %}
 {% url "staff-reporting-search-trends" as staff_reporting_search_trends_url %}
-{% url "staff-interactions-inquiries" as staff_interactions_inquiries_url %}
-{% url "staff-interactions-viewings" as staff_interactions_viewings_url %}
-{% url "staff-interactions-bookings" as staff_interactions_bookings_url %}
 <header class="site-header">
     <a class="brand" href="{{ home_url }}">
         <span class="brand-mark">HF</span>
@@ -25,15 +22,6 @@
             {% if request.user.can_view_reports %}
                 <a class="nav-link{% if request.path == staff_reporting_overview_url or request.path == staff_reporting_search_trends_url %} is-active{% endif %}" href="{{ staff_reporting_overview_url }}">Reports</a>
             {% endif %}
-            {% if request.user.is_admin and staff_interactions_inquiries_url %}
-                <a class="nav-link{% if request.path == staff_interactions_inquiries_url %} is-active{% endif %}" href="{{ staff_interactions_inquiries_url }}">Inquiries</a>
-            {% endif %}
-            {% if request.user.is_admin and staff_interactions_viewings_url %}
-                <a class="nav-link{% if request.path == staff_interactions_viewings_url %} is-active{% endif %}" href="{{ staff_interactions_viewings_url }}">Viewings</a>
-            {% endif %}
-            {% if request.user.is_admin and staff_interactions_bookings_url %}
-                <a class="nav-link{% if request.path == staff_interactions_bookings_url %} is-active{% endif %}" href="{{ staff_interactions_bookings_url }}">Bookings</a>
-            {% endif %}
         {% endif %}
     </nav>
     <div class="nav-auth">
@@ -44,7 +32,6 @@
                 <button type="submit" class="button button-ghost">Sign out</button>
             </form>
         {% else %}
-            <span class="auth-chip auth-chip-guest">Guest</span>
             <a href="{% url 'login-page' %}" class="button button-primary">Sign in</a>
             <a href="{% url 'register-page' %}" class="button button-ghost">Register</a>
         {% endif %}
