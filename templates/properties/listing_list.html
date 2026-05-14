@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}HomeFinder | Listings Admin{% endblock %}
+
+{% block page_header %}
+    <section class="page-hero report-hero">
+        <p class="eyebrow">Track Admin</p>
+        <h1>Listing management</h1>
+        <p>
+            Create, edit, and retire listings with visibility states locked to Available, Unavailable, and Removed.
+        </p>
+        <div class="hero-actions">
+            <a class="button button-primary" href="{% url 'staff-listing-create' %}">Create new listing</a>
+        </div>
+    </section>
+{% endblock %}
+
+{% block content %}
+    <section class="panel">
+        <div class="page-header-inline">
+            <h2>Filter Listings</h2>
+            <p class="results-context">{{ listing_rows|length }} listing{{ listing_rows|length|pluralize }} in view</p>
+        </div>
+        <form method="get" class="form-shell">
+            <div class="form-grid">
+                <div class="form-field">
+                    <label for="id_status" class="form-label">Status</label>
+                    <select id="id_status" name="status" class="form-control">
+                        <option value="">All statuses</option>
+                        {% for value, label in status_choices %}
+                            <option value="{{ value }}"{% if active_filters.status == value %} selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="hero-actions">
+                <button type="submit" class="button button-primary">Apply filters</button>
+                <a class="button button-ghost" href="{% url 'staff-listing-list' %}">Reset</a>
+            </div>
+        </form>
+    </section>
+
+    <section class="panel">
+        <div class="page-header-inline">
+            <h2>Listings</h2>
+            <p class="results-context">K-04 visibility semantics applied</p>
+        </div>
+        {% if listing_rows %}
+            <div class="report-table-shell">
+                <table class="report-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Title</th>
+                            <th scope="col">Category</th>
+                            <th scope="col">Visibility</th>
+                            <th scope="col">City</th>
+                            <th scope="col">Price</th>
+                            <th scope="col">Listed By</th>
+                            <th scope="col">Updated</th>
+                            <th scope="col">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in listing_rows %}
+                            <tr>
+                                <td>
+                                    <a class="property-title-link" href="{% url 'staff-listing-edit' row.listing.id %}">
+                                        {{ row.listing.title }}
+                                    </a>
+                                </td>
+                                <td>{{ row.listing.get_category_display }}</td>
+                                <td>
+                                    {% if row.availability.is_publicly_visible %}
+                                        Visible ({{ row.availability.label }})
+                                    {% else %}
+                                        Hidden ({{ row.availability.label }})
+                                    {% endif %}
+                                </td>
+                                <td>{{ row.listing.city }}</td>
+                                <td>{{ row.listing.price }}</td>
+                                <td>{{ row.listing.listed_by|default:"-" }}</td>
+                                <td>{{ row.listing.updated_at|date:"Y-m-d H:i" }}</td>
+                                <td>
+                                    <div class="hero-actions">
+                                        <a class="button button-ghost" href="{% url 'staff-listing-edit' row.listing.id %}">Edit</a>
+                                        <a class="button button-ghost" href="{% url 'staff-listing-delete' row.listing.id %}">Delete</a>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            {% include "partials/_empty_state.html" with title="No listings match these filters" message="Adjust status or visibility filters to expand the results." %}
+        {% endif %}
+    </section>
+{% endblock %}

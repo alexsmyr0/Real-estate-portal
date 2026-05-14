@@ -1,7 +1,7 @@
 <section class="panel recommendation-section{% if extra_section_class %} {{ extra_section_class }}{% endif %}" aria-labelledby="{{ heading_id }}">
     <div class="page-header-inline">
         <div>
-            <p class="eyebrow">{{ eyebrow|default:"Recommended" }}</p>
+            {% if eyebrow %}<p class="eyebrow">{{ eyebrow }}</p>{% endif %}
             <h2 id="{{ heading_id }}">{{ title }}</h2>
         </div>
         {% if action_href and action_label %}

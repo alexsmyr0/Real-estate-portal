@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}HomeFinder | {{ page_title }}{% endblock %}
+
+{% block page_header %}
+    {% url "site-dashboard" as site_dashboard_url %}
+    <section class="page-hero dashboard-hero">
+        <p class="eyebrow"><a class="dashboard-back-link" href="{{ site_dashboard_url }}">&larr; Back to dashboard</a></p>
+        <h1>{{ page_title }}</h1>
+        <p>{{ total_count }} total</p>
+    </section>
+{% endblock %}
+
+{% block content %}
+    <section class="panel dashboard-section dashboard-detail-section" aria-labelledby="dashboard-detail-heading">
+        <h2 id="dashboard-detail-heading">All {{ page_title|lower }}</h2>
+
+        {% if items %}
+            <ol class="dashboard-list">
+                {% for item in items %}
+                    {% include "interactions/partials/_dashboard_row.html" with item=item item_template=item_template %}
+                {% endfor %}
+            </ol>
+
+            {% include "interactions/partials/_pagination.html" with page_obj=page_obj %}
+        {% else %}
+            {% include "partials/_empty_state.html" with title=empty_title message=empty_message action_href=empty_action_href action_label=empty_action_label %}
+        {% endif %}
+    </section>
+{% endblock %}
