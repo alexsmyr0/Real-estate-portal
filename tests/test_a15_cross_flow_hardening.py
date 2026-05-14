@@ -194,16 +194,14 @@ class A15CrossFlowHardeningTests(TestCase):
         self.assertIn('data-preserved="yes"', valid_html)
 
     def test_anonymous_recommendation_empty_copy_is_neutral_on_public_surfaces(self) -> None:
-        for path in ("/", "/catalog/"):
-            with self.subTest(path=path):
-                response = self.client.get(path)
-                response_text = response.content.decode().lower()
+        response = self.client.get("/")
+        response_text = response.content.decode().lower()
 
-                self.assertEqual(response.status_code, 200)
-                self.assertContains(response, "No recommendations available yet")
-                self.assertContains(response, "Browse listings to discover recommendations.")
-                self.assertNotIn("personalized", response_text)
-                self.assertNotIn("based on your activity", response_text)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "No recommendations available yet")
+        self.assertContains(response, "Browse listings to discover recommendations.")
+        self.assertNotIn("personalized", response_text)
+        self.assertNotIn("based on your activity", response_text)
 
     def test_simulated_payment_status_is_discoverable_without_real_payment_fields(self) -> None:
         booking_request = BookingRequest.objects.create(

@@ -59,10 +59,6 @@ def catalog_page(request: HttpRequest) -> HttpResponse:
     search_results = search_visible_properties(search_params=search_params)
     properties = search_results["properties"]
     _apply_catalog_favorite_state(request=request, properties=properties)
-    recommended_properties = _safe_get_recommendations(
-        request=request,
-        request_surface="catalog",
-    )
 
     pagination = search_results["pagination"]
     current_page = pagination["page"]
@@ -93,8 +89,6 @@ def catalog_page(request: HttpRequest) -> HttpResponse:
         "properties/catalog.html",
         {
             "properties": properties,
-            "recommended_properties": recommended_properties,
-            "recommendation_empty_message": _recommendation_empty_message(request),
             "pagination": pagination,
             "active_filters": {
                 "location": _first_query_value(request.GET, "location", "location_city", "city"),
@@ -735,12 +729,6 @@ def _active_alert_subscription_for_user(
 
 def _is_rental_property_payload(property_payload: dict[str, object]) -> bool:
     return property_payload.get("category") == PropertyCategory.RENTAL
-
-
-def _recommendation_empty_message(request: HttpRequest) -> str:
-    if request.user.is_authenticated:
-        return "Save or view more properties to improve recommendations."
-    return "Browse listings to discover recommendations."
 
 
 def _preferred_surface(request: HttpRequest) -> str:
