@@ -74,6 +74,10 @@ class User(AbstractBaseUser, PermissionsMixin):
     def can_view_reports(self) -> bool:
         return self.is_active and self.role in {UserRole.SUPERVISOR, UserRole.ADMIN}
 
+    @property
+    def is_admin(self) -> bool:
+        return self.is_active and self.role == UserRole.ADMIN
+
     def __str__(self) -> str:
         return self.email
 

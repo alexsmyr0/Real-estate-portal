@@ -15,6 +15,7 @@ from django.views.decorators.http import require_http_methods
 
 from homefinder.apps.properties.models import ListingAlertSubscription, Property, PropertyCategory
 from homefinder.apps.properties.services import PUBLICLY_VISIBLE_PROPERTY_STATUSES, get_personalized_recommendations
+from homefinder.apps.users.permissions import require_authenticated_user
 
 from .models import (
     BookingRequest,
@@ -134,8 +135,8 @@ def _safe_get_recommendations(*, user: object) -> list[dict[str, object]]:
 @never_cache
 @require_http_methods(["GET"])
 def booking_simulated_payment_page(request: HttpRequest, booking_request_id: int) -> HttpResponse:
-    access_redirect = _require_authenticated_user(
-        request=request,
+    access_redirect = require_authenticated_user(
+        request,
         warning_message="Sign in to continue the simulated payment step.",
         next_url=request.get_full_path(),
     )
@@ -160,8 +161,8 @@ def booking_simulated_payment_action(
     action: str,
 ) -> HttpResponse:
     payment_url = reverse("site-booking-simulated-payment", args=[booking_request_id])
-    access_redirect = _require_authenticated_user(
-        request=request,
+    access_redirect = require_authenticated_user(
+        request,
         warning_message="Sign in to continue the simulated payment step.",
         next_url=payment_url,
     )
@@ -333,23 +334,6 @@ def _add_validation_message(*, request: HttpRequest, error: ValidationError) -> 
         message = messages_list[0] if messages_list else "That simulated payment action is not available."
 
     messages.error(request, message)
-
-
-def _require_authenticated_user(
-    request: HttpRequest,
-    *,
-    warning_message: str,
-    next_url: str,
-) -> HttpResponse | None:
-    if request.user.is_authenticated:
-        return None
-
-    messages.warning(request, warning_message)
-    login_url = reverse("login-page")
-    query_string = urlencode({"next": next_url}) if next_url else ""
-    if query_string:
-        login_url = f"{login_url}?{query_string}"
-    return redirect(login_url)
 
 
 def _build_section(*, rows: list[object], empty_title: str, empty_message: str) -> dict[str, object]:
