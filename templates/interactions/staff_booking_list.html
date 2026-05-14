@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% url "staff-interactions-inquiries" as staff_interactions_inquiries_url %}
+{% url "staff-interactions-viewings" as staff_interactions_viewings_url %}
+
+{% block title %}HomeFinder | Admin Booking Management{% endblock %}
+
+{% block page_header %}
+    <section class="page-hero report-hero">
+        <p class="eyebrow">Admin Staff</p>
+        <h1>Rental booking management</h1>
+        <p>Manage rental booking lifecycle updates using the existing booking status rules.</p>
+        <div class="hero-actions">
+            <a class="button button-ghost" href="{{ staff_interactions_inquiries_url }}">Inquiries</a>
+            <a class="button button-ghost" href="{{ staff_interactions_viewings_url }}">Viewing requests</a>
+        </div>
+    </section>
+{% endblock %}
+
+{% block content %}
+    <section class="panel">
+        <div class="page-header-inline">
+            <h2>Rental booking requests</h2>
+            <p class="results-context">Admin-only status workflow</p>
+        </div>
+
+        {% if booking_rows %}
+            <div class="report-table-shell">
+                <table class="report-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Dates</th>
+                            <th scope="col">User</th>
+                            <th scope="col">Property</th>
+                            <th scope="col">Note</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in booking_rows %}
+                            <tr>
+                                <td>{{ row.record.start_date|date:"Y-m-d" }} to {{ row.record.end_date|date:"Y-m-d" }}</td>
+                                <td>{{ row.record.user.email }}</td>
+                                <td>{{ row.record.property.title }}<br><span class="detail-muted">{{ row.record.property.city }}</span></td>
+                                <td>{{ row.record.note|default:"No note."|truncatechars:120 }}</td>
+                                <td><span class="status-tag">{{ row.record.get_status_display }}</span></td>
+                                <td>
+                                    {% if row.next_status %}
+                                        <form method="post" class="inline-action-form">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="booking_request_id" value="{{ row.record.id }}">
+                                            <button type="submit" class="button button-ghost">Advance to {{ row.next_status_label }}</button>
+                                        </form>
+                                    {% else %}
+                                        <span class="detail-muted">No further transition.</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            {% include "partials/_empty_state.html" with title="No rental booking requests yet" message="Rental booking requests will appear here for admin follow-up." %}
+        {% endif %}
+    </section>
+{% endblock %}
