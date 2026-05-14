@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% url "staff-listing-list" as staff_listing_list_url %}
+
+{% block title %}
+    {% if is_create %}
+        HomeFinder | Create Listing
+    {% else %}
+        HomeFinder | Edit Listing
+    {% endif %}
+{% endblock %}
+
+{% block page_header %}
+    <section class="page-hero report-hero">
+        <p class="eyebrow">Track Admin</p>
+        {% if is_create %}
+            <h1>Create listing</h1>
+            <p>Create a property with images and amenities in one submission.</p>
+        {% else %}
+            <h1>Edit listing</h1>
+            <p>Update listing fields, images, and amenities without losing existing records.</p>
+        {% endif %}
+        <div class="hero-actions">
+            <a class="button button-ghost" href="{{ staff_listing_list_url }}">Back to listings</a>
+        </div>
+    </section>
+{% endblock %}
+
+{% block content %}
+    <section class="panel">
+        <form method="post" class="form-shell">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+                <div class="form-summary-errors" role="alert">
+                    {% for error in form.non_field_errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            {% if image_formset.non_form_errors %}
+                <div class="form-summary-errors" role="alert">
+                    {% for error in image_formset.non_form_errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            {% if amenity_formset.non_form_errors %}
+                <div class="form-summary-errors" role="alert">
+                    {% for error in amenity_formset.non_form_errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <div class="page-header-inline">
+                <h2>Listing Details</h2>
+                <p class="results-context">Property fields</p>
+            </div>
+            <div class="form-grid">
+                {% for field in form %}
+                    {% include "partials/_form_field.html" with field=field %}
+                {% endfor %}
+            </div>
+
+            <div class="page-header-inline">
+                <h2>Images</h2>
+                <p class="results-context">At least one image URL is required</p>
+            </div>
+            {{ image_formset.management_form }}
+            <div class="report-table-shell">
+                <table class="report-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Image URL</th>
+                            <th scope="col">Remove</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for image_form in image_formset %}
+                            <tr>
+                                <td>
+                                    {% for hidden_field in image_form.hidden_fields %}
+                                        {{ hidden_field }}
+                                    {% endfor %}
+                                    <div class="form-field{% if image_form.image_url.errors %} has-error{% endif %}">
+                                        <label for="{{ image_form.image_url.id_for_label }}" class="form-label">
+                                            Image URL {{ forloop.counter }}
+                                        </label>
+                                        {{ image_form.image_url }}
+                                        {% if image_form.image_url.errors %}
+                                            <div id="{{ image_form.image_url.id_for_label }}_errors" role="alert">
+                                                {% for error in image_form.image_url.errors %}
+                                                    <p class="form-error">{{ error }}</p>
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if image_form.DELETE %}
+                                        <label for="{{ image_form.DELETE.id_for_label }}" class="amenity-option">
+                                            {{ image_form.DELETE }} <span>Remove</span>
+                                        </label>
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="page-header-inline">
+                <h2>Amenities</h2>
+                <p class="results-context">At least one amenity is required</p>
+            </div>
+            {{ amenity_formset.management_form }}
+            <div class="report-table-shell">
+                <table class="report-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Amenity</th>
+                            <th scope="col">Remove</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for amenity_form in amenity_formset %}
+                            <tr>
+                                <td>
+                                    {% for hidden_field in amenity_form.hidden_fields %}
+                                        {{ hidden_field }}
+                                    {% endfor %}
+                                    <div class="form-field{% if amenity_form.amenity.errors %} has-error{% endif %}">
+                                        <label for="{{ amenity_form.amenity.id_for_label }}" class="form-label">
+                                            Amenity {{ forloop.counter }}
+                                        </label>
+                                        {{ amenity_form.amenity }}
+                                        {% if amenity_form.amenity.errors %}
+                                            <div id="{{ amenity_form.amenity.id_for_label }}_errors" role="alert">
+                                                {% for error in amenity_form.amenity.errors %}
+                                                    <p class="form-error">{{ error }}</p>
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if amenity_form.DELETE %}
+                                        <label for="{{ amenity_form.DELETE.id_for_label }}" class="amenity-option">
+                                            {{ amenity_form.DELETE }} <span>Remove</span>
+                                        </label>
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="hero-actions">
+                <button type="submit" class="button button-primary">
+                    {% if is_create %}Create listing{% else %}Save changes{% endif %}
+                </button>
+                <a class="button button-ghost" href="{{ staff_listing_list_url }}">Cancel</a>
+            </div>
+        </form>
+    </section>
+{% endblock %}

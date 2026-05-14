@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% url "staff-listing-list" as staff_listing_list_url %}
+
+{% block title %}HomeFinder | Delete Listing{% endblock %}
+
+{% block page_header %}
+    <section class="page-hero report-hero">
+        <p class="eyebrow">Track Admin</p>
+        <h1>Delete listing</h1>
+        <p>Confirm deletion before permanently removing this listing and its related images and amenities.</p>
+    </section>
+{% endblock %}
+
+{% block content %}
+    <section class="panel">
+        <h2>{{ listing.title }}</h2>
+        <p class="detail-muted">
+            {{ listing.get_category_display }} | {{ listing.city }} | {{ listing.price }}
+        </p>
+        <p class="detail-unavailable-note">
+            This action cannot be undone.
+            {% if availability.is_publicly_visible %}
+                The listing is currently visible in the public catalog.
+            {% else %}
+                The listing is currently hidden from the public catalog.
+            {% endif %}
+        </p>
+
+        <form method="post" class="form-shell">
+            {% csrf_token %}
+            <div class="hero-actions">
+                <button type="submit" class="button button-primary">Yes, delete listing</button>
+                <a class="button button-ghost" href="{{ staff_listing_list_url }}">Cancel</a>
+            </div>
+        </form>
+    </section>
+{% endblock %}
