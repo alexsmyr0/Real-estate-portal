@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% url "staff-interactions-viewings" as staff_interactions_viewings_url %}
+{% url "staff-interactions-bookings" as staff_interactions_bookings_url %}
+
+{% block title %}HomeFinder | Admin Inquiry Management{% endblock %}
+
+{% block page_header %}
+    <section class="page-hero report-hero">
+        <p class="eyebrow">Admin Staff</p>
+        <h1>Inquiry management</h1>
+        <p>Review incoming inquiries and advance each one through the supported inquiry lifecycle.</p>
+        <div class="hero-actions">
+            <a class="button button-ghost" href="{{ staff_interactions_viewings_url }}">Viewing requests</a>
+            <a class="button button-ghost" href="{{ staff_interactions_bookings_url }}">Rental bookings</a>
+        </div>
+    </section>
+{% endblock %}
+
+{% block content %}
+    <section class="panel">
+        <div class="page-header-inline">
+            <h2>Property inquiries</h2>
+            <p class="results-context">Admin-only status workflow</p>
+        </div>
+
+        {% if inquiry_rows %}
+            <div class="report-table-shell">
+                <table class="report-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Submitted</th>
+                            <th scope="col">User</th>
+                            <th scope="col">Property</th>
+                            <th scope="col">Message</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in inquiry_rows %}
+                            <tr>
+                                <td>{{ row.record.created_at|date:"Y-m-d H:i" }}</td>
+                                <td>{{ row.record.user.email }}</td>
+                                <td>{{ row.record.property.title }}<br><span class="detail-muted">{{ row.record.property.city }}</span></td>
+                                <td>{{ row.record.message|truncatechars:120 }}</td>
+                                <td><span class="status-tag">{{ row.record.get_status_display }}</span></td>
+                                <td>
+                                    {% if row.next_status %}
+                                        <form method="post" class="inline-action-form">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="inquiry_id" value="{{ row.record.id }}">
+                                            <button type="submit" class="button button-ghost">Advance to {{ row.next_status_label }}</button>
+                                        </form>
+                                    {% else %}
+                                        <span class="detail-muted">No further transition.</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            {% include "partials/_empty_state.html" with title="No inquiries yet" message="Submitted inquiries will appear here for admin follow-up." %}
+        {% endif %}
+    </section>
+{% endblock %}
