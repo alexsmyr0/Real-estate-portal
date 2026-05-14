@@ -1,16 +1,16 @@
 from __future__ import annotations
 
 from functools import wraps
-from typing import Any, Callable, ParamSpec, TypeVar
+from typing import Callable, ParamSpec, TypeVar
 from urllib.parse import urlencode
 
 from django.contrib import messages
+from django.contrib.auth.base_user import AbstractBaseUser
+from django.contrib.auth.models import AnonymousUser
 from django.core.exceptions import PermissionDenied
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect
 from django.urls import reverse
-
-from homefinder.apps.users.models import UserRole
 
 P = ParamSpec("P")
 R = TypeVar("R", bound=HttpResponse)
@@ -28,8 +28,8 @@ def admin_required(view_func: Callable[P, R]) -> Callable[P, HttpResponse]:
 
 
 def _require_admin_user(*, request: HttpRequest, next_url: str) -> HttpResponse | None:
-    guest_redirect = _require_authenticated_user(
-        request=request,
+    guest_redirect = require_authenticated_user(
+        request,
         warning_message="Sign in with an admin account to access this page.",
         next_url=next_url,
     )
@@ -41,9 +41,9 @@ def _require_admin_user(*, request: HttpRequest, next_url: str) -> HttpResponse 
     return None
 
 
-def _require_authenticated_user(
-    *,
+def require_authenticated_user(
     request: HttpRequest,
+    *,
     warning_message: str,
     next_url: str,
 ) -> HttpResponse | None:
@@ -58,5 +58,5 @@ def _require_authenticated_user(
     return redirect(login_url)
 
 
-def _is_admin_user(user: Any) -> bool:
-    return getattr(user, "role", None) == UserRole.ADMIN
+def _is_admin_user(user: AbstractBaseUser | AnonymousUser) -> bool:
+    return bool(getattr(user, "is_admin", False))

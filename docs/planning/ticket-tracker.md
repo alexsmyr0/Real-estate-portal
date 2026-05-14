@@ -120,7 +120,7 @@ Use this as the default claim order for the next wave of work:
 
 ### Track Admin
 
-- [ ] **AD-01** P4 - Admin Role Access Control Decorator | Reusable `admin_required` decorator that gates views on `UserRole.ADMIN` and returns 403 for everyone else. (Depends on: A-01) | Blocks: AD-02; AD-03
+- [x] **AD-01** P4 - Admin Role Access Control Decorator | Reusable `admin_required` decorator that gates views on `UserRole.ADMIN` and returns 403 for everyone else. (Depends on: A-01) | Blocks: AD-02; AD-03
 - [ ] **AD-02** P4 - Admin Listing CRUD End-To-End | In-app admin pages for listing list, create, edit, and delete with `PropertyImage` and `PropertyAmenity` inline formsets and a staff-nav entry point. (Depends on: AD-01; A-03; K-01; K-04; K-06) | Blocks: AD-04
 - [ ] **AD-03** P4 - Admin User Interaction Management Pages | In-app admin pages for inquiries, viewing requests, and rental bookings with status update affordances. (Depends on: AD-01; A-03; A-08; A-09; N-05; K-07) | Blocks: AD-04
 - [ ] **AD-04** P4 - Admin Surface Documentation And Design Mapping | Use case diagram, SDS class and sequence updates, and SRS/SDS textual alignment for the admin actor flows. (Depends on: AD-02; AD-03) | Blocks: None

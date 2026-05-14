@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from urllib.parse import urlencode
 
 from django import forms
 from django.contrib.auth.base_user import AbstractBaseUser
@@ -14,6 +13,8 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_http_methods
+
+from homefinder.apps.users.permissions import require_authenticated_user
 
 from homefinder.apps.interactions.forms import PropertyInquiryForm
 from homefinder.apps.interactions.models import BookingRequest, UserFavorite, ViewingRequest
@@ -156,7 +157,7 @@ def property_detail_page(request: HttpRequest, property_id: int) -> HttpResponse
 @require_http_methods(["POST"])
 def submit_inquiry_action(request: HttpRequest, property_id: int) -> HttpResponse:
     detail_url = reverse("site-property-detail", args=[property_id])
-    guest_redirect = _require_authenticated_user(
+    guest_redirect = require_authenticated_user(
         request,
         warning_message="Sign in before sending an inquiry.",
         next_url=detail_url,
@@ -202,7 +203,7 @@ def submit_inquiry_action(request: HttpRequest, property_id: int) -> HttpRespons
 
 @require_http_methods(["GET"])
 def favorites_page(request: HttpRequest) -> HttpResponse:
-    guest_redirect = _require_authenticated_user(
+    guest_redirect = require_authenticated_user(
         request,
         warning_message="Sign in to view your saved listings.",
         next_url=request.get_full_path(),
@@ -238,7 +239,7 @@ def favorites_page(request: HttpRequest) -> HttpResponse:
 def add_favorite_action(request: HttpRequest, property_id: int) -> HttpResponse:
     fallback_url = reverse("site-property-detail", args=[property_id])
     redirect_target = _preferred_redirect_target(request=request, fallback_url=fallback_url)
-    guest_redirect = _require_authenticated_user(
+    guest_redirect = require_authenticated_user(
         request,
         warning_message="Sign in to save listings.",
         next_url=redirect_target,
@@ -277,7 +278,7 @@ def add_favorite_action(request: HttpRequest, property_id: int) -> HttpResponse:
 def remove_favorite_action(request: HttpRequest, property_id: int) -> HttpResponse:
     fallback_url = reverse("site-property-detail", args=[property_id])
     redirect_target = _preferred_redirect_target(request=request, fallback_url=fallback_url)
-    guest_redirect = _require_authenticated_user(
+    guest_redirect = require_authenticated_user(
         request,
         warning_message="Sign in to manage favorites.",
         next_url=redirect_target,
@@ -347,7 +348,7 @@ def reporting_search_trends_page(request: HttpRequest) -> HttpResponse:
 @require_http_methods(["POST"])
 def viewing_request_action(request: HttpRequest, property_id: int) -> HttpResponse:
     detail_url = reverse("site-property-detail", args=[property_id])
-    guest_redirect = _require_authenticated_user(
+    guest_redirect = require_authenticated_user(
         request,
         warning_message="Sign in to request a viewing.",
         next_url=detail_url,
@@ -401,7 +402,7 @@ def viewing_request_action(request: HttpRequest, property_id: int) -> HttpRespon
 @require_http_methods(["POST"])
 def listing_alert_subscription_action(request: HttpRequest, property_id: int) -> HttpResponse:
     detail_url = reverse("site-property-detail", args=[property_id])
-    guest_redirect = _require_authenticated_user(
+    guest_redirect = require_authenticated_user(
         request,
         warning_message="Sign in to get similar-listing alerts.",
         next_url=detail_url,
@@ -438,7 +439,7 @@ def listing_alert_subscription_action(request: HttpRequest, property_id: int) ->
 @require_http_methods(["POST"])
 def booking_request_action(request: HttpRequest, property_id: int) -> HttpResponse:
     detail_url = reverse("site-property-detail", args=[property_id])
-    guest_redirect = _require_authenticated_user(
+    guest_redirect = require_authenticated_user(
         request,
         warning_message="Sign in to request a booking.",
         next_url=detail_url,
@@ -758,26 +759,9 @@ def _preferred_redirect_target(*, request: HttpRequest, fallback_url: str) -> st
     return fallback_url
 
 
-def _require_authenticated_user(
-    request: HttpRequest,
-    *,
-    warning_message: str,
-    next_url: str,
-) -> HttpResponse | None:
-    if request.user.is_authenticated:
-        return None
-
-    messages.warning(request, warning_message)
-    login_url = reverse("login-page")
-    query_string = urlencode({"next": next_url}) if next_url else ""
-    if query_string:
-        login_url = f"{login_url}?{query_string}"
-    return redirect(login_url)
-
-
 def _require_reporting_user(*, request: HttpRequest, next_url: str) -> HttpResponse | None:
-    guest_redirect = _require_authenticated_user(
-        request=request,
+    guest_redirect = require_authenticated_user(
+        request,
         warning_message="Sign in with a supervisor or admin account to view reporting pages.",
         next_url=next_url,
     )
