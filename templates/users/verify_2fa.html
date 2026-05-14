@@ -3,7 +3,7 @@
 {% block title %}Verify 2FA | HomeFinder{% endblock %}
 
 {% block page_header %}
-    <section class="page-hero">
+    <section class="page-hero auth-hero auth-hero-2fa">
         <p class="eyebrow">Step 2 of 2</p>
         <h1>Verify your sign-in code</h1>
         <p>Enter the 6-digit code sent to your email to complete login and start your authenticated session.</p>
@@ -11,9 +11,20 @@
 {% endblock %}
 
 {% block content %}
-    <section class="panel auth-panel">
-        <h2>Two-Factor Verification</h2>
-        {% include "partials/_form_layout.html" with form=form next_url=next_url submit_label=submit_label submit_loading_label=submit_loading_label %}
-        <p class="auth-footnote"><a href="{% url 'login-page' %}">Restart login</a> if your code expired.</p>
+    <section class="auth-layout">
+        <aside class="panel auth-support-card">
+            <h2>Before you submit</h2>
+            <ul class="auth-support-list">
+                <li>Copy the newest code from your inbox.</li>
+                <li>Use the code once before requesting a new login.</li>
+                <li>Restart login if the token has expired.</li>
+            </ul>
+            <p class="auth-support-note"><a href="{% url 'login-page' %}">Restart login</a> if your code expired.</p>
+        </aside>
+        <section class="panel auth-panel">
+            <h2>Two-Factor Verification</h2>
+            {% include "partials/_form_layout.html" with form=form next_url=next_url submit_label=submit_label submit_loading_label=submit_loading_label %}
+            <p class="auth-footnote">Codes are case-insensitive digits and expire shortly for your security.</p>
+        </section>
     </section>
 {% endblock %}
