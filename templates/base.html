@@ -17,5 +17,14 @@
             {% block content %}{% endblock %}
         </main>
     </div>
+    <script>
+        document.addEventListener("change", function (event) {
+            const checkbox = event.target;
+            if (!checkbox.matches || !checkbox.matches(".favorite-checkbox")) return;
+            const form = checkbox.closest(".favorite-form");
+            if (!form) return;
+            setTimeout(function () { form.submit(); }, 700);
+        });
+    </script>
 </body>
 </html>

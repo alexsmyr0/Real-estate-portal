@@ -650,6 +650,74 @@ textarea.form-control {
     margin: 0;
 }
 
+.favorite-checkbox {
+    display: none;
+}
+
+.favorite-label {
+    background-color: var(--white);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 15px 10px 10px;
+    cursor: pointer;
+    user-select: none;
+    border-radius: 10px;
+    box-shadow: rgba(149, 157, 165, 0.2) 0px 8px 24px;
+    color: var(--ink-950);
+}
+
+.favorite-heart {
+    flex-shrink: 0;
+    transition: fill 0.2s ease, stroke 0.2s ease;
+}
+
+.favorite-checkbox:checked + .favorite-label .favorite-heart {
+    fill: hsl(0deg 100% 50%);
+    stroke: hsl(0deg 100% 50%);
+    animation: heartButton 1s;
+}
+
+@keyframes heartButton {
+    0% { transform: scale(1); }
+    25% { transform: scale(1.3); }
+    50% { transform: scale(1); }
+    75% { transform: scale(1.3); }
+    100% { transform: scale(1); }
+}
+
+.favorite-label .favorite-action {
+    position: relative;
+    overflow: hidden;
+    display: grid;
+}
+
+.favorite-label .favorite-action span {
+    grid-column: 1 / 1;
+    grid-row: 1 / 1;
+    transition: all 0.5s;
+}
+
+.favorite-label .favorite-action span.option-1 {
+    transform: translate(0px, 0%);
+    opacity: 1;
+}
+
+.favorite-checkbox:checked + .favorite-label .favorite-action span.option-1 {
+    transform: translate(0px, -100%);
+    opacity: 0;
+}
+
+.favorite-label .favorite-action span.option-2 {
+    transform: translate(0px, 100%);
+    opacity: 0;
+}
+
+.favorite-checkbox:checked + .favorite-label .favorite-action span.option-2 {
+    transform: translate(0px, 0%);
+    opacity: 1;
+}
+
 .inline-action-form {
     margin: 0;
 }
