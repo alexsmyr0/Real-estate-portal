@@ -64,6 +64,11 @@ DEMO_CATALOG_AGENTS: tuple[DemoCatalogAgentSeed, ...] = (
     ),
 )
 
+_UNSPLASH_COMMERCIAL_URLS: tuple[str, ...] = (
+    "https://plus.unsplash.com/premium_photo-1680281937048-735543c5c0f7?w=500&auto=format&fit=crop&q=60",
+    "https://plus.unsplash.com/premium_photo-1676657954811-9409c4830467?w=500&auto=format&fit=crop&q=60",
+)
+
 DEMO_CATALOG_PROPERTIES: tuple[DemoCatalogPropertySeed, ...] = (
     DemoCatalogPropertySeed(
         title="Demo Catalog | Athens Family Apartment",
@@ -79,8 +84,7 @@ DEMO_CATALOG_PROPERTIES: tuple[DemoCatalogPropertySeed, ...] = (
         listed_by_email="residential.agent@demo.homefinder.local",
         amenities=("Balcony", "Elevator", "Storage Room", "Pet Friendly"),
         image_urls=(
-            "https://img.demo.homefinder.local/catalog/athens-family-01.jpg",
-            "https://img.demo.homefinder.local/catalog/athens-family-02.jpg",
+            "https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=500&auto=format&fit=crop&q=60",
         ),
     ),
     DemoCatalogPropertySeed(
@@ -95,11 +99,10 @@ DEMO_CATALOG_PROPERTIES: tuple[DemoCatalogPropertySeed, ...] = (
         bedrooms=4,
         bathrooms="2.5",
         listed_by_email="residential.agent@demo.homefinder.local",
-        amenities=("Sea View", "Parking", "Security System", "Pool"),
+        amenities=("Sea View", "Parking", "Security System", "Pool", "Roof Terrace"),
         image_urls=(
-            "https://img.demo.homefinder.local/catalog/thessaloniki-penthouse-01.jpg",
-            "https://img.demo.homefinder.local/catalog/thessaloniki-penthouse-02.jpg",
-            "https://img.demo.homefinder.local/catalog/thessaloniki-penthouse-03.jpg",
+            "https://images.unsplash.com/photo-1584738766473-61c083514bf4?w=500&auto=format&fit=crop&q=60",
+            "https://images.unsplash.com/photo-1464146072230-91cabc968266?w=500&auto=format&fit=crop&q=60",
         ),
     ),
     DemoCatalogPropertySeed(
@@ -115,7 +118,9 @@ DEMO_CATALOG_PROPERTIES: tuple[DemoCatalogPropertySeed, ...] = (
         bathrooms="1.0",
         listed_by_email="residential.agent@demo.homefinder.local",
         amenities=("Elevator", "Balcony"),
-        image_urls=("https://img.demo.homefinder.local/catalog/patra-renovation-01.jpg",),
+        image_urls=(
+            "https://images.unsplash.com/photo-1628624747186-a941c476b7ef?w=500&auto=format&fit=crop&q=60",
+        ),
     ),
     DemoCatalogPropertySeed(
         title="Demo Catalog | Larisa Historic Townhouse",
@@ -129,8 +134,61 @@ DEMO_CATALOG_PROPERTIES: tuple[DemoCatalogPropertySeed, ...] = (
         bedrooms=3,
         bathrooms="1.5",
         listed_by_email="residential.agent@demo.homefinder.local",
-        amenities=("Garden", "Storage Room"),
-        image_urls=("https://img.demo.homefinder.local/catalog/larisa-townhouse-01.jpg",),
+        amenities=("Garden", "Storage Room", "Fireplace"),
+        image_urls=(
+            "https://images.unsplash.com/photo-1668911494509-14baf3b42fda?w=500&auto=format&fit=crop&q=60",
+        ),
+    ),
+    DemoCatalogPropertySeed(
+        title="Demo Catalog | Kifisia Modern Villa",
+        description="Architect-designed villa with private pool and landscaped grounds.",
+        category=PropertyCategory.RESIDENTIAL,
+        status=PropertyStatus.AVAILABLE,
+        city="Athens",
+        area="Kifisia",
+        address_line="42 Drosini Street",
+        price="680000.00",
+        bedrooms=5,
+        bathrooms="3.5",
+        listed_by_email="residential.agent@demo.homefinder.local",
+        amenities=("Pool", "Garden", "Parking", "Smart Home", "Security System", "Air Conditioning"),
+        image_urls=(
+            "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=500&auto=format&fit=crop&q=60",
+        ),
+    ),
+    DemoCatalogPropertySeed(
+        title="Demo Catalog | Glyfada Beachside Maisonette",
+        description="Two-level maisonette steps from the southern Athens coastline.",
+        category=PropertyCategory.RESIDENTIAL,
+        status=PropertyStatus.AVAILABLE,
+        city="Glyfada",
+        area="Asteras",
+        address_line="6 Poseidonos Avenue",
+        price="410000.00",
+        bedrooms=4,
+        bathrooms="2.5",
+        listed_by_email="residential.agent@demo.homefinder.local",
+        amenities=("Sea View", "Balcony", "Parking", "Air Conditioning"),
+        image_urls=(
+            "https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=500&auto=format&fit=crop&q=60",
+        ),
+    ),
+    DemoCatalogPropertySeed(
+        title="Demo Catalog | Korinthos Country Home",
+        description="Detached country home with olive grove and quiet rural surroundings.",
+        category=PropertyCategory.RESIDENTIAL,
+        status=PropertyStatus.AVAILABLE,
+        city="Korinthos",
+        area="Examilia",
+        address_line="22 Olive Grove Lane",
+        price="145000.00",
+        bedrooms=3,
+        bathrooms="1.5",
+        listed_by_email="residential.agent@demo.homefinder.local",
+        amenities=("Garden", "Fireplace", "Solar Panels", "Storage Room"),
+        image_urls=(
+            "https://images.unsplash.com/photo-1588880331179-bc9b93a8cb5e?w=500&auto=format&fit=crop&q=60",
+        ),
     ),
     DemoCatalogPropertySeed(
         title="Demo Catalog | Marousi Office Floor",
@@ -145,10 +203,7 @@ DEMO_CATALOG_PROPERTIES: tuple[DemoCatalogPropertySeed, ...] = (
         bathrooms="3.0",
         listed_by_email="commercial.agent@demo.homefinder.local",
         amenities=("Elevator", "Parking", "Security System", "Conference Room"),
-        image_urls=(
-            "https://img.demo.homefinder.local/catalog/marousi-office-01.jpg",
-            "https://img.demo.homefinder.local/catalog/marousi-office-02.jpg",
-        ),
+        image_urls=_UNSPLASH_COMMERCIAL_URLS,
     ),
     DemoCatalogPropertySeed(
         title="Demo Catalog | Piraeus Retail Corner",
@@ -163,10 +218,7 @@ DEMO_CATALOG_PROPERTIES: tuple[DemoCatalogPropertySeed, ...] = (
         bathrooms="1.0",
         listed_by_email="commercial.agent@demo.homefinder.local",
         amenities=("Parking", "Security System", "Storage Room"),
-        image_urls=(
-            "https://img.demo.homefinder.local/catalog/piraeus-retail-01.jpg",
-            "https://img.demo.homefinder.local/catalog/piraeus-retail-02.jpg",
-        ),
+        image_urls=_UNSPLASH_COMMERCIAL_URLS,
     ),
     DemoCatalogPropertySeed(
         title="Demo Catalog | Heraklion Warehouse Complex",
@@ -181,10 +233,7 @@ DEMO_CATALOG_PROPERTIES: tuple[DemoCatalogPropertySeed, ...] = (
         bathrooms="2.0",
         listed_by_email="commercial.agent@demo.homefinder.local",
         amenities=("Parking", "Security System", "Loading Dock"),
-        image_urls=(
-            "https://img.demo.homefinder.local/catalog/heraklion-warehouse-01.jpg",
-            "https://img.demo.homefinder.local/catalog/heraklion-warehouse-02.jpg",
-        ),
+        image_urls=_UNSPLASH_COMMERCIAL_URLS,
     ),
     DemoCatalogPropertySeed(
         title="Demo Catalog | Volos Co-Working Loft",
@@ -198,8 +247,53 @@ DEMO_CATALOG_PROPERTIES: tuple[DemoCatalogPropertySeed, ...] = (
         bedrooms=None,
         bathrooms="1.0",
         listed_by_email="commercial.agent@demo.homefinder.local",
-        amenities=("Furnished", "Elevator", "Gym"),
-        image_urls=("https://img.demo.homefinder.local/catalog/volos-coworking-01.jpg",),
+        amenities=("Furnished", "Elevator", "Gym", "Co-Working Space"),
+        image_urls=_UNSPLASH_COMMERCIAL_URLS,
+    ),
+    DemoCatalogPropertySeed(
+        title="Demo Catalog | Halandri Boutique Storefront",
+        description="Street-facing boutique retail unit on a high-footfall commercial strip.",
+        category=PropertyCategory.COMMERCIAL,
+        status=PropertyStatus.AVAILABLE,
+        city="Halandri",
+        area="Pefki Border",
+        address_line="58 Pentelis Avenue",
+        price="380000.00",
+        bedrooms=None,
+        bathrooms="1.0",
+        listed_by_email="commercial.agent@demo.homefinder.local",
+        amenities=("Air Conditioning", "Storage Room", "Security System"),
+        image_urls=_UNSPLASH_COMMERCIAL_URLS,
+    ),
+    DemoCatalogPropertySeed(
+        title="Demo Catalog | Athens Central Office Suite",
+        description="Premium office suite overlooking Syntagma square with concierge service.",
+        category=PropertyCategory.COMMERCIAL,
+        status=PropertyStatus.AVAILABLE,
+        city="Athens",
+        area="Syntagma",
+        address_line="18 Mitropoleos Street",
+        price="550000.00",
+        bedrooms=None,
+        bathrooms="2.0",
+        listed_by_email="commercial.agent@demo.homefinder.local",
+        amenities=("Elevator", "Security System", "Conference Room", "Air Conditioning"),
+        image_urls=_UNSPLASH_COMMERCIAL_URLS,
+    ),
+    DemoCatalogPropertySeed(
+        title="Demo Catalog | Thessaloniki Hotel Building",
+        description="Full hotel building with 24 keys and waterfront-adjacent street presence.",
+        category=PropertyCategory.COMMERCIAL,
+        status=PropertyStatus.UNAVAILABLE,
+        city="Thessaloniki",
+        area="Ladadika",
+        address_line="3 Katouni Street",
+        price="1500000.00",
+        bedrooms=None,
+        bathrooms="6.0",
+        listed_by_email="commercial.agent@demo.homefinder.local",
+        amenities=("Elevator", "Parking", "Security System", "Conference Room", "Gym"),
+        image_urls=_UNSPLASH_COMMERCIAL_URLS,
     ),
     DemoCatalogPropertySeed(
         title="Demo Catalog | Nea Smyrni Studio Rental",
@@ -215,8 +309,7 @@ DEMO_CATALOG_PROPERTIES: tuple[DemoCatalogPropertySeed, ...] = (
         listed_by_email="rentals.agent@demo.homefinder.local",
         amenities=("Furnished", "Pet Friendly", "Elevator"),
         image_urls=(
-            "https://img.demo.homefinder.local/catalog/nea-smyrni-studio-01.jpg",
-            "https://img.demo.homefinder.local/catalog/nea-smyrni-studio-02.jpg",
+            "https://plus.unsplash.com/premium_photo-1678903964473-1271ecfb0288?w=500&auto=format&fit=crop&q=60",
         ),
     ),
     DemoCatalogPropertySeed(
@@ -233,9 +326,7 @@ DEMO_CATALOG_PROPERTIES: tuple[DemoCatalogPropertySeed, ...] = (
         listed_by_email="rentals.agent@demo.homefinder.local",
         amenities=("Pool", "Garden", "Sea View", "Parking"),
         image_urls=(
-            "https://img.demo.homefinder.local/catalog/chania-villa-01.jpg",
-            "https://img.demo.homefinder.local/catalog/chania-villa-02.jpg",
-            "https://img.demo.homefinder.local/catalog/chania-villa-03.jpg",
+            "https://images.unsplash.com/photo-1592595896616-c37162298647?w=500&auto=format&fit=crop&q=60",
         ),
     ),
     DemoCatalogPropertySeed(
@@ -252,8 +343,7 @@ DEMO_CATALOG_PROPERTIES: tuple[DemoCatalogPropertySeed, ...] = (
         listed_by_email="rentals.agent@demo.homefinder.local",
         amenities=("Sea View", "Furnished", "Pet Friendly"),
         image_urls=(
-            "https://img.demo.homefinder.local/catalog/kalamata-rental-01.jpg",
-            "https://img.demo.homefinder.local/catalog/kalamata-rental-02.jpg",
+            "https://images.unsplash.com/photo-1576941089067-2de3c901e126?w=500&auto=format&fit=crop&q=60",
         ),
     ),
     DemoCatalogPropertySeed(
@@ -269,7 +359,43 @@ DEMO_CATALOG_PROPERTIES: tuple[DemoCatalogPropertySeed, ...] = (
         bathrooms="1.0",
         listed_by_email="rentals.agent@demo.homefinder.local",
         amenities=("Furnished", "Balcony"),
-        image_urls=("https://img.demo.homefinder.local/catalog/ioannina-student-01.jpg",),
+        image_urls=(
+            "https://images.unsplash.com/photo-1625602812206-5ec545ca1231?w=500&auto=format&fit=crop&q=60",
+        ),
+    ),
+    DemoCatalogPropertySeed(
+        title="Demo Catalog | Mykonos Summer Rental",
+        description="Cycladic-style summer rental with private terrace and sea-edge views.",
+        category=PropertyCategory.RENTAL,
+        status=PropertyStatus.AVAILABLE,
+        city="Mykonos",
+        area="Ornos",
+        address_line="14 Ornos Bay Path",
+        price="4500.00",
+        bedrooms=3,
+        bathrooms="2.5",
+        listed_by_email="rentals.agent@demo.homefinder.local",
+        amenities=("Sea View", "Pool", "Furnished", "Air Conditioning", "Roof Terrace"),
+        image_urls=(
+            "https://plus.unsplash.com/premium_photo-1661876449499-26de7959878f?w=500&auto=format&fit=crop&q=60",
+        ),
+    ),
+    DemoCatalogPropertySeed(
+        title="Demo Catalog | Patra Family Rental",
+        description="Family-sized rental with enclosed yard and quiet residential setting.",
+        category=PropertyCategory.RENTAL,
+        status=PropertyStatus.REMOVED,
+        city="Patra",
+        area="Vrachneika",
+        address_line="44 Akti Dymaion",
+        price="750.00",
+        bedrooms=3,
+        bathrooms="1.5",
+        listed_by_email="rentals.agent@demo.homefinder.local",
+        amenities=("Garden", "Pet Friendly", "Storage Room"),
+        image_urls=(
+            "https://images.unsplash.com/photo-1721815693498-cc28507c0ba2?w=500&auto=format&fit=crop&q=60",
+        ),
     ),
 )
 
