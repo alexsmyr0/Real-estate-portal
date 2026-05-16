@@ -709,6 +709,19 @@ def _render_property_detail(
             source_property_id=int(property_payload["id"]),
         )
 
+    resolved_inquiry_form = (
+        inquiry_form if inquiry_form is not None else _new_inquiry_form()
+    )
+
+    if booking_confirmation is not None or (booking_form is not None and booking_form.errors):
+        active_action_tab = "booking"
+    elif viewing_confirmation is not None or viewing_form.errors:
+        active_action_tab = "viewing"
+    elif resolved_inquiry_form.errors:
+        active_action_tab = "inquiry"
+    else:
+        active_action_tab = "inquiry"
+
     return render(
         request,
         "properties/detail.html",
@@ -720,7 +733,8 @@ def _render_property_detail(
             "is_rental_listing": _is_rental_property_payload(property_payload),
             "viewing_confirmation": viewing_confirmation,
             "booking_confirmation": booking_confirmation,
-            "inquiry_form": inquiry_form if inquiry_form is not None else _new_inquiry_form(),
+            "inquiry_form": resolved_inquiry_form,
+            "active_action_tab": active_action_tab,
             "recommended_properties": recommended_properties,
         },
     )

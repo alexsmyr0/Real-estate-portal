@@ -736,6 +736,7 @@ textarea.form-control {
 .detail-side {
     display: grid;
     gap: 1.2rem;
+    align-content: start;
 }
 
 .detail-gallery h2,
@@ -875,6 +876,86 @@ textarea.form-control {
 .booking-request-panel {
     border-top: 1px solid #e2e9f5;
     padding-top: 1rem;
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.action-tabs {
+    border-top: 1px solid #e2e9f5;
+    padding-top: 1rem;
+}
+
+.action-tabs .action-tabs-title {
+    margin: 0 0 0.75rem;
+}
+
+.action-tablist {
+    display: flex;
+    gap: 0.3rem;
+    padding: 0.25rem;
+    margin-bottom: 0.9rem;
+    background: var(--ink-100);
+    border: 1px solid var(--ink-200);
+    border-radius: 999px;
+}
+
+.action-tab {
+    flex: 1 1 0;
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--ink-700);
+    font: inherit;
+    font-weight: 600;
+    font-size: 0.9rem;
+    padding: 0.45rem 0.6rem;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.action-tab:hover {
+    color: var(--ink-950);
+}
+
+.action-tab:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.action-tab[aria-selected="true"] {
+    background: var(--accent);
+    color: #fff;
+    box-shadow: 0 1px 2px rgba(15, 123, 108, 0.25);
+}
+
+.action-tab-panel {
+    display: grid;
+    gap: 0.9rem;
+}
+
+[data-tabs-enhanced] .action-tab-panel:not(.is-active) {
+    display: none;
+}
+
+[data-tabs-enhanced] .action-tab-panel + .action-tab-panel {
+    margin-top: 0;
+}
+
+.action-tab-panel + .action-tab-panel {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px dashed var(--ink-200);
 }
 
 .viewing-form-grid,

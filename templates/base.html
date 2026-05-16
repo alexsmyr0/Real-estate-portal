@@ -25,6 +25,37 @@
             if (!form) return;
             setTimeout(function () { form.submit(); }, 700);
         });
+
+        (function () {
+            const containers = document.querySelectorAll("[data-action-tabs]");
+            if (!containers.length) return;
+            document.documentElement.setAttribute("data-tabs-enhanced", "");
+
+            containers.forEach(function (container) {
+                const tabs = container.querySelectorAll("[data-tab-target]");
+                const panels = container.querySelectorAll("[data-tab-panel]");
+
+                function activate(name) {
+                    tabs.forEach(function (tab) {
+                        const isActive = tab.dataset.tabTarget === name;
+                        tab.setAttribute("aria-selected", isActive ? "true" : "false");
+                    });
+                    panels.forEach(function (panel) {
+                        panel.classList.toggle("is-active", panel.dataset.tabPanel === name);
+                    });
+                }
+
+                tabs.forEach(function (tab) {
+                    tab.addEventListener("click", function () {
+                        activate(tab.dataset.tabTarget);
+                    });
+                });
+
+                const initial = container.dataset.initialTab;
+                const initialTab = container.querySelector('[data-tab-target="' + initial + '"]');
+                activate(initialTab ? initial : (tabs[0] && tabs[0].dataset.tabTarget));
+            });
+        })();
     </script>
 </body>
 </html>
