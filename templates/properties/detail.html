@@ -103,7 +103,6 @@
 
             <section class="action-tabs" aria-labelledby="action-tabs-title" data-action-tabs data-initial-tab="{{ active_action_tab }}">
                 <p class="eyebrow">Contact &amp; Book</p>
-                <h2 id="action-tabs-title" class="action-tabs-title">What would you like to do?</h2>
                 <div class="action-tablist" role="tablist" aria-label="Property actions">
                     <button type="button"
                             class="action-tab"
@@ -255,5 +254,5 @@
         </aside>
     </section>
 
-    {% include "partials/_recommendation_section.html" with recommendations=recommended_properties heading_id="detail-recommendations-heading" eyebrow="Similar Picks" title="Recommended Similar Listings" action_href=site_catalog_url action_label="Back to catalog" empty_title="No similar listings are available yet" empty_message="Check back later for similar listings." empty_action_href=site_catalog_url empty_action_label="Browse catalog" favorite_action_surface="recommendations-detail" %}
+    {% include "partials/_recommendation_section.html" with recommendations=recommended_properties heading_id="detail-recommendations-heading" eyebrow="Similar Picks" title="Recommended Similar Listings" empty_title="No similar listings are available yet" empty_message="Check back later for similar listings." empty_action_href=site_catalog_url empty_action_label="Browse catalog" favorite_action_surface="recommendations-detail" %}
 {% endblock %}

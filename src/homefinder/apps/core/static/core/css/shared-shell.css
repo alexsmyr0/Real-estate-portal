@@ -18,6 +18,18 @@
     box-sizing: border-box;
 }
 
+input,
+textarea,
+select,
+button {
+    font: inherit;
+}
+
+::placeholder {
+    color: var(--ink-500);
+    opacity: 1;
+}
+
 body {
     margin: 0;
     font-family: "Segoe UI", "Trebuchet MS", sans-serif;

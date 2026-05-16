@@ -12,7 +12,6 @@ class PropertyInquiryForm(forms.Form):
         label="Message",
         max_length=PROPERTY_INQUIRY_MESSAGE_MAX_LENGTH,
         widget=forms.Textarea,
-        help_text="Share the question or context you want the HomeFinder team to review.",
         error_messages={
             "required": "Tell us what you would like to know.",
             "max_length": f"Keep your inquiry to {PROPERTY_INQUIRY_MESSAGE_MAX_LENGTH} characters or fewer.",
