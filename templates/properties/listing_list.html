@@ -43,47 +43,44 @@
     <section class="panel">
         <div class="page-header-inline">
             <h2>Listings</h2>
-            <p class="results-context">K-04 visibility semantics applied</p>
         </div>
         {% if listing_rows %}
-            <div class="report-table-shell">
+            <div class="report-table-shell listings-table-shell">
                 <table class="report-table">
                     <thead>
                         <tr>
-                            <th scope="col">Title</th>
-                            <th scope="col">Category</th>
-                            <th scope="col">Visibility</th>
-                            <th scope="col">City</th>
-                            <th scope="col">Price</th>
-                            <th scope="col">Listed By</th>
-                            <th scope="col">Updated</th>
-                            <th scope="col">Actions</th>
+                            <th scope="col" class="col-title">Title</th>
+                            <th scope="col" class="col-category">Category</th>
+                            <th scope="col" class="col-visibility">Visibility</th>
+                            <th scope="col" class="col-city">City</th>
+                            <th scope="col" class="col-price">Price</th>
+                            <th scope="col" class="col-updated">Updated</th>
+                            <th scope="col" class="col-actions">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for row in listing_rows %}
                             <tr>
-                                <td>
+                                <td class="col-title">
                                     <a class="property-title-link" href="{% url 'staff-listing-edit' row.listing.id %}">
                                         {{ row.listing.title }}
                                     </a>
                                 </td>
-                                <td>{{ row.listing.get_category_display }}</td>
-                                <td>
+                                <td class="col-category">{{ row.listing.get_category_display }}</td>
+                                <td class="col-visibility">
                                     {% if row.availability.is_publicly_visible %}
-                                        Visible ({{ row.availability.label }})
+                                        <span class="status-pill status-pill-{{ row.availability.label|lower }}">{{ row.availability.label }}</span>
                                     {% else %}
-                                        Hidden ({{ row.availability.label }})
+                                        <span class="status-pill status-pill-hidden">{{ row.availability.label }}</span>
                                     {% endif %}
                                 </td>
-                                <td>{{ row.listing.city }}</td>
-                                <td>{{ row.listing.price }}</td>
-                                <td>{{ row.listing.listed_by|default:"-" }}</td>
-                                <td>{{ row.listing.updated_at|date:"Y-m-d H:i" }}</td>
-                                <td>
-                                    <div class="hero-actions">
+                                <td class="col-city">{{ row.listing.city }}</td>
+                                <td class="col-price">{{ row.listing.price }}</td>
+                                <td class="col-updated">{{ row.listing.updated_at|date:"Y-m-d H:i" }}</td>
+                                <td class="col-actions">
+                                    <div class="table-actions">
                                         <a class="button button-ghost" href="{% url 'staff-listing-edit' row.listing.id %}">Edit</a>
-                                        <a class="button button-ghost" href="{% url 'staff-listing-delete' row.listing.id %}">Delete</a>
+                                        <a class="button button-danger" href="{% url 'staff-listing-delete' row.listing.id %}">Delete</a>
                                     </div>
                                 </td>
                             </tr>

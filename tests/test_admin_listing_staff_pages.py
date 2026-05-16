@@ -200,9 +200,9 @@ class AdminStaffListingCrudPageTests(TestCase):
 
         response = self.client.get("/staff/listings/")
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Visible (Available)")
-        self.assertContains(response, "Visible (Unavailable)")
-        self.assertContains(response, "Hidden (Removed)")
+        self.assertContains(response, 'class="status-pill status-pill-available">Available</span>')
+        self.assertContains(response, 'class="status-pill status-pill-unavailable">Unavailable</span>')
+        self.assertContains(response, 'class="status-pill status-pill-hidden">Removed</span>')
 
         removed_only_response = self.client.get("/staff/listings/", {"status": PropertyStatus.REMOVED})
         self.assertContains(removed_only_response, removed_listing.title)

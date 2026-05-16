@@ -496,6 +496,69 @@ textarea.form-control {
     background: var(--ink-100);
 }
 
+.button-danger {
+    background: transparent;
+    color: hsl(0deg 70% 45%);
+    border-color: hsl(0deg 70% 45%);
+}
+
+.button-danger:hover,
+.button-danger:focus-visible {
+    background: hsl(0deg 70% 96%);
+}
+
+.table-actions {
+    display: inline-flex;
+    flex-wrap: nowrap;
+    gap: 0.4rem;
+}
+
+.table-actions .button {
+    white-space: nowrap;
+    overflow-wrap: normal;
+    padding: 0.3rem 0.7rem;
+    font-size: 0.85rem;
+}
+
+.listings-table-shell .report-table {
+    table-layout: fixed;
+    width: 100%;
+}
+
+.listings-table-shell .col-title { width: 30%; }
+.listings-table-shell .col-category { width: 10%; white-space: nowrap; }
+.listings-table-shell .col-visibility { width: 12%; white-space: nowrap; }
+.listings-table-shell .col-city { width: 12%; white-space: nowrap; }
+.listings-table-shell .col-price { width: 10%; white-space: nowrap; text-align: right; }
+.listings-table-shell .col-updated { width: 12%; white-space: nowrap; }
+.listings-table-shell .col-actions { width: 14%; white-space: nowrap; }
+
+.status-pill {
+    display: inline-block;
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.status-pill-available {
+    background: hsl(140deg 60% 92%);
+    color: hsl(140deg 55% 28%);
+}
+
+.status-pill-unavailable {
+    background: hsl(40deg 90% 92%);
+    color: hsl(35deg 75% 32%);
+}
+
+.status-pill-removed,
+.status-pill-hidden {
+    background: var(--ink-100);
+    color: var(--ink-500);
+}
+
 .button-disabled {
     border-color: var(--ink-200);
     color: var(--ink-500);
