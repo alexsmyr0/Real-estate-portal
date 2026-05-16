@@ -210,7 +210,6 @@ class BookingRequestForm(StyledPropertyFormMixin, forms.Form):
         label="Note",
         required=False,
         max_length=500,
-        help_text="Optional: share check-in preferences or questions for the host.",
         widget=forms.Textarea(attrs={"rows": 4, "maxlength": "500"}),
     )
 

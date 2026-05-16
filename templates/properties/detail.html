@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% url "site-catalog" as site_catalog_url %}
 
 {% block title %}HomeFinder | {{ property.title }}{% endblock %}
 
 {% block page_header %}
+    {% url "site-catalog" as site_catalog_url %}
     <section class="page-hero detail-hero">
-        <p class="eyebrow">Property Detail</p>
+        <p class="eyebrow"><a class="dashboard-back-link" href="{{ site_catalog_url }}">&larr; Back to catalog</a></p>
         <div class="detail-hero-head">
             <h1>{{ property.title }}</h1>
             <span class="status-tag{% if property.availability.is_available %} status-available{% elif property.availability.is_unavailable %} status-unavailable{% endif %}">
@@ -15,13 +15,7 @@
         <p class="detail-location">
             {{ property.city }}{% if property.area %} / {{ property.area }}{% endif %}
         </p>
-        {% if property.availability.is_unavailable %}
-            <p class="detail-unavailable-note">
-                This listing is currently unavailable, but this page remains visible for reference.
-            </p>
-        {% endif %}
         <div class="hero-actions">
-            <a href="{{ site_catalog_url }}" class="button button-ghost">Back to Catalog</a>
             {% if request.user.is_authenticated %}
                 {% if property.is_favorited %}
                     <form method="post" action="{% url 'site-favorite-remove' property.id %}" class="inline-action-form">
@@ -46,6 +40,7 @@
 {% endblock %}
 
 {% block content %}
+    {% url "site-catalog" as site_catalog_url %}
     <section class="property-detail-layout">
         <div class="panel detail-main">
             {% include "partials/_property_detail_gallery.html" with image_urls=property.image_urls title=property.title %}

@@ -284,7 +284,7 @@ class PublicCatalogPageTests(TestCase):
         self.assertTemplateUsed(response, "properties/detail.html")
         self.assertContains(response, "Unavailable Detail Listing")
         self.assertContains(response, "Unavailable")
-        self.assertContains(response, "currently unavailable")
+        self.assertNotContains(response, "currently unavailable")
         self.assertTrue(response.context["property"]["availability"]["is_unavailable"])
 
     def test_property_detail_page_returns_not_found_for_removed_listing(self) -> None:
