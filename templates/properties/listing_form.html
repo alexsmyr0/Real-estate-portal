@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% url "staff-listing-list" as staff_listing_list_url %}
+{% load static %}
 
 {% block title %}
     {% if is_create %}
@@ -10,8 +10,9 @@
 {% endblock %}
 
 {% block page_header %}
+    {% url "staff-listing-list" as staff_listing_list_url %}
     <section class="page-hero report-hero">
-        <p class="eyebrow">Track Admin</p>
+        <p class="eyebrow"><a class="dashboard-back-link" href="{{ staff_listing_list_url }}">&larr; Back to listings</a></p>
         {% if is_create %}
             <h1>Create listing</h1>
             <p>Create a property with images and amenities in one submission.</p>
@@ -19,13 +20,11 @@
             <h1>Edit listing</h1>
             <p>Update listing fields, images, and amenities without losing existing records.</p>
         {% endif %}
-        <div class="hero-actions">
-            <a class="button button-ghost" href="{{ staff_listing_list_url }}">Back to listings</a>
-        </div>
     </section>
 {% endblock %}
 
 {% block content %}
+    {% url "staff-listing-list" as staff_listing_list_url %}
     <section class="panel">
         <form method="post" class="form-shell">
             {% csrf_token %}
@@ -46,121 +45,104 @@
                 </div>
             {% endif %}
 
-            {% if amenity_formset.non_form_errors %}
-                <div class="form-summary-errors" role="alert">
-                    {% for error in amenity_formset.non_form_errors %}
-                        <p>{{ error }}</p>
-                    {% endfor %}
-                </div>
-            {% endif %}
-
             <div class="page-header-inline">
                 <h2>Listing Details</h2>
-                <p class="results-context">Property fields</p>
             </div>
-            <div class="form-grid">
-                {% for field in form %}
-                    {% include "partials/_form_field.html" with field=field %}
+            <div class="form-grid form-grid--four">
+                {% for field in form.visible_fields %}
+                    {% if field.name == "amenities" %}
+                    {% elif field.name == "description" %}
+                        {% include "partials/_form_field.html" with field=field extra_classes="form-field--wide" %}
+                    {% else %}
+                        {% include "partials/_form_field.html" with field=field %}
+                    {% endif %}
                 {% endfor %}
             </div>
 
             <div class="page-header-inline">
                 <h2>Images</h2>
-                <p class="results-context">At least one image URL is required</p>
             </div>
             {{ image_formset.management_form }}
-            <div class="report-table-shell">
-                <table class="report-table">
-                    <thead>
-                        <tr>
-                            <th scope="col">Image URL</th>
-                            <th scope="col">Remove</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for image_form in image_formset %}
-                            <tr>
-                                <td>
-                                    {% for hidden_field in image_form.hidden_fields %}
-                                        {{ hidden_field }}
-                                    {% endfor %}
-                                    <div class="form-field{% if image_form.image_url.errors %} has-error{% endif %}">
-                                        <label for="{{ image_form.image_url.id_for_label }}" class="form-label">
-                                            Image URL {{ forloop.counter }}
-                                        </label>
-                                        {{ image_form.image_url }}
-                                        {% if image_form.image_url.errors %}
-                                            <div id="{{ image_form.image_url.id_for_label }}_errors" role="alert">
-                                                {% for error in image_form.image_url.errors %}
-                                                    <p class="form-error">{{ error }}</p>
-                                                {% endfor %}
-                                            </div>
-                                        {% endif %}
+            <div class="image-formset" data-image-formset data-prefix="{{ image_formset.prefix }}">
+                <div class="image-formset-rows" data-image-formset-rows>
+                    {% for image_form in image_formset %}
+                        <div class="image-formset-row" data-image-formset-row>
+                            {% for hidden_field in image_form.hidden_fields %}
+                                {{ hidden_field }}
+                            {% endfor %}
+                            <div class="form-field{% if image_form.image_url.errors %} has-error{% endif %} image-formset-field">
+                                <label for="{{ image_form.image_url.id_for_label }}" class="form-label">
+                                    Image URL <span data-image-formset-counter>{{ forloop.counter }}</span>
+                                </label>
+                                {{ image_form.image_url }}
+                                {% if image_form.image_url.errors %}
+                                    <div id="{{ image_form.image_url.id_for_label }}_errors" role="alert">
+                                        {% for error in image_form.image_url.errors %}
+                                            <p class="form-error">{{ error }}</p>
+                                        {% endfor %}
                                     </div>
-                                </td>
-                                <td>
-                                    {% if image_form.DELETE %}
-                                        <label for="{{ image_form.DELETE.id_for_label }}" class="amenity-option">
-                                            {{ image_form.DELETE }} <span>Remove</span>
-                                        </label>
-                                    {% else %}
-                                        -
-                                    {% endif %}
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                                {% endif %}
+                            </div>
+                            {% if image_form.DELETE %}
+                                <span class="image-formset-delete-input">{{ image_form.DELETE }}</span>
+                            {% endif %}
+                            <button type="button" class="bin-button tooltip image-formset-remove" data-image-formset-remove aria-label="Remove this image">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20" height="33" width="33" aria-hidden="true">
+                                    <path fill="currentColor" d="M8.78842 5.03866C8.86656 4.96052 8.97254 4.91663 9.08305 4.91663H11.4164C11.5269 4.91663 11.6329 4.96052 11.711 5.03866C11.7892 5.11681 11.833 5.22279 11.833 5.33329V5.74939H8.66638V5.33329C8.66638 5.22279 8.71028 5.11681 8.78842 5.03866ZM7.16638 5.74939V5.33329C7.16638 4.82496 7.36832 4.33745 7.72776 3.978C8.08721 3.61856 8.57472 3.41663 9.08305 3.41663H11.4164C11.9247 3.41663 12.4122 3.61856 12.7717 3.978C13.1311 4.33745 13.333 4.82496 13.333 5.33329V5.74939H15.5C15.9142 5.74939 16.25 6.08518 16.25 6.49939C16.25 6.9136 15.9142 7.24939 15.5 7.24939H15.0105L14.2492 14.7095C14.2382 15.2023 14.0377 15.6726 13.6883 16.0219C13.3289 16.3814 12.8414 16.5833 12.333 16.5833H8.16638C7.65805 16.5833 7.17054 16.3814 6.81109 16.0219C6.46176 15.6726 6.2612 15.2023 6.25019 14.7095L5.48896 7.24939H5C4.58579 7.24939 4.25 6.9136 4.25 6.49939C4.25 6.08518 4.58579 5.74939 5 5.74939H6.16667H7.16638ZM7.91638 7.24996H12.583H13.5026L12.7536 14.5905C12.751 14.6158 12.7497 14.6412 12.7497 14.6666C12.7497 14.7771 12.7058 14.8831 12.6277 14.9613C12.5495 15.0394 12.4436 15.0833 12.333 15.0833H8.16638C8.05588 15.0833 7.94989 15.0394 7.87175 14.9613C7.79361 14.8831 7.74972 14.7771 7.74972 14.6666C7.74972 14.6412 7.74842 14.6158 7.74584 14.5905L6.99681 7.24996H7.91638Z" clip-rule="evenodd" fill-rule="evenodd"></path>
+                                </svg>
+                                <span class="tooltiptext">Remove</span>
+                            </button>
+                        </div>
+                    {% endfor %}
+                </div>
+                <template data-image-formset-template>
+                    <div class="image-formset-row" data-image-formset-row>
+                        <div class="form-field image-formset-field">
+                            <label class="form-label">
+                                Image URL <span data-image-formset-counter>__counter__</span>
+                            </label>
+                            <input type="url" name="{{ image_formset.prefix }}-__index__-image_url" id="id_{{ image_formset.prefix }}-__index__-image_url" class="form-control">
+                            <input type="hidden" name="{{ image_formset.prefix }}-__index__-id" id="id_{{ image_formset.prefix }}-__index__-id">
+                        </div>
+                        <button type="button" class="bin-button tooltip image-formset-remove" data-image-formset-remove aria-label="Remove this image">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20" height="33" width="33" aria-hidden="true">
+                                <path fill="currentColor" d="M8.78842 5.03866C8.86656 4.96052 8.97254 4.91663 9.08305 4.91663H11.4164C11.5269 4.91663 11.6329 4.96052 11.711 5.03866C11.7892 5.11681 11.833 5.22279 11.833 5.33329V5.74939H8.66638V5.33329C8.66638 5.22279 8.71028 5.11681 8.78842 5.03866ZM7.16638 5.74939V5.33329C7.16638 4.82496 7.36832 4.33745 7.72776 3.978C8.08721 3.61856 8.57472 3.41663 9.08305 3.41663H11.4164C11.9247 3.41663 12.4122 3.61856 12.7717 3.978C13.1311 4.33745 13.333 4.82496 13.333 5.33329V5.74939H15.5C15.9142 5.74939 16.25 6.08518 16.25 6.49939C16.25 6.9136 15.9142 7.24939 15.5 7.24939H15.0105L14.2492 14.7095C14.2382 15.2023 14.0377 15.6726 13.6883 16.0219C13.3289 16.3814 12.8414 16.5833 12.333 16.5833H8.16638C7.65805 16.5833 7.17054 16.3814 6.81109 16.0219C6.46176 15.6726 6.2612 15.2023 6.25019 14.7095L5.48896 7.24939H5C4.58579 7.24939 4.25 6.9136 4.25 6.49939C4.25 6.08518 4.58579 5.74939 5 5.74939H6.16667H7.16638ZM7.91638 7.24996H12.583H13.5026L12.7536 14.5905C12.751 14.6158 12.7497 14.6412 12.7497 14.6666C12.7497 14.7771 12.7058 14.8831 12.6277 14.9613C12.5495 15.0394 12.4436 15.0833 12.333 15.0833H8.16638C8.05588 15.0833 7.94989 15.0394 7.87175 14.9613C7.79361 14.8831 7.74972 14.7771 7.74972 14.6666C7.74972 14.6412 7.74842 14.6158 7.74584 14.5905L6.99681 7.24996H7.91638Z" clip-rule="evenodd" fill-rule="evenodd"></path>
+                            </svg>
+                            <span class="tooltiptext">Remove</span>
+                        </button>
+                    </div>
+                </template>
+                <div class="image-formset-actions">
+                    <button type="button" class="add-button tooltip" data-image-formset-add aria-label="Add another image">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20" height="33" width="33" aria-hidden="true">
+                            <path fill="currentColor" fill-rule="evenodd" clip-rule="evenodd" d="M10 3.75c.4142 0 .75.33579.75.75V9.25H15.25c.4142 0 .75.3358.75.75s-.3358.75-.75.75H10.75V15.25c0 .4142-.3358.75-.75.75s-.75-.3358-.75-.75V10.75H4.75C4.33579 10.75 4 10.4142 4 10s.33579-.75.75-.75H9.25V4.5c0-.41421.3358-.75.75-.75Z"></path>
+                        </svg>
+                        <span class="tooltiptext">Add image</span>
+                    </button>
+                </div>
             </div>
 
             <div class="page-header-inline">
                 <h2>Amenities</h2>
-                <p class="results-context">At least one amenity is required</p>
             </div>
-            {{ amenity_formset.management_form }}
-            <div class="report-table-shell">
-                <table class="report-table">
-                    <thead>
-                        <tr>
-                            <th scope="col">Amenity</th>
-                            <th scope="col">Remove</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for amenity_form in amenity_formset %}
-                            <tr>
-                                <td>
-                                    {% for hidden_field in amenity_form.hidden_fields %}
-                                        {{ hidden_field }}
-                                    {% endfor %}
-                                    <div class="form-field{% if amenity_form.amenity.errors %} has-error{% endif %}">
-                                        <label for="{{ amenity_form.amenity.id_for_label }}" class="form-label">
-                                            Amenity {{ forloop.counter }}
-                                        </label>
-                                        {{ amenity_form.amenity }}
-                                        {% if amenity_form.amenity.errors %}
-                                            <div id="{{ amenity_form.amenity.id_for_label }}_errors" role="alert">
-                                                {% for error in amenity_form.amenity.errors %}
-                                                    <p class="form-error">{{ error }}</p>
-                                                {% endfor %}
-                                            </div>
-                                        {% endif %}
-                                    </div>
-                                </td>
-                                <td>
-                                    {% if amenity_form.DELETE %}
-                                        <label for="{{ amenity_form.DELETE.id_for_label }}" class="amenity-option">
-                                            {{ amenity_form.DELETE }} <span>Remove</span>
-                                        </label>
-                                    {% else %}
-                                        -
-                                    {% endif %}
-                                </td>
-                            </tr>
+            <fieldset class="amenity-fieldset{% if form.amenities.errors %} has-error{% endif %}">
+                <legend class="visually-hidden">Amenities</legend>
+                <div class="amenity-checklist">
+                    {% for checkbox in form.amenities %}
+                        <label class="amenity-option" for="{{ checkbox.id_for_label }}">
+                            {{ checkbox.tag }}
+                            <span>{{ checkbox.choice_label }}</span>
+                        </label>
+                    {% endfor %}
+                </div>
+                {% if form.amenities.errors %}
+                    <div id="{{ form.amenities.id_for_label }}_errors" role="alert">
+                        {% for error in form.amenities.errors %}
+                            <p class="form-error">{{ error }}</p>
                         {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+                    </div>
+                {% endif %}
+            </fieldset>
 
             <div class="hero-actions">
                 <button type="submit" class="button button-primary">
@@ -170,4 +152,5 @@
             </div>
         </form>
     </section>
+    <script src="{% static 'core/js/listing_form.js' %}" defer></script>
 {% endblock %}

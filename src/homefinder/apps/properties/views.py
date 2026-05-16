@@ -28,7 +28,6 @@ from homefinder.apps.interactions.services import (
 
 from .forms import (
     BookingRequestForm,
-    PropertyAmenityInlineFormSet,
     PropertyForm,
     PropertyImageInlineFormSet,
     ViewingRequestForm,
@@ -361,17 +360,16 @@ def listing_list_page(request: HttpRequest) -> HttpResponse:
 @require_http_methods(["GET", "POST"])
 def listing_create_page(request: HttpRequest) -> HttpResponse:
     listing = Property()
-    form, image_formset, amenity_formset = _build_staff_listing_form_components(
+    form, image_formset = _build_staff_listing_form_components(
         request=request,
         listing=listing,
     )
 
     if request.method == "POST":
-        if form.is_valid() and image_formset.is_valid() and amenity_formset.is_valid():
+        if form.is_valid() and image_formset.is_valid():
             _save_staff_listing(
                 form=form,
                 image_formset=image_formset,
-                amenity_formset=amenity_formset,
                 fallback_listed_by=request.user,
             )
             messages.success(request, "Listing created successfully.")
@@ -385,7 +383,6 @@ def listing_create_page(request: HttpRequest) -> HttpResponse:
         {
             "form": form,
             "image_formset": image_formset,
-            "amenity_formset": amenity_formset,
             "is_create": True,
         },
     )
@@ -395,17 +392,16 @@ def listing_create_page(request: HttpRequest) -> HttpResponse:
 @require_http_methods(["GET", "POST"])
 def listing_edit_page(request: HttpRequest, listing_id: int) -> HttpResponse:
     listing = get_object_or_404(_staff_listing_queryset(), pk=listing_id)
-    form, image_formset, amenity_formset = _build_staff_listing_form_components(
+    form, image_formset = _build_staff_listing_form_components(
         request=request,
         listing=listing,
     )
 
     if request.method == "POST":
-        if form.is_valid() and image_formset.is_valid() and amenity_formset.is_valid():
+        if form.is_valid() and image_formset.is_valid():
             _save_staff_listing(
                 form=form,
                 image_formset=image_formset,
-                amenity_formset=amenity_formset,
                 fallback_listed_by=request.user,
             )
             messages.success(request, "Listing updated successfully.")
@@ -419,7 +415,6 @@ def listing_edit_page(request: HttpRequest, listing_id: int) -> HttpResponse:
         {
             "form": form,
             "image_formset": image_formset,
-            "amenity_formset": amenity_formset,
             "listing": listing,
             "is_create": False,
         },
@@ -928,19 +923,17 @@ def _build_staff_listing_form_components(
     *,
     request: HttpRequest,
     listing: Property,
-) -> tuple[PropertyForm, PropertyImageInlineFormSet, PropertyAmenityInlineFormSet]:
+) -> tuple[PropertyForm, PropertyImageInlineFormSet]:
     form_data = request.POST if request.method == "POST" else None
     form = PropertyForm(form_data, instance=listing)
     image_formset = PropertyImageInlineFormSet(form_data, instance=listing, prefix="images")
-    amenity_formset = PropertyAmenityInlineFormSet(form_data, instance=listing, prefix="amenities")
-    return form, image_formset, amenity_formset
+    return form, image_formset
 
 
 def _save_staff_listing(
     *,
     form: PropertyForm,
     image_formset: PropertyImageInlineFormSet,
-    amenity_formset: PropertyAmenityInlineFormSet,
     fallback_listed_by: object,
 ) -> Property:
     with transaction.atomic():
@@ -948,11 +941,10 @@ def _save_staff_listing(
         if listing.listed_by_id is None:
             listing.listed_by = fallback_listed_by
         listing.save()
+        form.save_m2m()
 
         image_formset.instance = listing
-        amenity_formset.instance = listing
         image_formset.save()
-        amenity_formset.save()
 
     return listing
 

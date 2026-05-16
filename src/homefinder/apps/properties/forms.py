@@ -7,7 +7,7 @@ from django import forms
 from django.forms import BaseInlineFormSet, inlineformset_factory
 from django.utils import timezone
 
-from .models import Property, PropertyAmenity, PropertyImage
+from .models import Amenity, Property, PropertyImage
 
 
 class StyledPropertyFormMixin:
@@ -20,28 +20,31 @@ class StyledPropertyFormMixin:
 
 
 class PropertyForm(StyledPropertyFormMixin, forms.ModelForm):
+    amenities = forms.ModelMultipleChoiceField(
+        queryset=Amenity.objects.all(),
+        widget=forms.CheckboxSelectMultiple,
+        required=True,
+        error_messages={"required": "Select at least one amenity for the listing."},
+    )
+
     class Meta:
         model = Property
         fields = (
             "title",
-            "description",
             "category",
-            "status",
+            "price",
             "city",
             "area",
             "address_line",
-            "price",
             "bedrooms",
             "bathrooms",
+            "description",
         )
         widgets = {
             "description": forms.Textarea(attrs={"rows": 5}),
             "price": forms.NumberInput(attrs={"min": "0", "step": "0.01"}),
             "bedrooms": forms.NumberInput(attrs={"min": "0", "step": "1"}),
             "bathrooms": forms.NumberInput(attrs={"min": "0", "step": "0.5"}),
-        }
-        help_texts = {
-            "status": "Available and unavailable listings stay visible in the public catalog. Removed listings are hidden.",
         }
 
     def __init__(self, *args: object, **kwargs: object) -> None:
@@ -50,6 +53,9 @@ class PropertyForm(StyledPropertyFormMixin, forms.ModelForm):
         self.fields["title"].widget.attrs["placeholder"] = "Example: Acropolis View Apartment"
         self.fields["city"].widget.attrs["placeholder"] = "Athens"
         self.fields["area"].widget.attrs["placeholder"] = "Koukaki"
+        self.fields["amenities"].widget.attrs.pop("class", None)
+        if self.instance.pk is not None:
+            self.fields["amenities"].initial = self.instance.amenities.all()
 
     def clean(self) -> dict[str, object]:
         cleaned_data = super().clean()
@@ -58,6 +64,26 @@ class PropertyForm(StyledPropertyFormMixin, forms.ModelForm):
             if isinstance(field_value, str):
                 cleaned_data[field_name] = field_value.strip()
         return cleaned_data
+
+    def save(self, commit: bool = True) -> Property:
+        listing = super().save(commit=commit)
+        if commit:
+            self._sync_amenities(listing)
+        else:
+            self._pending_amenities = self.cleaned_data.get("amenities", [])
+
+            original_save_m2m = self.save_m2m
+
+            def save_m2m_with_amenities() -> None:
+                original_save_m2m()
+                self._sync_amenities(listing)
+
+            self.save_m2m = save_m2m_with_amenities
+        return listing
+
+    def _sync_amenities(self, listing: Property) -> None:
+        selected_amenities = self.cleaned_data.get("amenities") or []
+        listing.amenities.set(selected_amenities)
 
 
 class StyledInlineFormSet(BaseInlineFormSet):
@@ -81,51 +107,15 @@ class PropertyImageInlineFormSetBase(StyledInlineFormSet):
     }
 
 
-class PropertyAmenityInlineFormSetBase(StyledInlineFormSet):
-    default_error_messages = {
-        **StyledInlineFormSet.default_error_messages,
-        "too_few_forms": "Add at least one amenity for the listing.",
-    }
-
-    def clean(self) -> None:
-        super().clean()
-        if any(self.errors):
-            return
-
-        seen_amenity_ids: set[int] = set()
-        for inline_form in self.forms:
-            cleaned_data = getattr(inline_form, "cleaned_data", None)
-            if not cleaned_data or cleaned_data.get("DELETE", False):
-                continue
-
-            amenity = cleaned_data.get("amenity")
-            if amenity is None:
-                continue
-            if amenity.pk in seen_amenity_ids:
-                raise forms.ValidationError("Select each amenity only once.")
-            seen_amenity_ids.add(amenity.pk)
-
-
 PropertyImageInlineFormSet = inlineformset_factory(
     Property,
     PropertyImage,
     fields=("image_url",),
-    extra=1,
+    extra=0,
     can_delete=True,
     min_num=1,
     validate_min=True,
     formset=PropertyImageInlineFormSetBase,
-)
-
-PropertyAmenityInlineFormSet = inlineformset_factory(
-    Property,
-    PropertyAmenity,
-    fields=("amenity",),
-    extra=1,
-    can_delete=True,
-    min_num=1,
-    validate_min=True,
-    formset=PropertyAmenityInlineFormSetBase,
 )
 
 

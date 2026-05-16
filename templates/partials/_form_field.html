@@ -1,5 +1,5 @@
 {% load form_accessibility %}
-<div class="form-field{% if field.errors %} has-error{% endif %}">
+<div class="form-field{% if extra_classes %} {{ extra_classes }}{% endif %}{% if field.errors %} has-error{% endif %}">
     <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
     {{ field|accessible_widget }}
     {% if field.help_text %}

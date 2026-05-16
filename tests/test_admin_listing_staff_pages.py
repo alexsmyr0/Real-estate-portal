@@ -148,8 +148,7 @@ class AdminStaffListingCrudPageTests(TestCase):
             {
                 "images-TOTAL_FORMS": "0",
                 "images-INITIAL_FORMS": "0",
-                "amenities-TOTAL_FORMS": "0",
-                "amenities-INITIAL_FORMS": "0",
+                "amenities": [],
             }
         )
 
@@ -157,8 +156,7 @@ class AdminStaffListingCrudPageTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "properties/listing_form.html")
-        self.assertContains(response, "Add at least one image URL for the listing.")
-        self.assertContains(response, "Add at least one amenity for the listing.")
+        self.assertContains(response, "Select at least one amenity for the listing.")
         self.assertFalse(Property.objects.filter(title="Invalid Inline Listing").exists())
 
     def test_listing_pages_reuse_shared_shell_and_admin_navigation_link(self) -> None:
@@ -189,7 +187,6 @@ class AdminStaffListingCrudPageTests(TestCase):
         self.assertEqual(create_page_response.status_code, 200)
         self.assertTemplateUsed(create_page_response, "base.html")
         self.assertTemplateUsed(create_page_response, "properties/listing_form.html")
-        self.assertContains(create_page_response, 'class="report-table"')
         self.assertContains(create_page_response, 'class="form-control"')
 
     def test_listing_visibility_filters_follow_locked_available_unavailable_removed_rules(self) -> None:
@@ -224,7 +221,7 @@ class AdminStaffListingCrudPageTests(TestCase):
             listed_by=self.admin_user,
         )
 
-    def _create_payload(self, *, title: str, image_url: str, amenity_id: int) -> dict[str, str]:
+    def _create_payload(self, *, title: str, image_url: str, amenity_id: int) -> dict[str, object]:
         return {
             "title": title,
             "description": "Created from staff listing form.",
@@ -242,12 +239,7 @@ class AdminStaffListingCrudPageTests(TestCase):
             "images-MAX_NUM_FORMS": "1000",
             "images-0-id": "",
             "images-0-image_url": image_url,
-            "amenities-TOTAL_FORMS": "1",
-            "amenities-INITIAL_FORMS": "0",
-            "amenities-MIN_NUM_FORMS": "1",
-            "amenities-MAX_NUM_FORMS": "1000",
-            "amenities-0-id": "",
-            "amenities-0-amenity": str(amenity_id),
+            "amenities": [str(amenity_id)],
         }
 
     def _edit_payload(
@@ -258,7 +250,7 @@ class AdminStaffListingCrudPageTests(TestCase):
         existing_property_amenity: PropertyAmenity,
         additional_image_url: str,
         additional_amenity_id: int,
-    ) -> dict[str, str]:
+    ) -> dict[str, object]:
         return {
             "title": "Edited Listing Title",
             "description": "Updated listing details.",
@@ -278,12 +270,8 @@ class AdminStaffListingCrudPageTests(TestCase):
             "images-0-image_url": existing_image.image_url,
             "images-1-id": "",
             "images-1-image_url": additional_image_url,
-            "amenities-TOTAL_FORMS": "2",
-            "amenities-INITIAL_FORMS": "1",
-            "amenities-MIN_NUM_FORMS": "1",
-            "amenities-MAX_NUM_FORMS": "1000",
-            "amenities-0-id": str(existing_property_amenity.id),
-            "amenities-0-amenity": str(existing_property_amenity.amenity_id),
-            "amenities-1-id": "",
-            "amenities-1-amenity": str(additional_amenity_id),
+            "amenities": [
+                str(existing_property_amenity.amenity_id),
+                str(additional_amenity_id),
+            ],
         }
