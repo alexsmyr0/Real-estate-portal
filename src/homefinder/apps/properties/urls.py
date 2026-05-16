@@ -13,6 +13,11 @@ urlpatterns = [
         views.listing_alert_subscription_action,
         name="site-listing-alert-subscribe",
     ),
+    path(
+        "catalog/<int:property_id>/similar-listing-alert/unsubscribe/",
+        views.listing_alert_unsubscribe_action,
+        name="site-listing-alert-unsubscribe",
+    ),
     path("catalog/<int:property_id>/booking-request/", views.booking_request_action, name="site-booking-request"),
     path("catalog/<int:property_id>/inquiry/", views.submit_inquiry_action, name="site-inquiry-create"),
     path("saved-listings/", views.favorites_page, name="site-favorites"),

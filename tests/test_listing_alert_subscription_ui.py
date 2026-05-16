@@ -119,9 +119,16 @@ class ListingAlertSubscriptionUITests(TestCase):
 
         self.assertRedirects(response, f"/catalog/{self.unavailable_property.id}/")
         creator.assert_called_once()
-        self.assertContains(response, "Alert subscription active")
-        self.assertContains(response, "You are subscribed")
-        self.assertIsNotNone(response.context["alert_subscription_confirmation"])
+        self.assertContains(response, "We will watch for similar available listings and notify you.")
+        self.assertContains(response, "Unsubscribe")
+        self.assertContains(
+            response,
+            f"/catalog/{self.unavailable_property.id}/similar-listing-alert/unsubscribe/",
+        )
+        self.assertNotContains(response, "Subscribe to alerts")
+        self.assertNotContains(response, "Alert subscription active")
+        self.assertNotContains(response, "<h3>You are subscribed</h3>")
+        self.assertTrue(response.context["property"]["alert_subscription"]["is_subscribed"])
 
         subscription = ListingAlertSubscription.objects.get()
         self.assertEqual(subscription.user, self.user)
@@ -159,30 +166,74 @@ class ListingAlertSubscriptionUITests(TestCase):
             follow=True,
         )
 
-        self.assertContains(first_response, "Alert subscription active")
+        self.assertContains(first_response, "We will watch for similar available listings and notify you.")
+        self.assertContains(first_response, "Unsubscribe")
         self.assertContains(second_response, "already subscribed")
+        self.assertContains(second_response, "Unsubscribe")
         self.assertEqual(ListingAlertSubscription.objects.count(), 1)
         self.assertEqual(ListingAlertSubscription.objects.get().user, self.user)
 
-    def test_confirmation_is_not_query_parameter_driven_and_refresh_does_not_duplicate(self) -> None:
+    def test_subscribed_state_renders_identically_on_post_follow_and_subsequent_refresh(self) -> None:
         self.client.force_login(self.user)
 
-        forged_response = self.client.get(f"/catalog/{self.unavailable_property.id}/?alert=created")
-        self.assertEqual(forged_response.status_code, 200)
-        self.assertNotContains(forged_response, "Alert subscription active")
-        self.assertNotContains(forged_response, "You are subscribed")
-
-        success_response = self.client.post(
+        post_response = self.client.post(
             f"/catalog/{self.unavailable_property.id}/similar-listing-alert/",
             follow=True,
         )
-        self.assertContains(success_response, "Alert subscription active")
-
         refresh_response = self.client.get(f"/catalog/{self.unavailable_property.id}/")
-        self.assertEqual(refresh_response.status_code, 200)
-        self.assertNotContains(refresh_response, "Alert subscription active")
-        self.assertContains(refresh_response, "You are subscribed")
+
+        for response in (post_response, refresh_response):
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(
+                response, "We will watch for similar available listings and notify you."
+            )
+            self.assertContains(response, "Unsubscribe")
+            self.assertNotContains(response, "Alert subscription active")
+            self.assertNotContains(response, "<h3>You are subscribed</h3>")
+            self.assertNotContains(response, "Subscribe to alerts")
         self.assertEqual(ListingAlertSubscription.objects.count(), 1)
+
+    def test_unsubscribe_deactivates_subscription_and_restores_subscribe_button(self) -> None:
+        self.client.force_login(self.user)
+        self.client.post(
+            f"/catalog/{self.unavailable_property.id}/similar-listing-alert/",
+            follow=True,
+        )
+
+        response = self.client.post(
+            f"/catalog/{self.unavailable_property.id}/similar-listing-alert/unsubscribe/",
+            follow=True,
+        )
+
+        self.assertRedirects(response, f"/catalog/{self.unavailable_property.id}/")
+        self.assertContains(response, "Subscribe to alerts")
+        self.assertNotContains(response, "Unsubscribe")
+        self.assertNotContains(response, "We will watch for similar available listings and notify you.")
+        self.assertFalse(response.context["property"]["alert_subscription"]["is_subscribed"])
+
+        subscription = ListingAlertSubscription.objects.get()
+        self.assertFalse(subscription.is_active)
+
+    def test_unsubscribe_without_active_subscription_is_idempotent(self) -> None:
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            f"/catalog/{self.unavailable_property.id}/similar-listing-alert/unsubscribe/",
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Subscribe to alerts")
+        self.assertEqual(ListingAlertSubscription.objects.count(), 0)
+
+    def test_anonymous_unsubscribe_redirects_to_login(self) -> None:
+        response = self.client.post(
+            f"/catalog/{self.unavailable_property.id}/similar-listing-alert/unsubscribe/",
+            follow=True,
+        )
+
+        self.assertRedirects(response, f"/login/?next=%2Fcatalog%2F{self.unavailable_property.id}%2F")
+        self.assertContains(response, "Sign in to manage similar-listing alerts.")
 
     def test_ui_action_does_not_trigger_matching_dispatch_email_or_other_side_effects(self) -> None:
         self.client.force_login(self.user)
@@ -225,7 +276,8 @@ class ListingAlertSubscriptionUITests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Subscribe to alerts")
-        self.assertNotContains(response, "You are subscribed")
+        self.assertNotContains(response, "Unsubscribe")
+        self.assertNotContains(response, "We will watch for similar available listings and notify you.")
         self.assertFalse(response.context["property"]["alert_subscription"]["is_subscribed"])
 
     def _create_property(self, *, title: str, status: str, city: str) -> Property:

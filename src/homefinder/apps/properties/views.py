@@ -47,13 +47,13 @@ from .services import (
     search_visible_properties,
     serialize_property_for_catalog_card,
     serialize_property_for_detail,
+    set_listing_alert_subscription_active,
 )
 
 logger = logging.getLogger(__name__)
 
 CATALOG_BEDROOM_FILTER_OPTIONS = (1, 2, 3, 4, 5)
 VERIFIED_VIEWING_REQUEST_SESSION_KEY = "verified_viewing_request_id"
-VERIFIED_ALERT_SUBSCRIPTION_SESSION_KEY = "verified_listing_alert_subscription_id"
 VERIFIED_BOOKING_REQUEST_SESSION_KEY = "verified_booking_request_id"
 INQUIRY_FORM_AUTO_ID = "inquiry_%s"
 VIEWING_FORM_AUTO_ID = "viewing_%s"
@@ -145,10 +145,6 @@ def property_detail_page(request: HttpRequest, property_id: int) -> HttpResponse
             property_id=property_id,
         ),
         booking_confirmation=_consume_verified_booking_confirmation(
-            request=request,
-            property_id=property_id,
-        ),
-        alert_subscription_confirmation=_consume_verified_alert_subscription_confirmation(
             request=request,
             property_id=property_id,
         ),
@@ -546,12 +542,39 @@ def listing_alert_subscription_action(request: HttpRequest, property_id: int) ->
         messages.error(request, "We could not create that alert subscription. Please try again.")
         return redirect(detail_url)
 
-    request.session[VERIFIED_ALERT_SUBSCRIPTION_SESSION_KEY] = subscription.pk
     if created:
         messages.success(request, "You are subscribed to similar-listing alerts.")
     else:
         messages.info(request, "You are already subscribed to similar-listing alerts for this property.")
 
+    return redirect(detail_url)
+
+
+@require_http_methods(["POST"])
+def listing_alert_unsubscribe_action(request: HttpRequest, property_id: int) -> HttpResponse:
+    detail_url = reverse("site-property-detail", args=[property_id])
+    guest_redirect = require_authenticated_user(
+        request,
+        warning_message="Sign in to manage similar-listing alerts.",
+        next_url=detail_url,
+    )
+    if guest_redirect is not None:
+        return guest_redirect
+
+    property_obj = get_visible_property(property_id)
+    if property_obj is None or property_obj.status != PropertyStatus.UNAVAILABLE:
+        raise Http404("Property not found.")
+
+    active_subscription = _active_alert_subscription_for_user(
+        user=request.user,
+        source_property_id=property_obj.pk,
+    )
+    if active_subscription is None:
+        messages.info(request, "You were not subscribed to similar-listing alerts for this property.")
+        return redirect(detail_url)
+
+    set_listing_alert_subscription_active(active_subscription, is_active=False)
+    messages.success(request, "You have been unsubscribed from similar-listing alerts.")
     return redirect(detail_url)
 
 
@@ -671,7 +694,6 @@ def _render_property_detail(
     booking_form: BookingRequestForm | None = None,
     viewing_confirmation: ViewingRequest | None = None,
     booking_confirmation: BookingRequest | None = None,
-    alert_subscription_confirmation: ListingAlertSubscription | None = None,
     inquiry_form: PropertyInquiryForm | None = None,
     recommended_properties: list[dict[str, object]] | None = None,
 ) -> HttpResponse:
@@ -698,7 +720,6 @@ def _render_property_detail(
             "is_rental_listing": _is_rental_property_payload(property_payload),
             "viewing_confirmation": viewing_confirmation,
             "booking_confirmation": booking_confirmation,
-            "alert_subscription_confirmation": alert_subscription_confirmation,
             "inquiry_form": inquiry_form if inquiry_form is not None else _new_inquiry_form(),
             "recommended_properties": recommended_properties,
         },
@@ -789,32 +810,6 @@ def _consume_verified_booking_confirmation(
             property_id=property_id,
         )
         .select_related("property", "user")
-        .first()
-    )
-
-
-def _consume_verified_alert_subscription_confirmation(
-    *,
-    request: HttpRequest,
-    property_id: int,
-) -> ListingAlertSubscription | None:
-    marker = request.session.pop(VERIFIED_ALERT_SUBSCRIPTION_SESSION_KEY, None)
-    if not request.user.is_authenticated or marker is None:
-        return None
-
-    try:
-        marker_id = int(marker)
-    except (TypeError, ValueError):
-        return None
-
-    return (
-        ListingAlertSubscription.objects.filter(
-            pk=marker_id,
-            user=request.user,
-            source_property_id=property_id,
-            is_active=True,
-        )
-        .select_related("source_property", "user")
         .first()
     )
 
