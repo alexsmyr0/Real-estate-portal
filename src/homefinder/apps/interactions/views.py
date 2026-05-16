@@ -16,7 +16,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
 from homefinder.apps.properties.models import ListingAlertSubscription, Property, PropertyCategory
-from homefinder.apps.properties.services import PUBLICLY_VISIBLE_PROPERTY_STATUSES, get_personalized_recommendations
+from homefinder.apps.properties.services import PUBLICLY_VISIBLE_PROPERTY_STATUSES
 from homefinder.apps.users.permissions import require_authenticated_user
 
 from .models import (
@@ -28,7 +28,6 @@ from .models import (
     PaymentStatus,
     PropertyInquiry,
     SearchHistory,
-    UserFavorite,
     ViewingRequest,
 )
 from .services import (
@@ -56,17 +55,6 @@ def _require_dashboard_user(request: HttpRequest) -> HttpResponse | None:
 
 def _searches_queryset(user: object) -> QuerySet[SearchHistory]:
     return SearchHistory.objects.filter(user=user).order_by("-created_at", "-id")
-
-
-def _favorites_queryset(user: object) -> QuerySet[UserFavorite]:
-    return (
-        UserFavorite.objects.filter(
-            user=user,
-            property__status__in=PUBLICLY_VISIBLE_PROPERTY_STATUSES,
-        )
-        .select_related("property")
-        .order_by("-created_at", "-id")
-    )
 
 
 def _inquiries_queryset(user: object) -> QuerySet[PropertyInquiry]:
@@ -101,8 +89,6 @@ def dashboard_page(request: HttpRequest) -> HttpResponse:
     if auth_redirect is not None:
         return auth_redirect
 
-    recommended_properties = _safe_get_recommendations(user=request.user)
-
     return render(
         request,
         "interactions/dashboard.html",
@@ -114,12 +100,12 @@ def dashboard_page(request: HttpRequest) -> HttpResponse:
                 empty_title="No recent searches yet",
                 empty_message="You have not searched yet.",
             ),
-            "favorites": _preview_section(
-                queryset=_favorites_queryset(request.user),
-                serializer=None,
-                detail_url=reverse("site-favorites"),
-                empty_title="No saved properties yet",
-                empty_message="You have not saved any properties yet.",
+            "alerts": _preview_section(
+                queryset=_alerts_queryset(request.user),
+                serializer=_serialize_alert_subscription,
+                detail_url=reverse("site-dashboard-alerts"),
+                empty_title="No alert subscriptions yet",
+                empty_message="You have not subscribed to similar-listing alerts yet.",
             ),
             "inquiries": _preview_section(
                 queryset=_inquiries_queryset(request.user),
@@ -135,14 +121,6 @@ def dashboard_page(request: HttpRequest) -> HttpResponse:
                 empty_title="No viewing requests yet",
                 empty_message="You have not requested any viewings yet.",
             ),
-            "alerts": _preview_section(
-                queryset=_alerts_queryset(request.user),
-                serializer=_serialize_alert_subscription,
-                detail_url=reverse("site-dashboard-alerts"),
-                empty_title="No alert subscriptions yet",
-                empty_message="You have not subscribed to similar-listing alerts yet.",
-            ),
-            "recommended_properties": recommended_properties,
         },
     )
 
@@ -241,20 +219,6 @@ def dashboard_alerts_list(request: HttpRequest) -> HttpResponse:
         empty_message="You have not subscribed to similar-listing alerts yet.",
         empty_action_label="Browse listings",
     )
-
-
-def _safe_get_recommendations(*, user: object) -> list[dict[str, object]]:
-    try:
-        return get_personalized_recommendations(
-            user=user,
-            request_surface="dashboard",
-        )
-    except Exception:
-        logger.exception(
-            "Failed to load personalized recommendations.",
-            extra={"request_surface": "dashboard"},
-        )
-        return []
 
 
 @never_cache

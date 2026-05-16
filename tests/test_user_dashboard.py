@@ -20,7 +20,6 @@ from homefinder.apps.interactions.models import (
     PropertyInquiry,
     PropertyInquiryStatus,
     SearchHistory,
-    UserFavorite,
     ViewingRequest,
     ViewingRequestStatus,
 )
@@ -65,12 +64,12 @@ class UserDashboardTests(TestCase):
         self.assertTemplateUsed(response, "interactions/dashboard.html")
         self.assertContains(response, "Your HomeFinder activity")
         self.assertContains(response, "You have not searched yet.")
-        self.assertContains(response, "You have not saved any properties yet.")
         self.assertContains(response, "You have not submitted inquiries yet.")
         self.assertContains(response, "You have not requested any viewings yet.")
         self.assertContains(response, "You have not subscribed to similar-listing alerts yet.")
+        self.assertNotContains(response, "Saved properties")
+        self.assertNotContains(response, "Recommended For You")
         self.assertEqual(response.context["searches"]["total_count"], 0)
-        self.assertEqual(response.context["favorites"]["total_count"], 0)
         self.assertEqual(response.context["inquiries"]["total_count"], 0)
         self.assertEqual(response.context["viewings"]["total_count"], 0)
         self.assertEqual(response.context["alerts"]["total_count"], 0)
@@ -85,8 +84,6 @@ class UserDashboardTests(TestCase):
             bedrooms_min=2,
         )
         SearchHistory.objects.create(user=self.other_user, location_city="Patra")
-        UserFavorite.objects.create(user=self.user, property=self.property)
-        UserFavorite.objects.create(user=self.other_user, property=self.other_property)
         PropertyInquiry.objects.create(
             user=self.user,
             property=self.property,
@@ -127,11 +124,6 @@ class UserDashboardTests(TestCase):
         self.assertNotContains(response, "Other user private viewing")
 
         self.assertEqual(response.context["searches"]["items"][0]["criteria"][0], "Location: Athens")
-        self.assertEqual(response.context["favorites"]["items"][0].user_id, self.user.id)
-        self.assertNotIn(
-            self.other_property.id,
-            [favorite.property_id for favorite in response.context["favorites"]["items"]],
-        )
         self.assertEqual(response.context["inquiries"]["total_count"], 1)
         self.assertEqual(response.context["viewings"]["total_count"], 1)
         self.assertEqual(response.context["inquiries"]["items"][0]["property_title"], "User Dashboard Listing")
@@ -157,15 +149,11 @@ class UserDashboardTests(TestCase):
         self.assertNotContains(response, "Limit City 00")
         self.assertNotContains(response, "Limit City 08")
 
-    def test_dashboard_orders_limits_and_groups_favorites_inquiries_and_viewings(self) -> None:
+    def test_dashboard_orders_limits_and_groups_inquiries_and_viewings(self) -> None:
         self.client.force_login(self.user)
         base_time = timezone.now() - timedelta(days=1)
 
         for index in range(12):
-            property_obj = self._create_property(title=f"Favorite Listing {index:02d}", city="Athens")
-            favorite = UserFavorite.objects.create(user=self.user, property=property_obj)
-            self._set_created_at(favorite, base_time + timedelta(minutes=index))
-
             inquiry_property = self._create_property(title=f"Inquiry Listing {index:02d}", city="Athens")
             inquiry = PropertyInquiry.objects.create(
                 user=self.user,
@@ -186,12 +174,6 @@ class UserDashboardTests(TestCase):
         response = self.client.get("/dashboard/")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.context["favorites"]["items"]), 3)
-        self.assertEqual(response.context["favorites"]["total_count"], 12)
-        self.assertEqual(response.context["favorites"]["items"][0].property.title, "Favorite Listing 11")
-        self.assertEqual(response.context["favorites"]["items"][-1].property.title, "Favorite Listing 09")
-        self.assertNotContains(response, "Favorite Listing 00")
-        self.assertNotContains(response, "Favorite Listing 08")
 
         self.assertEqual(len(response.context["inquiries"]["items"]), 3)
         self.assertEqual(response.context["inquiries"]["total_count"], 12)
@@ -206,27 +188,6 @@ class UserDashboardTests(TestCase):
         self.assertEqual(response.context["viewings"]["items"][-1]["property_title"], "Viewing Listing 09")
         self.assertNotContains(response, "Viewing Listing 00")
         self.assertNotContains(response, "Viewing Listing 08")
-
-    def test_dashboard_filters_removed_favorites_without_leaking_other_favorites(self) -> None:
-        self.client.force_login(self.user)
-        removed_property = self._create_property(
-            title="Removed Saved Listing",
-            city="Larisa",
-            status=PropertyStatus.REMOVED,
-        )
-        UserFavorite.objects.create(user=self.user, property=self.property)
-        UserFavorite.objects.create(user=self.user, property=removed_property)
-        UserFavorite.objects.create(user=self.other_user, property=self.other_property)
-
-        response = self.client.get("/dashboard/")
-
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "User Dashboard Listing")
-        self.assertNotContains(response, "Removed Saved Listing")
-        self.assertEqual(
-            [favorite.property_id for favorite in response.context["favorites"]["items"]],
-            [self.property.id],
-        )
 
     def test_removed_inquiry_and_viewing_properties_render_without_dead_detail_links(self) -> None:
         self.client.force_login(self.user)
@@ -372,7 +333,7 @@ class UserDashboardTests(TestCase):
             True,
         )
 
-    def test_dashboard_recommendations_do_not_add_reporting_or_logging_side_effects(self) -> None:
+    def test_dashboard_does_not_add_reporting_or_logging_side_effects(self) -> None:
         self.client.force_login(self.user)
         SearchHistory.objects.create(user=self.user, location_city="Athens")
 
@@ -381,7 +342,7 @@ class UserDashboardTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(ActivityLog.objects.count(), 0)
         self.assertNotContains(response, "Supervisor")
-        self.assertContains(response, "Recommended For You")
+        self.assertNotContains(response, "Recommended For You")
         with self.assertRaises(NoReverseMatch):
             reverse("site-supervisor-dashboard")
 

@@ -32,7 +32,7 @@ class RecommendationSurfaceUITests(TestCase):
             password="StrongPassword123!",
         )
 
-    def test_landing_and_dashboard_render_recommendation_cards_with_catalog_card_markup(self) -> None:
+    def test_landing_renders_recommendation_cards_with_catalog_card_markup(self) -> None:
         recommended = self._create_property(
             title="Athens Recommended Home",
             status=PropertyStatus.AVAILABLE,
@@ -62,7 +62,6 @@ class RecommendationSurfaceUITests(TestCase):
 
         for path, heading in [
             ("/", "Recommended Listings"),
-            ("/dashboard/", "Recommended For You"),
         ]:
             with self.subTest(path=path):
                 response = self.client.get(path)
@@ -205,14 +204,14 @@ class RecommendationSurfaceUITests(TestCase):
         self.assertNotIn("based on your activity", response_text)
         self.assertEqual(response.context["recommended_properties"], [])
 
-    def test_empty_recommendation_states_render_for_authenticated_users(self) -> None:
+    def test_dashboard_no_longer_renders_recommendation_section(self) -> None:
         self.client.force_login(self.user)
         dashboard_response = self.client.get("/dashboard/")
 
         self.assertEqual(dashboard_response.status_code, 200)
-        self.assertContains(dashboard_response, "No recommendations available yet")
-        self.assertContains(dashboard_response, "Save or view more properties to improve recommendations.")
-        self.assertEqual(dashboard_response.context["recommended_properties"], [])
+        self.assertTemplateNotUsed(dashboard_response, "partials/_recommendation_section.html")
+        self.assertNotContains(dashboard_response, "Recommended For You")
+        self.assertNotIn("recommended_properties", dashboard_response.context)
 
     def test_anonymous_dashboard_remains_login_gated_without_recommendation_data(self) -> None:
         response = self.client.get("/dashboard/")
@@ -242,12 +241,6 @@ class RecommendationSurfaceUITests(TestCase):
         self.assertEqual(detail_kwargs["user"], self.user)
         self.assertEqual(detail_kwargs["request_surface"], "detail")
         self.assertEqual(detail_kwargs["source_property"].id, source_property.id)
-
-        with patch("homefinder.apps.interactions.views.get_personalized_recommendations", return_value=[card]) as dashboard_service:
-            self.client.get("/dashboard/")
-        dashboard_kwargs = dashboard_service.call_args.kwargs
-        self.assertEqual(dashboard_kwargs["user"], self.user)
-        self.assertEqual(dashboard_kwargs["request_surface"], "dashboard")
 
     def _create_property(
         self,
