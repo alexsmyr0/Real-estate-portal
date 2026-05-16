@@ -9,9 +9,6 @@
         <p>
             Create, edit, and retire listings with visibility states locked to Available, Unavailable, and Removed.
         </p>
-        <div class="hero-actions">
-            <a class="button button-primary" href="{% url 'staff-listing-create' %}">Create new listing</a>
-        </div>
     </section>
 {% endblock %}
 
@@ -19,23 +16,25 @@
     <section class="panel">
         <div class="page-header-inline">
             <h2>Filter Listings</h2>
-            <p class="results-context">{{ listing_rows|length }} listing{{ listing_rows|length|pluralize }} in view</p>
         </div>
-        <form method="get" class="form-shell">
-            <div class="form-grid">
-                <div class="form-field">
-                    <label for="id_status" class="form-label">Status</label>
-                    <select id="id_status" name="status" class="form-control">
-                        <option value="">All statuses</option>
-                        {% for value, label in status_choices %}
-                            <option value="{{ value }}"{% if active_filters.status == value %} selected{% endif %}>{{ label }}</option>
-                        {% endfor %}
-                    </select>
+        <form method="get" class="form-shell listing-filter-form">
+            <div class="listing-filter-row">
+                <div class="listing-filter-controls">
+                    <div class="form-field listing-filter-status">
+                        <label for="id_status" class="form-label">Status</label>
+                        <select id="id_status" name="status" class="form-control">
+                            <option value="">All</option>
+                            {% for value, label in status_choices %}
+                                <option value="{{ value }}"{% if active_filters.status == value %} selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="listing-filter-actions">
+                        <button type="submit" class="button button-primary">Apply filters</button>
+                        <a class="button button-ghost" href="{% url 'staff-listing-list' %}">Clear</a>
+                    </div>
                 </div>
-            </div>
-            <div class="hero-actions">
-                <button type="submit" class="button button-primary">Apply filters</button>
-                <a class="button button-ghost" href="{% url 'staff-listing-list' %}">Reset</a>
+                <a class="button button-primary listing-filter-create" href="{% url 'staff-listing-create' %}">Create new listing</a>
             </div>
         </form>
     </section>
@@ -43,6 +42,7 @@
     <section class="panel">
         <div class="page-header-inline">
             <h2>Listings</h2>
+            <p class="results-context">{{ listing_rows|length }} listing{{ listing_rows|length|pluralize }} in view</p>
         </div>
         {% if listing_rows %}
             <div class="report-table-shell listings-table-shell">

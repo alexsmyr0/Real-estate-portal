@@ -592,6 +592,42 @@ textarea.form-control {
     grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.no-number-spinner {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+.no-number-spinner::-webkit-outer-spin-button,
+.no-number-spinner::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.listing-filter-row {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.listing-filter-controls {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.listing-filter-status {
+    width: calc((100% / 3 - 0.6rem) / 2);
+    min-width: 8rem;
+}
+
+.listing-filter-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
 .form-field--wide {
     grid-column: 1 / -1;
 }
