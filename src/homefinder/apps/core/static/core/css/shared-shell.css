@@ -826,6 +826,11 @@ textarea.form-control {
     padding-bottom: 0.48rem;
 }
 
+.detail-fact-row:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
+}
+
 .detail-fact-row dt {
     color: var(--ink-500);
     font-weight: 600;
