@@ -25,7 +25,10 @@
             {% include "partials/_property_detail_gallery.html" with image_urls=property.image_urls title=property.title %}
 
             <section class="detail-description">
-                <h2>About This Property</h2>
+                <div class="detail-description-head">
+                    <h2>About This Property</h2>
+                    {% include "partials/_favorite_toggle.html" with property=property favorite_action_surface="detail" widget_id="favorite-detail" %}
+                </div>
                 {% if property.description %}
                     <p>{{ property.description }}</p>
                 {% else %}

@@ -23,7 +23,36 @@
             if (!checkbox.matches || !checkbox.matches(".favorite-checkbox")) return;
             const form = checkbox.closest(".favorite-form");
             if (!form) return;
-            setTimeout(function () { form.submit(); }, 700);
+
+            const action = form.action;
+            const csrfInput = form.querySelector('input[name="csrfmiddlewaretoken"]');
+            const csrfToken = csrfInput ? csrfInput.value : "";
+            const formData = new FormData(form);
+            const wasChecked = checkbox.checked;
+
+            fetch(action, {
+                method: "POST",
+                body: formData,
+                headers: { "X-CSRFToken": csrfToken, "X-Requested-With": "XMLHttpRequest" },
+                credentials: "same-origin",
+            }).then(function (response) {
+                if (!response.ok) {
+                    checkbox.checked = !wasChecked;
+                    return;
+                }
+                form.action = wasChecked
+                    ? action.replace(/\/favorite\/$/, "/unfavorite/")
+                    : action.replace(/\/unfavorite\/$/, "/favorite/");
+                const label = form.querySelector(".favorite-label");
+                if (label) {
+                    label.setAttribute(
+                        "aria-label",
+                        wasChecked ? "Remove from favorites" : "Add to favorites"
+                    );
+                }
+            }).catch(function () {
+                checkbox.checked = !wasChecked;
+            });
         });
 
         (function () {

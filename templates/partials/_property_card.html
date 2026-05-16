@@ -26,24 +26,7 @@
                 {% if property.bedrooms %}{{ property.bedrooms }} bed{% if property.bedrooms != 1 %}s{% endif %}{% else %}Studio/Unknown beds{% endif %}
                 {% if property.bathrooms %} | {{ property.bathrooms }} bath{% if property.bathrooms != 1 %}s{% endif %}{% endif %}
             </p>
-            {% if request.user.is_authenticated %}
-                <form method="post" action="{% if property.is_favorited %}{% url 'site-favorite-remove' property.id %}{% else %}{% url 'site-favorite-add' property.id %}{% endif %}" class="property-action-form favorite-form">
-                    {% csrf_token %}
-                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                    <input type="hidden" name="surface" value="{{ favorite_action_surface|default:'catalog' }}">
-                    <input type="checkbox"
-                           id="favorite-{{ property.id }}"
-                           class="favorite-checkbox"
-                           {% if property.is_favorited %}checked{% endif %}>
-                    <label for="favorite-{{ property.id }}" class="favorite-label" aria-label="{% if property.is_favorited %}Remove from favorites{% else %}Add to favorites{% endif %}">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="33" height="33" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="favorite-heart"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
-                    </label>
-                </form>
-            {% else %}
-                <a class="favorite-label" href="{% url 'login-page' %}?next={{ request.get_full_path|urlencode }}" aria-label="Sign in to save">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="33" height="33" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="favorite-heart"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
-                </a>
-            {% endif %}
+            {% include "partials/_favorite_toggle.html" with property=property favorite_action_surface=favorite_action_surface %}
         </div>
     </div>
 </article>
