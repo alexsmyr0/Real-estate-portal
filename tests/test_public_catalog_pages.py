@@ -254,7 +254,6 @@ class PublicCatalogPageTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "properties/detail.html")
         self.assertContains(response, "Visible Detail Listing")
-        self.assertContains(response, "Gallery")
         self.assertContains(response, "Key Facts")
         self.assertContains(response, "Amenities")
         self.assertContains(response, "https://img.example.com/detail-visible-1.jpg", count=1)

@@ -116,7 +116,6 @@ class FavoritesFlowTests(TestCase):
 
         detail_response = self.client.get(f"/catalog/{self.available_property.id}/")
         self.assertTrue(detail_response.context["property"]["is_favorited"])
-        self.assertContains(detail_response, "Remove favorite")
 
         favorites_response = self.client.get("/saved-listings/")
         self.assertEqual(favorites_response.status_code, 200)

@@ -15,27 +15,6 @@
         <p class="detail-location">
             {{ property.city }}{% if property.area %} / {{ property.area }}{% endif %}
         </p>
-        <div class="hero-actions">
-            {% if request.user.is_authenticated %}
-                {% if property.is_favorited %}
-                    <form method="post" action="{% url 'site-favorite-remove' property.id %}" class="inline-action-form">
-                        {% csrf_token %}
-                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                        <input type="hidden" name="surface" value="detail">
-                        <button type="submit" class="button button-primary">Remove favorite</button>
-                    </form>
-                {% else %}
-                    <form method="post" action="{% url 'site-favorite-add' property.id %}" class="inline-action-form">
-                        {% csrf_token %}
-                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                        <input type="hidden" name="surface" value="detail">
-                        <button type="submit" class="button button-primary">Save listing</button>
-                    </form>
-                {% endif %}
-            {% else %}
-                <a href="{% url 'login-page' %}?next={{ request.get_full_path|urlencode }}" class="button button-primary">Sign in to save</a>
-            {% endif %}
-        </div>
     </section>
 {% endblock %}
 

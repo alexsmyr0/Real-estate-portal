@@ -169,8 +169,6 @@ class PropertyInquiryFlowTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.context["property"]["is_favorited"])
-        self.assertContains(response, "Remove favorite")
-        self.assertContains(response, reverse("site-favorite-remove", args=[self.property.id]))
         self.assertContains(response, "Send an inquiry")
         self.assertContains(response, 'name="message"')
 

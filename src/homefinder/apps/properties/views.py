@@ -23,6 +23,7 @@ from homefinder.apps.interactions.services import (
     create_property_inquiry,
     create_viewing_request,
     log_interaction_activity,
+    log_search_activity,
 )
 
 from .forms import (
@@ -36,6 +37,7 @@ from .models import Amenity, ListingAlertSubscription, Property, PropertyCategor
 from .services import (
     DEFAULT_CATALOG_PAGE,
     PUBLICLY_VISIBLE_PROPERTY_STATUSES,
+    CatalogSearchParams,
     build_property_availability_context,
     create_listing_alert_subscription,
     get_monthly_inquiry_and_saved_property_metrics,
@@ -67,6 +69,7 @@ def catalog_page(request: HttpRequest) -> HttpResponse:
     search_results = search_visible_properties(search_params=search_params)
     properties = search_results["properties"]
     _apply_catalog_favorite_state(request=request, properties=properties)
+    _record_catalog_search(request=request, search_params=search_params)
 
     pagination = search_results["pagination"]
     current_page = pagination["page"]
@@ -638,6 +641,35 @@ def booking_request_action(request: HttpRequest, property_id: int) -> HttpRespon
         },
     )
     return redirect(detail_url)
+
+
+def _record_catalog_search(*, request: HttpRequest, search_params: CatalogSearchParams) -> None:
+    if search_params.page != DEFAULT_CATALOG_PAGE:
+        return
+    if not _has_stored_search_filters(search_params):
+        return
+    log_search_activity(
+        user=request.user if request.user.is_authenticated else None,
+        criteria={
+            "location_city": search_params.location,
+            "min_price": search_params.min_price,
+            "max_price": search_params.max_price,
+            "category": search_params.category,
+            "bedrooms_min": search_params.bedrooms_min,
+        },
+    )
+
+
+def _has_stored_search_filters(search_params: CatalogSearchParams) -> bool:
+    return any(
+        (
+            bool(search_params.location),
+            search_params.min_price is not None,
+            search_params.max_price is not None,
+            bool(search_params.category),
+            search_params.bedrooms_min is not None,
+        )
+    )
 
 
 def _apply_catalog_favorite_state(*, request: HttpRequest, properties: list[dict[str, object]]) -> None:
