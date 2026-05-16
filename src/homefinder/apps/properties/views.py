@@ -330,22 +330,6 @@ def reporting_overview_page(request: HttpRequest) -> HttpResponse:
     )
 
 
-@require_http_methods(["GET"])
-def reporting_search_trends_page(request: HttpRequest) -> HttpResponse:
-    access_redirect = _require_reporting_user(request=request, next_url=request.get_full_path())
-    if access_redirect is not None:
-        return access_redirect
-
-    search_trend_metrics = _decorate_search_trend_metrics(get_monthly_search_trend_metrics())
-    return render(
-        request,
-        "properties/reporting_search_trends.html",
-        {
-            "search_trend_metrics": search_trend_metrics,
-        },
-    )
-
-
 @admin_required
 @require_http_methods(["GET"])
 def listing_list_page(request: HttpRequest) -> HttpResponse:

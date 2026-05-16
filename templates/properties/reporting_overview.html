@@ -1,18 +1,13 @@
 {% extends "base.html" %}
-{% url "staff-reporting-search-trends" as staff_reporting_search_trends_url %}
 
 {% block title %}HomeFinder | Reporting Overview{% endblock %}
 
 {% block page_header %}
     <section class="page-hero report-hero">
-        <p class="eyebrow">Supervisor Reporting</p>
         <h1>Monthly reporting overview</h1>
         <p>
             Read-only monthly summaries for inquiry volume and saved-property activity. Access is restricted to supervisor and admin staff roles.
         </p>
-        <div class="hero-actions">
-            <a class="button button-ghost" href="{{ staff_reporting_search_trends_url }}">View full search trends</a>
-        </div>
     </section>
 {% endblock %}
 
@@ -20,7 +15,6 @@
     <section class="panel">
         <div class="page-header-inline">
             <h2>Inquiry and saved-property summary</h2>
-            <p class="results-context">Read-only staff report</p>
         </div>
 
         {% if monthly_summary_metrics %}
@@ -52,7 +46,6 @@
     <section class="panel">
         <div class="page-header-inline">
             <h2>Search trend snapshot</h2>
-            <a class="button button-ghost" href="{{ staff_reporting_search_trends_url }}">Open trend detail page</a>
         </div>
 
         {% if search_trend_metrics %}

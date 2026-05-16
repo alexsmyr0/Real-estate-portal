@@ -26,9 +26,4 @@ urlpatterns = [
     path("staff/listings/<int:listing_id>/edit/", views.listing_edit_page, name="staff-listing-edit"),
     path("staff/listings/<int:listing_id>/delete/", views.listing_delete_page, name="staff-listing-delete"),
     path("staff/reports/", views.reporting_overview_page, name="staff-reporting-overview"),
-    path(
-        "staff/reports/search-trends/",
-        views.reporting_search_trends_page,
-        name="staff-reporting-search-trends",
-    ),
 ]

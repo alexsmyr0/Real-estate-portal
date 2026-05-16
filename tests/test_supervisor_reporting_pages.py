@@ -88,29 +88,26 @@ class SupervisorReportingPageTests(TestCase):
         )
 
     def test_guest_reporting_requests_redirect_to_login(self) -> None:
-        for path in ("/staff/reports/", "/staff/reports/search-trends/"):
-            with self.subTest(path=path):
-                response = self.client.get(path, follow=True)
-                self.assertRedirects(response, f"/login/?next={path.replace('/', '%2F')}")
-                self.assertContains(response, "Sign in with a supervisor or admin account to view reporting pages.")
+        path = "/staff/reports/"
+        response = self.client.get(path, follow=True)
+        self.assertRedirects(response, f"/login/?next={path.replace('/', '%2F')}")
+        self.assertContains(response, "Sign in with a supervisor or admin account to view reporting pages.")
 
     def test_non_reporting_role_receives_forbidden_responses(self) -> None:
         self.client.force_login(self.regular_user)
 
-        for path in ("/staff/reports/", "/staff/reports/search-trends/"):
-            with self.subTest(path=path):
-                response = self.client.get(path)
-                self.assertEqual(response.status_code, 403)
-                self.assertJSONEqual(
-                    response.content,
-                    {
-                        "status": "error",
-                        "error": {
-                            "code": 403,
-                            "message": "Forbidden",
-                        },
-                    },
-                )
+        response = self.client.get("/staff/reports/")
+        self.assertEqual(response.status_code, 403)
+        self.assertJSONEqual(
+            response.content,
+            {
+                "status": "error",
+                "error": {
+                    "code": 403,
+                    "message": "Forbidden",
+                },
+            },
+        )
 
     def test_inactive_supervisor_is_blocked_from_reporting_pages(self) -> None:
         inactive_supervisor = User.objects.create_user(
@@ -123,10 +120,9 @@ class SupervisorReportingPageTests(TestCase):
         self.assertFalse(_is_reporting_authorized_user(inactive_supervisor))
         self.client.force_login(inactive_supervisor)
 
-        for path in ("/staff/reports/", "/staff/reports/search-trends/"):
-            with self.subTest(path=path):
-                response = self.client.get(path, follow=True)
-                self.assertRedirects(response, f"/login/?next={path.replace('/', '%2F')}")
+        path = "/staff/reports/"
+        response = self.client.get(path, follow=True)
+        self.assertRedirects(response, f"/login/?next={path.replace('/', '%2F')}")
 
     def test_supervisor_can_view_reporting_overview_without_edit_or_export_controls(self) -> None:
         self.client.force_login(self.supervisor_user)
@@ -152,22 +148,6 @@ class SupervisorReportingPageTests(TestCase):
             with self.subTest(disallowed_text=disallowed_text):
                 self.assertNotContains(response, disallowed_text)
 
-    def test_admin_can_view_search_trend_reporting_page(self) -> None:
-        self.client.force_login(self.admin_user)
-
-        response = self.client.get("/staff/reports/search-trends/")
-
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "properties/reporting_search_trends.html")
-        self.assertEqual(
-            [metric["month"] for metric in response.context["search_trend_metrics"]],
-            [metric["month"] for metric in get_monthly_search_trend_metrics()],
-        )
-        self.assertContains(response, "Search trend summaries by month")
-        self.assertContains(response, "Athens (1)")
-        self.assertContains(response, "Residential (1)")
-        self.assertContains(response, "100k-249,999 (1)")
-
     def test_reports_navigation_link_is_visible_only_to_supervisor_and_admin_roles(self) -> None:
         guest_response = self.client.get("/")
         self.assertNotContains(guest_response, 'href="/staff/reports/"')
@@ -191,14 +171,9 @@ class SupervisorReportingPageTests(TestCase):
         self.client.force_login(self.supervisor_user)
 
         overview_response = self.client.get("/staff/reports/")
-        trends_response = self.client.get("/staff/reports/search-trends/")
 
         self.assertEqual(overview_response.status_code, 200)
         self.assertEqual(overview_response.context["monthly_summary_metrics"], [])
         self.assertEqual(overview_response.context["search_trend_metrics"], [])
         self.assertContains(overview_response, "No summary metrics yet")
         self.assertContains(overview_response, "No search trends yet")
-
-        self.assertEqual(trends_response.status_code, 200)
-        self.assertEqual(trends_response.context["search_trend_metrics"], [])
-        self.assertContains(trends_response, "No search trend records yet")

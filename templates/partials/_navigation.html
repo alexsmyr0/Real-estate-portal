@@ -4,7 +4,6 @@
 {% url "site-dashboard" as site_dashboard_url %}
 {% url "staff-listing-list" as staff_listing_list_url %}
 {% url "staff-reporting-overview" as staff_reporting_overview_url %}
-{% url "staff-reporting-search-trends" as staff_reporting_search_trends_url %}
 <header class="site-header">
     <a class="brand" href="{{ home_url }}">
         <span class="brand-mark">HF</span>
@@ -20,7 +19,7 @@
                 <a class="nav-link{% if '/staff/listings/' in request.path %} is-active{% endif %}" href="{{ staff_listing_list_url }}">Listings</a>
             {% endif %}
             {% if request.user.can_view_reports %}
-                <a class="nav-link{% if request.path == staff_reporting_overview_url or request.path == staff_reporting_search_trends_url %} is-active{% endif %}" href="{{ staff_reporting_overview_url }}">Reports</a>
+                <a class="nav-link{% if request.path == staff_reporting_overview_url %} is-active{% endif %}" href="{{ staff_reporting_overview_url }}">Reports</a>
             {% endif %}
         {% endif %}
     </nav>
