@@ -140,9 +140,9 @@ class SupervisorReportingPageTests(TestCase):
             [metric["month"] for metric in get_monthly_search_trend_metrics()],
         )
         self.assertContains(response, "2026-01")
-        self.assertContains(response, "Athens (1)")
-        self.assertContains(response, "Residential (1)")
-        self.assertContains(response, "100k-249,999 (1)")
+        self.assertContains(response, "Athens")
+        self.assertContains(response, "Residential")
+        self.assertContains(response, "100k-249,999")
 
         for disallowed_text in ("Edit", "Update", "Delete", "Export", "PDF", "Spreadsheet"):
             with self.subTest(disallowed_text=disallowed_text):

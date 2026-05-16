@@ -1,5 +1,5 @@
 <div class="report-table-shell">
-    <table class="report-table">
+    <table class="report-table report-table-ruled">
         <thead>
             <tr>
                 <th scope="col">Month</th>
@@ -14,9 +14,12 @@
                     <td>{{ trend.month }}</td>
                     <td>
                         {% if trend.top_cities %}
-                            <ul class="report-list">
+                            <ul class="trend-bars">
                                 {% for city in trend.top_cities %}
-                                    <li>{{ city.city }} ({{ city.search_count }})</li>
+                                    <li class="trend-bar" style="--trend-bar-width: {% widthratio city.search_count trend.top_cities.0.search_count 100 %}%;">
+                                        <span class="trend-bar-label">{{ city.city }}</span>
+                                        <span class="trend-bar-count">{{ city.search_count }}</span>
+                                    </li>
                                 {% endfor %}
                             </ul>
                         {% else %}
@@ -25,9 +28,12 @@
                     </td>
                     <td>
                         {% if trend.top_categories %}
-                            <ul class="report-list">
+                            <ul class="trend-bars">
                                 {% for category in trend.top_categories %}
-                                    <li>{{ category.category_label }} ({{ category.search_count }})</li>
+                                    <li class="trend-bar" style="--trend-bar-width: {% widthratio category.search_count trend.top_categories.0.search_count 100 %}%;">
+                                        <span class="trend-bar-label">{{ category.category_label }}</span>
+                                        <span class="trend-bar-count">{{ category.search_count }}</span>
+                                    </li>
                                 {% endfor %}
                             </ul>
                         {% else %}
@@ -36,9 +42,12 @@
                     </td>
                     <td>
                         {% if trend.top_price_bands %}
-                            <ul class="report-list">
+                            <ul class="trend-bars">
                                 {% for price_band in trend.top_price_bands %}
-                                    <li>{{ price_band.price_band }} ({{ price_band.search_count }})</li>
+                                    <li class="trend-bar" style="--trend-bar-width: {% widthratio price_band.search_count trend.top_price_bands.0.search_count 100 %}%;">
+                                        <span class="trend-bar-label">{{ price_band.price_band }}</span>
+                                        <span class="trend-bar-count">{{ price_band.search_count }}</span>
+                                    </li>
                                 {% endfor %}
                             </ul>
                         {% else %}

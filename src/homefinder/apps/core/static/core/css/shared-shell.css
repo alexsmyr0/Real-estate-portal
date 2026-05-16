@@ -1399,6 +1399,74 @@ textarea.form-control {
     color: var(--ink-700);
 }
 
+.report-table-ruled {
+    table-layout: fixed;
+}
+
+.report-table-ruled th + th,
+.report-table-ruled td + td {
+    position: relative;
+}
+
+.report-table-ruled th + th::before,
+.report-table-ruled td + td::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.55rem;
+    bottom: 0.55rem;
+    width: 1px;
+    background: #e6ebf3;
+    pointer-events: none;
+}
+
+.trend-bars {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.3rem;
+}
+
+.trend-bar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.3rem 0.55rem;
+    border-radius: 6px;
+    color: var(--ink-700);
+    font-size: 0.9rem;
+    background: linear-gradient(
+        to right,
+        rgba(15, 123, 108, 0.14) 0%,
+        rgba(15, 123, 108, 0.14) var(--trend-bar-width, 0%),
+        rgba(15, 31, 71, 0.03) var(--trend-bar-width, 0%),
+        rgba(15, 31, 71, 0.03) 100%
+    );
+}
+
+.trend-bar-label {
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.trend-bar-count {
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.82rem;
+    color: var(--ink-700);
+    background: rgba(255, 255, 255, 0.85);
+    padding: 0.05rem 0.5rem;
+    border-radius: 999px;
+    min-width: 1.6rem;
+    text-align: center;
+    box-shadow: 0 0 0 1px rgba(15, 31, 71, 0.06);
+}
+
 @media (max-width: 920px) {
     .site-header {
         grid-template-columns: 1fr;
