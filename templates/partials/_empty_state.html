@@ -1,5 +1,5 @@
 <section class="empty-state">
-    <h3>{{ title }}</h3>
+    {% if title %}<h3>{{ title }}</h3>{% endif %}
     <p>{{ message }}</p>
     {% if action_href and action_label %}
         <a class="button button-ghost" href="{{ action_href }}">{{ action_label }}</a>

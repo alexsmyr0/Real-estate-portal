@@ -28,7 +28,7 @@
                 </div>
             {% else %}
                 <h2 id="dashboard-searches-heading">Recent searches</h2>
-                {% include "partials/_empty_state.html" with title=searches.empty_title message=searches.empty_message action_href=site_catalog_url action_label="Start browsing" %}
+                {% include "partials/_empty_state.html" with message=searches.empty_message %}
             {% endif %}
         </section>
 
@@ -47,7 +47,7 @@
                 </div>
             {% else %}
                 <h2 id="dashboard-alerts-heading">Alert subscriptions</h2>
-                {% include "partials/_empty_state.html" with title=alerts.empty_title message=alerts.empty_message action_href=site_catalog_url action_label="Browse listings" %}
+                {% include "partials/_empty_state.html" with message=alerts.empty_message %}
             {% endif %}
         </section>
 
@@ -66,7 +66,7 @@
                 </div>
             {% else %}
                 <h2 id="dashboard-inquiries-heading">Inquiries</h2>
-                {% include "partials/_empty_state.html" with title=inquiries.empty_title message=inquiries.empty_message action_href=site_catalog_url action_label="Find a property" %}
+                {% include "partials/_empty_state.html" with message=inquiries.empty_message %}
             {% endif %}
         </section>
 
@@ -85,7 +85,7 @@
                 </div>
             {% else %}
                 <h2 id="dashboard-viewings-heading">Viewing requests</h2>
-                {% include "partials/_empty_state.html" with title=viewings.empty_title message=viewings.empty_message action_href=site_catalog_url action_label="Browse listings" %}
+                {% include "partials/_empty_state.html" with message=viewings.empty_message %}
             {% endif %}
         </section>
     </div>
