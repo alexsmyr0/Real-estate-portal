@@ -1,6 +1,6 @@
 # HomeFinder
 
-HomeFinder is an online real estate portal: users browse, search, favorite, and inquire about residential, commercial, and rental properties. The current scope is the MVP described in [docs/planning/sds.md](docs/planning/sds.md) — server-rendered Django pages on top of MySQL, with Django admin for staff operations.
+HomeFinder is an online real estate portal: users browse, search, favorite, and inquire about residential, commercial, and rental properties. The implementation is a server-rendered Django monolith on MySQL, with custom staff pages alongside Django admin. The canonical scope reference is the submission SDS; [docs/planning/sds.md](docs/planning/sds.md) is the older internal planning doc and may lag the code.
 
 ## Stack
 
@@ -171,7 +171,7 @@ python manage.py test tests.test_auth_flows.AuthFlowTests.test_login_requires_2f
 | `/dashboard/` | Authenticated user dashboard |
 | `/staff/listings/` | Staff listing CRUD |
 | `/staff/interactions/inquiries/`, `/viewings/`, `/bookings/` | Staff interaction queues |
-| `/staff/reports/` | Supervisor reporting (post-MVP, behind role check) |
+| `/staff/reports/` | Supervisor reporting (read-only, SUPERVISOR/ADMIN only) |
 | `/admin/` | Django admin |
 | `/api/v1/health/` | Health probe |
 
@@ -213,4 +213,6 @@ See [.env.example](.env.example) for the full list. The most relevant ones:
 
 ## MVP vs. Post-MVP
 
-Schemas exist for booking, payments, and similar-listing alerts, but the user-facing flows are **post-MVP**. Supervisor reporting pages and user-facing activity/history pages are also post-MVP. See the "Post-MVP Models Already Present" section of [docs/planning/sds.md](docs/planning/sds.md) for the canonical list.
+The MVP now ships the full HomeFinder flow: registration, login with email 2FA, single-active-session enforcement, GDPR consent, browsing the three property categories (residential, commercial, rental), favorites, inquiries, viewing requests, booking requests with simulated payments (credit card, bank transfer, booking fee), similar-listing alert subscriptions, the user dashboard with personalized recommendations, custom staff pages, supervisor reporting (read-only), and 3-month log retention via the `cleanup_log_retention` management command.
+
+Still post-MVP: real SMTP email delivery (console backend is the default), a real payment gateway (payments are simulated), advanced analytics and performance benchmarking, and the mobile app referenced in the project scenario.
