@@ -4,21 +4,15 @@
 
 {% block page_header %}
     <section class="page-hero payment-hero">
-        <p class="eyebrow">Simulated Payment</p>
+        <p class="eyebrow">
+            <a class="dashboard-back-link" href="{% url 'site-property-detail' booking_request.property.id %}">&larr; Back to listing</a>
+        </p>
         <div class="detail-hero-head">
             <h1>Simulated payment</h1>
-            <span class="status-tag payment-status-{{ payment_status.tone }}">
-                {{ payment_status.label }}
-            </span>
         </div>
         <p class="detail-location">
             University project demo - no real payment will be processed.
         </p>
-        <div class="hero-actions">
-            <a href="{% url 'site-property-detail' booking_request.property.id %}" class="button button-ghost">
-                Back to listing
-            </a>
-        </div>
     </section>
 {% endblock %}
 
@@ -44,19 +38,19 @@
                 {% if can_complete_payment %}
                     <form method="post" action="{% url 'site-booking-simulated-payment-action' booking_request.id 'complete' %}" class="inline-action-form">
                         {% csrf_token %}
-                        <button type="submit" class="button button-primary">Complete simulated payment</button>
+                        <button type="submit" class="button button-primary">Complete payment</button>
                     </form>
                 {% endif %}
                 {% if can_fail_payment %}
                     <form method="post" action="{% url 'site-booking-simulated-payment-action' booking_request.id 'fail' %}" class="inline-action-form">
                         {% csrf_token %}
-                        <button type="submit" class="button button-ghost">Fail simulated payment</button>
+                        <button type="submit" class="button button-ghost">Fail payment</button>
                     </form>
                 {% endif %}
                 {% if can_cancel_payment %}
                     <form method="post" action="{% url 'site-booking-simulated-payment-action' booking_request.id 'cancel' %}" class="inline-action-form">
                         {% csrf_token %}
-                        <button type="submit" class="button button-ghost">Cancel simulated payment</button>
+                        <button type="submit" class="button button-ghost">Cancel payment</button>
                     </form>
                 {% endif %}
                 {% if can_retry_payment %}
@@ -73,7 +67,7 @@
 
         <aside class="panel payment-summary">
             <section aria-labelledby="payment-summary-title">
-                <h2 id="payment-summary-title">Booking handoff</h2>
+                <h2 id="payment-summary-title">Booking details</h2>
                 <dl class="detail-facts-list">
                     <div class="detail-fact-row">
                         <dt>Listing</dt>
@@ -81,11 +75,7 @@
                     </div>
                     <div class="detail-fact-row">
                         <dt>Dates</dt>
-                        <dd>{{ booking_request.start_date|date:"M j, Y" }} to {{ booking_request.end_date|date:"M j, Y" }}</dd>
-                    </div>
-                    <div class="detail-fact-row">
-                        <dt>Booking status</dt>
-                        <dd>{{ booking_request.get_status_display }}</dd>
+                        <dd>{{ booking_request.start_date|date:"d/m/Y" }} - {{ booking_request.end_date|date:"d/m/Y" }}</dd>
                     </div>
                     <div class="detail-fact-row">
                         <dt>Demo amount</dt>
